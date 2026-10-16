@@ -75,16 +75,24 @@ export class IsoRenderer {
   private geo() {
     const w = this.screen.width;
     const h = this.screen.height;
-    const HW = Math.min(Math.max(w / 9, 28), 46); // half tile width step
+
+    // ONE uniform world scale for every asset (tiles, walls, FOB, props,
+    // characters), so proportions match how the art was drawn — like GER, where
+    // a person is small next to the wall. Anchored so the wall is ~22% of height.
+    const S = (h * 0.22) / 384;
+    const HW = S * 128; // iso tile half-width step (tile width = 256*S)
     const HH = HW / 2;
     const ox = w * 0.5;
     const oy = -HH * 2;
 
-    const unitH = Math.min(Math.max(h * 0.12, 34), 68);
-    const wallScale = (h * 0.17) / 384;
-    const wsegW = 256 * wallScale;
-    const wallBottomX = w * 0.3;
-    const wallBottomY = h * 0.74;
+    // Characters a touch smaller than structures (GER proportion).
+    const charBase = S * 0.72;
+    const unitH = charBase * 256; // character on-screen height (for pixel offsets)
+
+    const wallScale = S;
+    const wsegW = 256 * S;
+    const wallBottomX = w * 0.28;
+    const wallBottomY = h * 0.72;
     const segDX = wsegW * 0.52;
     const segDY = wsegW * 0.26;
     const numSeg = 3;
@@ -95,7 +103,7 @@ export class IsoRenderer {
       w, h, HW, HH, ox, oy, unitH,
       wallScale, wsegW, wallBottomX, wallBottomY, segDX, segDY, numSeg,
       frontX, laneRight, laneSpan: Math.max(40, laneRight - frontX),
-      fobScale: (h * 0.2) / 512,
+      fobScale: S,
     };
   }
 
