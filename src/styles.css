@@ -119,6 +119,26 @@ body {
   height: 100%;
 }
 
+.view-toggle {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 3;
+  border: 1px solid var(--edge);
+  background: rgba(20, 17, 9, 0.72);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  backdrop-filter: blur(2px);
+}
+.view-toggle:active {
+  transform: scale(0.97);
+}
+
 /* ---------- Controls ---------- */
 .controls {
   padding: 10px 10px calc(12px + env(safe-area-inset-bottom));
