@@ -28,10 +28,12 @@ single-barrier "castle defense" model).
 ## Tech stack
 
 - **Vite + React + TypeScript** app shell and UI.
-- **PixiJS** side-view battlefield renderer (desert, FOB, wall, soldiers, horde,
-  tracers, explosions). Characters are **CC0** cartoon sprites (Kenney Platformer
-  Characters — see `src/render/assets/units/CREDITS.md`) — placeholder art,
-  swappable for bespoke modern-military sprites via the same texture loader.
+- **PixiJS** side-view battlefield renderer (desert sky/dunes/ground, FOB, a
+  3-state wall, soldiers, two enemy types, tracers, sprite explosions and an
+  airstrike). Art is a bespoke commissioned set in
+  `src/assets/sprites/firebase-idle/delivery` (see its `manifest.json`); the
+  renderer loads it via a Vite glob, so swapping or extending the set needs no
+  code change.
 - **Vitest** unit tests on the simulation core.
 
 ## Architecture

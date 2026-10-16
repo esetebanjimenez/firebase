@@ -1,53 +1,41 @@
 /**
- * assets.ts — CC0 sprite manifest for the side-view prototype.
+ * assets.ts — bespoke sprite manifest for the side-view renderer.
  *
- * PNGs are imported through Vite so the URLs are hashed and base-path-correct
- * (works in dev and under the GitHub Pages subpath). Textures are loaded once
- * via Pixi's Assets loader and handed to the renderer.
+ * Loads the delivered art set (src/assets/sprites/firebase-idle/delivery) via a
+ * Vite glob so URLs are hashed and base-path-correct, then loads each as a Pixi
+ * texture. Characters are 512×512 with feet 24px above the bottom (so the pivot
+ * is anchored there); walls 384×640 and the FOB 512×640 are bottom-center.
  *
- * Art: Kenney "Platformer Characters" (CC0-1.0). See assets/units/CREDITS.md.
- * This is placeholder art to evaluate the side-view direction — swap for
- * bespoke modern-military sprites later via this same loader, no renderer change.
+ * Art: bespoke commissioned set, facing right. See delivery/manifest.json.
  */
 
 import { Assets, type Texture } from 'pixi.js';
 
-import soldierStand from '../assets/units/soldier_stand.png';
-import soldierFire from '../assets/units/soldier_fire.png';
-import soldierHold from '../assets/units/soldier_hold.png';
-import zombieWalk1 from '../assets/units/zombie_walk1.png';
-import zombieWalk2 from '../assets/units/zombie_walk2.png';
-import zombieFire1 from '../assets/units/zombie_fire1.png';
-import zombieFire2 from '../assets/units/zombie_fire2.png';
-import zombieHurt from '../assets/units/zombie_hurt.png';
-import raiderWalk1 from '../assets/units/raider_walk1.png';
-import raiderWalk2 from '../assets/units/raider_walk2.png';
-import raiderFire1 from '../assets/units/raider_fire1.png';
-import raiderFire2 from '../assets/units/raider_fire2.png';
+// Eagerly collect every delivered PNG's URL, keyed by its basename (no extension).
+const modules = import.meta.glob(
+  [
+    '../../assets/sprites/firebase-idle/delivery/*.png',
+    '!**/_qc*.png',
+    '!**/*_sheet.png',
+  ],
+  { eager: true, query: '?url', import: 'default' },
+) as Record<string, string>;
 
-export const SPRITE_URLS = {
-  soldierStand,
-  soldierFire,
-  soldierHold,
-  zombieWalk1,
-  zombieWalk2,
-  zombieFire1,
-  zombieFire2,
-  zombieHurt,
-  raiderWalk1,
-  raiderWalk2,
-  raiderFire1,
-  raiderFire2,
-} as const;
+const urlByName: Record<string, string> = {};
+for (const [path, url] of Object.entries(modules)) {
+  const name = path.split('/').pop()!.replace(/\.png$/, '');
+  if (name.startsWith('_qc') || name.endsWith('_sheet')) continue; // skip QC + atlas sheets
+  urlByName[name] = url;
+}
 
-export type SpriteKey = keyof typeof SPRITE_URLS;
-export type TextureMap = Record<SpriteKey, Texture>;
+export type TextureMap = Record<string, Texture>;
 
-/** Load every sprite once; resolves to a key→Texture map. */
+/** Pivot for 512×512 character frames: feet sit 24px above the bottom edge. */
+export const CHAR_ANCHOR_Y = (512 - 24) / 512;
+
+/** Load every delivered sprite once; resolves to a name→Texture map. */
 export async function loadUnitTextures(): Promise<TextureMap> {
-  const entries = Object.entries(SPRITE_URLS) as [SpriteKey, string][];
-  const pairs = await Promise.all(
-    entries.map(async ([key, url]) => [key, await Assets.load(url)] as const),
-  );
+  const entries = Object.entries(urlByName);
+  const pairs = await Promise.all(entries.map(async ([k, url]) => [k, await Assets.load(url)] as const));
   return Object.fromEntries(pairs) as TextureMap;
 }
