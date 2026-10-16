@@ -1,0 +1,11 @@
+{
+  "target": "creature",
+  "mode": "single",
+  "prompt": "",
+  "role": "",
+  "input": "/workspace/artifacts/imagine_images/57696a4f-1cc4-4fed-8e6b-773488af6054.jpg",
+  "threshold": 90,
+  "edge_threshold": 175,
+  "duration": 200,
+  "single_size": 768
+}

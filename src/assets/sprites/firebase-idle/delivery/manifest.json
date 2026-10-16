@@ -1,0 +1,369 @@
+{
+  "style": "flat 2D vector cartoon game art, bold clean dark outlines, soft cel shading, slight 3/4 side view, chunky stylized proportions, mobile tower-defense art in the style of Clash Royale / Grow Empire, saturated but earthy desert palette, crisp and readable at small size",
+  "facing": "right",
+  "background": "transparent PNG",
+  "files": [
+    {
+      "file": "soldier_idle_1.png",
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "soldier_idle_2.png",
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "soldier_fire_1.png",
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "soldier_fire_2.png",
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "enemyA_walk_1.png",
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "enemyA_walk_2.png",
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "enemyA_walk_3.png",
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "enemyA_walk_4.png",
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "enemyA_fire_1.png",
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "enemyA_fire_2.png",
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "enemyA_hit.png",
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "enemyB_walk_1.png",
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "enemyB_walk_2.png",
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "enemyB_walk_3.png",
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "enemyB_walk_4.png",
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "enemyB_fire_1.png",
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "enemyB_fire_2.png",
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "enemyB_hit.png",
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "wall_intact.png",
+      "size": [
+        384,
+        640
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "wall_damaged.png",
+      "size": [
+        384,
+        640
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "wall_broken.png",
+      "size": [
+        384,
+        640
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "fob.png",
+      "size": [
+        512,
+        640
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "explosion_1.png",
+      "size": [
+        256,
+        256
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "airstrike_1.png",
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "explosion_2.png",
+      "size": [
+        256,
+        256
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "airstrike_2.png",
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "explosion_3.png",
+      "size": [
+        256,
+        256
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "airstrike_3.png",
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "explosion_4.png",
+      "size": [
+        256,
+        256
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "airstrike_4.png",
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "explosion_5.png",
+      "size": [
+        256,
+        256
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "airstrike_5.png",
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "explosion_6.png",
+      "size": [
+        256,
+        256
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "airstrike_6.png",
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "muzzle_flash_1.png",
+      "size": [
+        128,
+        128
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "muzzle_flash_2.png",
+      "size": [
+        128,
+        128
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "dust_impact_1.png",
+      "size": [
+        128,
+        128
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "dust_impact_2.png",
+      "size": [
+        128,
+        128
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "explosion_sheet.png",
+      "size": [
+        1536,
+        256
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "airstrike_sheet.png",
+      "size": [
+        3072,
+        512
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "bg_sky.png",
+      "size": [
+        1024,
+        512
+      ],
+      "mode": "RGB"
+    },
+    {
+      "file": "bg_dunes_far.png",
+      "size": [
+        1536,
+        256
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "bg_dunes_near.png",
+      "size": [
+        1536,
+        256
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "ground_tile.png",
+      "size": [
+        256,
+        256
+      ],
+      "mode": "RGB"
+    }
+  ],
+  "notes": [
+    "Character frames are 512x512. Feet sit 24px above the bottom edge. Horizontal anchor is the foot contact, not the weapon tip.",
+    "soldier_fire_2, enemyA_fire_2, and enemyB_fire_2 include a composited muzzle flash. Aim frames are body-only so the body scale matches idle/walk.",
+    "Separate muzzle_flash, dust_impact, explosion, and airstrike frames are included for layering.",
+    "Wall states share one scale. Broken is a lower rubble pile on the same ground line. Canvas 384x640, pivot bottom-center.",
+    "FOB canvas is 512x640, pivot bottom-center.",
+    "bg_dunes_far and bg_dunes_near are 1536x256, transparent above the dune band, with the side edges crossfaded so they tile.",
+    "ground_tile is 256x256. A narrow blur hides the tile seam; faint ripple lines can still meet softly.",
+    "bg_sky is an opaque 1024x512 dusk gradient."
+  ]
+}
