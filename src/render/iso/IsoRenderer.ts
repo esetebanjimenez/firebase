@@ -49,6 +49,7 @@ export class IsoRenderer {
   private soldierSig = '';
 
   private wallSprites: Sprite[] = [];
+  private wallLine: Sprite | null = null; // single cohesive wall, when art is present
   private fobSprite: Sprite | null = null;
   private props: Sprite[] = [];
   private soldiers: Soldier[] = [];
@@ -103,9 +104,17 @@ export class IsoRenderer {
     const frontX = wallBottomX + wsegW * 0.5 + 10;
     const laneRight = w - 6;
 
+    // Single cohesive wall sprite (wall_line_*): placed to cover the same
+    // logical rampart line the garrison fans along and enemies target, so the
+    // sim-facing geometry above is unchanged whether we draw one piece or tiles.
+    const wallLineCX = wallBottomX + numSeg * segDX * 0.5;
+    const wallLineBaseY = wallBottomY - numSeg * segDY * 0.5 + wsegW * 0.18;
+    const wallLineWidth = numSeg * segDX + wsegW * 1.15;
+
     return {
       w, h, HW, HH, ox, oy, unitH,
       wallScale, wsegW, wallBottomX, wallBottomY, segDX, segDY, numSeg,
+      wallLineCX, wallLineBaseY, wallLineWidth,
       frontX, laneRight, laneSpan: Math.max(40, laneRight - frontX),
       fobScale: S,
     };
@@ -181,6 +190,7 @@ export class IsoRenderer {
     this.wallSig = sig;
     for (const s of this.wallSprites) s.destroy();
     this.wallSprites = [];
+    this.wallLine = null;
     if (this.fobSprite) this.fobSprite.destroy();
 
     // FOB keep behind the wall (upper-left)
@@ -192,7 +202,21 @@ export class IsoRenderer {
     this.scene.addChild(fob);
     this.fobSprite = fob;
 
-    // Rampart: segments stepping up-right, a gate in the middle, a tower on the far end.
+    // Preferred: one cohesive wall sprite (gate + tower baked into the art), so
+    // the rampart is a single continuous structure with no segment seams.
+    if (this.tex.wall_line_intact) {
+      const wl = new Sprite(this.tex.wall_line_intact);
+      wl.anchor.set(0.5, 1);
+      wl.scale.set(g.wallLineWidth / wl.texture.width);
+      wl.position.set(g.wallLineCX, g.wallLineBaseY);
+      wl.zIndex = wl.position.y;
+      this.scene.addChild(wl);
+      this.wallLine = wl;
+      this.wallSprites.push(wl);
+      return;
+    }
+
+    // Fallback (segmented art): segments stepping up-right, gate mid, tower on the end.
     for (let i = 0; i < g.numSeg; i++) {
       const isGate = i === Math.floor(g.numSeg / 2);
       const s = new Sprite(this.tex[isGate ? 'wall_gate' : 'wall_intact']);
@@ -215,6 +239,15 @@ export class IsoRenderer {
 
   private updateWallState(state: SimState): void {
     const pct = state.barrier.maxHp > 0 ? state.barrier.hp / state.barrier.maxHp : 0;
+
+    // Single cohesive wall: swap the whole-rampart texture by HP%.
+    if (this.wallLine) {
+      const key = pct > 0.5 ? 'wall_line_intact' : pct > 0 ? 'wall_line_damaged' : 'wall_line_broken';
+      const t = this.tex[key] ?? this.tex.wall_line_intact;
+      if (t) this.wallLine.texture = t;
+      return;
+    }
+
     const base = pct > 0.5 ? 'wall_intact' : pct > 0 ? 'wall_damaged' : 'wall_broken';
     for (const s of this.wallSprites) {
       const gate = (s as Sprite & { _gate?: boolean })._gate;

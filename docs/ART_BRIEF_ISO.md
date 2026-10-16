@@ -78,21 +78,46 @@ All drawn on the **same iso grid**, light top-left, pivot = **bottom-center of
 the footprint** (the tile the piece stands on). The wall runs along one iso axis
 (lower-left ↔ upper-right).
 
-- **Wall segment, 3 states** — a straight iso rampart section (sandbags + concrete
-  + timber), tileable end-to-end along the iso axis. Canvas **256×384**.
-  - `wall_intact`, `wall_damaged`, `wall_broken` (low rubble on the same footprint).
-- `wall_tower` — a taller corner/guard tower piece that caps the wall ends.
-  Canvas **256×448**.
-- `wall_gate` — a gate segment (where the road meets the wall). Canvas **256×384**.
+### The wall is ONE cohesive sprite (not tiled segments)
+
+The renderer draws the whole rampart as a **single piece** so it reads as one
+continuous structure with no seams — the gate and the end tower are **baked into
+the art**. (The engine detects `wall_line_intact`; if it's absent it falls back
+to the old tiled segments below. Placeholder `wall_line_*` ship now — replace
+them with the real art at the same filenames/canvas and it just works.)
+
+- **Wall line, 3 states** — one long iso rampart (stacked sandbags + concrete +
+  timber), running lower-left → upper-right, with a **reinforced gate in the
+  middle** and a **tall guard tower capping the upper-right end**. Canvas
+  **1280×512**, pivot **bottom-center**, light top-left, transparent bg.
+  - `wall_line_intact`, `wall_line_damaged` (cracked, scorched, partly slumped),
+    `wall_line_broken` (collapsed into a low rubble line on the **same footprint**;
+    the tower may survive, battered).
+  - Note on rise: at true 2:1 a full-width wall would climb more than 512px, so
+    frame it with a **gentler rise** (≈300px over the 1280 width) and let the art
+    carry the perspective — the engine scales it by width and anchors it at the
+    base, it does not force a 2:1 slope on this sprite.
 - `fob` — the HQ keep behind the wall: a sandbag command bunker with antenna and
   a blue flag, iso 3/4, ~2×2 tile footprint. Canvas **512×512**.
 
-**Prompt (wall):**
-> An isometric fortification wall segment — stacked sandbags, concrete blocks and
-> timber bracing — a straight rampart running from lower-left to upper-right,
-> {PROJECTION PHRASE}, you can see the top walkway and the front face, standing on
-> flat ground, transparent background, pivot at the base. (Then "pristine" /
-> "cracked and partly destroyed, scorch marks" / "collapsed rubble pile".)
+**Prompt (wall line):**
+> A single long 2:1 isometric fortification rampart running from lower-left to
+> upper-right — stacked sandbags, concrete blocks and timber bracing, a reinforced
+> gate in the middle and a tall guard tower capping the upper-right end,
+> {PROJECTION PHRASE}, you see the top walkway and the front face, standing on flat
+> ground, transparent background, pivot at the base. (Then "pristine" / "cracked,
+> scorched, partly destroyed" / "collapsed into a low rubble line on the same
+> footprint".)
+
+### Fallback — tiled wall segments (optional, only if you don't do the line)
+
+- **Wall segment, 3 states** — a straight iso rampart section, tileable end-to-end.
+  Canvas **256×384**: `wall_intact`, `wall_damaged`, `wall_broken`.
+- `wall_tower` — taller guard tower capping the ends. Canvas **256×448**.
+- `wall_gate` — a gate segment. Canvas **256×384**.
+
+(These are what the current set delivered; the delivered segment art is not a
+clean seamless tile, which is why the single `wall_line_*` sprite is preferred.)
 
 ---
 

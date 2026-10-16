@@ -406,6 +406,30 @@
         128,
         128
       ]
+    },
+    {
+      "file": "wall_line_intact.png",
+      "size": [
+        1280,
+        512
+      ],
+      "note": "single cohesive rampart (gate mid, tower end), pivot bottom-center; PLACEHOLDER art"
+    },
+    {
+      "file": "wall_line_damaged.png",
+      "size": [
+        1280,
+        512
+      ],
+      "note": "single cohesive rampart (gate mid, tower end), pivot bottom-center; PLACEHOLDER art"
+    },
+    {
+      "file": "wall_line_broken.png",
+      "size": [
+        1280,
+        512
+      ],
+      "note": "single cohesive rampart (gate mid, tower end), pivot bottom-center; PLACEHOLDER art"
     }
   ],
   "notes": [
