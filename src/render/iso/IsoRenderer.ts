@@ -76,8 +76,8 @@ export class IsoRenderer {
     const w = this.screen.width;
     const h = this.screen.height;
 
-    // Structure world scale: a big, chunky fortification (wall ~28% of height).
-    const S = (h * 0.28) / 384;
+    // Structure world scale: a big, chunky fortification (wall ~25% of height).
+    const S = (h * 0.25) / 384;
     // Characters are only ~a third the wall's height, like GER — the structures
     // dominate and the troops are small.
     const charBase = S * 0.42;
@@ -94,9 +94,12 @@ export class IsoRenderer {
     const wsegW = 256 * S;
     const wallBottomX = w * 0.18;
     const wallBottomY = h * 0.78;
-    const segDX = wsegW * 0.52;
-    const segDY = wsegW * 0.26;
-    const numSeg = 5; // long rampart line
+    // Step one segment's post-to-post span along the iso axis (2:1), so each
+    // segment's near post lands on the previous one's far post → a single
+    // continuous rampart rather than separate chunks. (content posts ~196px apart.)
+    const segDX = wsegW * 0.765;
+    const segDY = wsegW * 0.383;
+    const numSeg = 4; // long rampart line (segments join post-to-post, tower caps the end)
     const frontX = wallBottomX + wsegW * 0.5 + 10;
     const laneRight = w - 6;
 
