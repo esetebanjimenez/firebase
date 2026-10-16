@@ -25,6 +25,10 @@ export interface EnemyConfig {
   /** Damage dealt to the wall per second while engaged, at day 1. */
   readonly attackDps: number;
   readonly attackDpsPerDay: number;
+  /** Lane distance from the wall at which the enemy stops and opens fire (1 = full lane). */
+  readonly attackRange: number;
+  /** Random +/- spread on attackRange so enemies form a loose firing line, not a column. */
+  readonly attackRangeJitter: number;
 }
 
 export interface GameConfig {
@@ -108,6 +112,8 @@ export const defaultConfig: GameConfig = {
       bountyPerDay: 0.55,
       attackDps: 4.5, // a few reaching the wall is felt immediately
       attackDpsPerDay: 0.5,
+      attackRange: 0.24, // halt well out from the wall and shoot it from distance
+      attackRangeJitter: 0.09,
     },
   },
 

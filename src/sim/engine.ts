@@ -86,13 +86,13 @@ export function step(state: SimState, dt: number, cfg: GameConfig): SimEvent[] {
     state.enemies = survivors;
   }
 
-  // --- Survivors advance; engaged enemies chip the wall.
+  // --- Survivors advance to their firing range, then hold and shoot the wall.
   let wallDamage = 0;
   for (const e of state.enemies) {
-    if (e.pos > 0) {
+    if (!e.engaging) {
       e.pos -= e.speed * dt;
-      if (e.pos <= 0) {
-        e.pos = 0;
+      if (e.pos <= e.range) {
+        e.pos = e.range;
         e.engaging = true;
       }
     }

@@ -21,7 +21,9 @@ export interface Enemy {
   readonly bounty: number;
   /** Damage dealt to the wall per second once engaged. */
   readonly attackDps: number;
-  /** True once the enemy has reached the wall and is attacking it. */
+  /** Lane distance from the wall at which this enemy halts and opens fire. */
+  readonly range: number;
+  /** True once the enemy has stopped at its range and is shooting the wall. */
   engaging: boolean;
 }
 

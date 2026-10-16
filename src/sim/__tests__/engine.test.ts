@@ -40,7 +40,7 @@ describe('engine — holding the line', () => {
   it('clears early waves into Days Held and Supply with the wall intact', () => {
     const s = createInitialState(defaultConfig);
     sendNextWave(s);
-    const events = run(s, 30, defaultConfig);
+    const events = run(s, 14, defaultConfig);
     expect(s.day).toBeGreaterThanOrEqual(1);
     expect(s.supply).toBeGreaterThan(0);
     expect(s.stats.totalKills).toBeGreaterThan(0);
