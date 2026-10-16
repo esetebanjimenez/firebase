@@ -108,18 +108,19 @@ export class SideRenderer {
     const horizon = h * 0.5;
     const groundLine = h * 0.9;
 
-    const fobH = h * 0.3;
+    // Zoomed-out "Grow Empire" scale: small troops, modest wall, lots of room.
+    const fobH = h * 0.2;
     const fobScale = fobH / 640;
     const fobW = 512 * fobScale;
-    const wallH = h * 0.34;
+    const wallH = h * 0.22;
     const wallScale = wallH / 640;
     const wallW = 384 * wallScale;
 
-    const fobX = Math.max(fobW * 0.42, 30);
-    const wallX = fobX + fobW * 0.22 + wallW * 0.5;
-    const frontX = wallX + wallW * 0.42 + 8; // enemies at pos 0 stand here
+    const fobX = Math.max(fobW * 0.42, 24);
+    const wallX = fobX + fobW * 0.26 + wallW * 0.5;
+    const frontX = wallX + wallW * 0.42 + 6; // enemies at pos 0 stand here
     const laneRight = w - 4;
-    const unitH = Math.min(Math.max(h * 0.16, 44), 104);
+    const unitH = Math.min(Math.max(h * 0.095, 30), 60);
 
     return { w, h, horizon, groundLine, fobX, fobScale, fobW, wallX, wallScale, wallW, frontX, laneRight, laneSpan: Math.max(40, laneRight - frontX), unitH };
   }
