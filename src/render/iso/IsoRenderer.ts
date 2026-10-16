@@ -78,8 +78,8 @@ export class IsoRenderer {
 
     // ONE uniform world scale for every asset (tiles, walls, FOB, props,
     // characters), so proportions match how the art was drawn — like GER, where
-    // a person is small next to the wall. Anchored so the wall is ~22% of height.
-    const S = (h * 0.22) / 384;
+    // a person is small next to the wall. A big, long rampart dominates the fort.
+    const S = (h * 0.26) / 384;
     const HW = S * 128; // iso tile half-width step (tile width = 256*S)
     const HH = HW / 2;
     const ox = w * 0.5;
@@ -91,11 +91,11 @@ export class IsoRenderer {
 
     const wallScale = S;
     const wsegW = 256 * S;
-    const wallBottomX = w * 0.28;
-    const wallBottomY = h * 0.72;
+    const wallBottomX = w * 0.18;
+    const wallBottomY = h * 0.78;
     const segDX = wsegW * 0.52;
     const segDY = wsegW * 0.26;
-    const numSeg = 3;
+    const numSeg = 6; // long rampart line
     const frontX = wallBottomX + wsegW * 0.5 + 10;
     const laneRight = w - 6;
 
@@ -235,26 +235,25 @@ export class IsoRenderer {
   }
 
   private syncSoldiers(state: SimState, g: ReturnType<IsoRenderer['geo']>): void {
-    const count = Math.min(12, Math.max(3, g.numSeg * 2 + state.firepowerLevel));
+    // Fan the garrison evenly along the full rampart crest, in two shallow rows.
+    const count = Math.min(16, Math.max(5, g.numSeg + state.firepowerLevel));
     const sig = `${count}|${Math.round(g.w)}x${Math.round(g.h)}`;
     if (sig !== this.soldierSig) {
       for (const s of this.soldiers) s.sprite.destroy();
       this.soldiers = [];
       this.soldierSig = sig;
+      const crestLift = 384 * g.wallScale * 0.52; // up to the walkway
       for (let i = 0; i < count; i++) {
         const sprite = new Sprite(this.tex.soldier_idle_1);
         sprite.anchor.set(0.5, ISO_CHAR_ANCHOR_Y);
         this.scene.addChild(sprite);
-        const t = count > 1 ? i / (count - 1) : 0.5;
+        const u = (i + 0.6) / count; // position along the wall, 0..1
         const row = i % 2;
-        // along the rampart crest, stepping up-right
-        const segX = g.wallBottomX + t * (g.numSeg - 0.5) * g.segDX;
-        const segY = g.wallBottomY - t * (g.numSeg - 0.5) * g.segDY - 384 * g.wallScale * 0.5;
         this.soldiers.push({
           sprite,
-          gx: segX + (row ? g.segDX * 0.3 : 0),
-          gy: segY + row * g.unitH * 0.12,
-          scale: (g.unitH / 256) * (0.9 - row * 0.05),
+          gx: g.wallBottomX + u * g.numSeg * g.segDX + (row ? g.segDX * 0.28 : 0),
+          gy: g.wallBottomY - u * g.numSeg * g.segDY - crestLift + row * g.unitH * 0.14,
+          scale: (g.unitH / 256) * (0.92 - row * 0.04),
           phase: i * 1.1,
         });
       }
