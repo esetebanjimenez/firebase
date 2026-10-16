@@ -76,18 +76,19 @@ export class IsoRenderer {
     const w = this.screen.width;
     const h = this.screen.height;
 
-    // ONE uniform world scale for every asset (tiles, walls, FOB, props,
-    // characters), so proportions match how the art was drawn — like GER, where
-    // a person is small next to the wall. A big, long rampart dominates the fort.
-    const S = (h * 0.26) / 384;
-    const HW = S * 128; // iso tile half-width step (tile width = 256*S)
+    // Structure world scale: a big, chunky fortification (wall ~28% of height).
+    const S = (h * 0.28) / 384;
+    // Characters are only ~a third the wall's height, like GER — the structures
+    // dominate and the troops are small.
+    const charBase = S * 0.42;
+    const unitH = charBase * 256; // character on-screen height (for pixel offsets)
+
+    // Ground tiling density is decoupled from the structure scale, so the grass
+    // stays fine rather than turning into a few huge blocks.
+    const HW = Math.min(Math.max(w / 10, 20), 32);
     const HH = HW / 2;
     const ox = w * 0.5;
     const oy = -HH * 2;
-
-    // Characters a touch smaller than structures (GER proportion).
-    const charBase = S * 0.72;
-    const unitH = charBase * 256; // character on-screen height (for pixel offsets)
 
     const wallScale = S;
     const wsegW = 256 * S;
@@ -95,7 +96,7 @@ export class IsoRenderer {
     const wallBottomY = h * 0.78;
     const segDX = wsegW * 0.52;
     const segDY = wsegW * 0.26;
-    const numSeg = 6; // long rampart line
+    const numSeg = 5; // long rampart line
     const frontX = wallBottomX + wsegW * 0.5 + 10;
     const laneRight = w - 6;
 
@@ -236,7 +237,7 @@ export class IsoRenderer {
 
   private syncSoldiers(state: SimState, g: ReturnType<IsoRenderer['geo']>): void {
     // Fan the garrison evenly along the full rampart crest, in two shallow rows.
-    const count = Math.min(16, Math.max(5, g.numSeg + state.firepowerLevel));
+    const count = Math.min(22, Math.max(8, g.numSeg * 2 + state.firepowerLevel));
     const sig = `${count}|${Math.round(g.w)}x${Math.round(g.h)}`;
     if (sig !== this.soldierSig) {
       for (const s of this.soldiers) s.sprite.destroy();
