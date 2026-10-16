@@ -1,0 +1,419 @@
+{
+  "projection": "2:1 isometric, light from top-left, characters face front-right",
+  "files": [
+    {
+      "file": "tile_grass.png",
+      "size": [
+        256,
+        128
+      ]
+    },
+    {
+      "file": "tile_grass_2.png",
+      "size": [
+        256,
+        128
+      ]
+    },
+    {
+      "file": "tile_dirt.png",
+      "size": [
+        256,
+        128
+      ]
+    },
+    {
+      "file": "tile_rock.png",
+      "size": [
+        256,
+        128
+      ]
+    },
+    {
+      "file": "tile_water.png",
+      "size": [
+        256,
+        128
+      ]
+    },
+    {
+      "file": "tile_water_edge_n.png",
+      "size": [
+        256,
+        128
+      ]
+    },
+    {
+      "file": "tile_water_edge_e.png",
+      "size": [
+        256,
+        128
+      ]
+    },
+    {
+      "file": "tile_water_edge_s.png",
+      "size": [
+        256,
+        128
+      ]
+    },
+    {
+      "file": "tile_water_edge_w.png",
+      "size": [
+        256,
+        128
+      ]
+    },
+    {
+      "file": "wall_intact.png",
+      "size": [
+        256,
+        384
+      ]
+    },
+    {
+      "file": "wall_damaged.png",
+      "size": [
+        256,
+        384
+      ]
+    },
+    {
+      "file": "wall_broken.png",
+      "size": [
+        256,
+        384
+      ]
+    },
+    {
+      "file": "wall_tower.png",
+      "size": [
+        256,
+        448
+      ]
+    },
+    {
+      "file": "wall_gate.png",
+      "size": [
+        256,
+        384
+      ]
+    },
+    {
+      "file": "fob.png",
+      "size": [
+        512,
+        512
+      ]
+    },
+    {
+      "file": "prop_tree_1.png",
+      "size": [
+        128,
+        128
+      ]
+    },
+    {
+      "file": "prop_tree_2.png",
+      "size": [
+        128,
+        128
+      ]
+    },
+    {
+      "file": "prop_bush.png",
+      "size": [
+        128,
+        128
+      ]
+    },
+    {
+      "file": "prop_rock.png",
+      "size": [
+        128,
+        128
+      ]
+    },
+    {
+      "file": "prop_grass_tuft.png",
+      "size": [
+        128,
+        128
+      ]
+    },
+    {
+      "file": "soldier_idle_1.png",
+      "size": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "soldier_idle_2.png",
+      "size": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "soldier_fire_1.png",
+      "size": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "soldier_fire_2.png",
+      "size": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "enemyA_idle_1.png",
+      "size": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "enemyA_idle_2.png",
+      "size": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "enemyA_walk_1.png",
+      "size": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "enemyA_walk_2.png",
+      "size": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "enemyA_walk_3.png",
+      "size": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "enemyA_walk_4.png",
+      "size": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "enemyA_fire_1.png",
+      "size": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "enemyA_fire_2.png",
+      "size": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "enemyB_idle_1.png",
+      "size": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "enemyB_idle_2.png",
+      "size": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "enemyB_walk_1.png",
+      "size": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "enemyB_walk_2.png",
+      "size": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "enemyB_walk_3.png",
+      "size": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "enemyB_walk_4.png",
+      "size": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "enemyB_fire_1.png",
+      "size": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "enemyB_fire_2.png",
+      "size": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "enemyA_hit.png",
+      "size": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "enemyB_hit.png",
+      "size": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "explosion_1.png",
+      "size": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "airstrike_1.png",
+      "size": [
+        512,
+        512
+      ]
+    },
+    {
+      "file": "explosion_2.png",
+      "size": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "airstrike_2.png",
+      "size": [
+        512,
+        512
+      ]
+    },
+    {
+      "file": "explosion_3.png",
+      "size": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "airstrike_3.png",
+      "size": [
+        512,
+        512
+      ]
+    },
+    {
+      "file": "explosion_4.png",
+      "size": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "airstrike_4.png",
+      "size": [
+        512,
+        512
+      ]
+    },
+    {
+      "file": "explosion_5.png",
+      "size": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "airstrike_5.png",
+      "size": [
+        512,
+        512
+      ]
+    },
+    {
+      "file": "explosion_6.png",
+      "size": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "airstrike_6.png",
+      "size": [
+        512,
+        512
+      ]
+    },
+    {
+      "file": "muzzle_flash_1.png",
+      "size": [
+        128,
+        128
+      ]
+    },
+    {
+      "file": "muzzle_flash_2.png",
+      "size": [
+        128,
+        128
+      ]
+    },
+    {
+      "file": "dust_impact_1.png",
+      "size": [
+        128,
+        128
+      ]
+    },
+    {
+      "file": "dust_impact_2.png",
+      "size": [
+        128,
+        128
+      ]
+    }
+  ],
+  "notes": [
+    "Tiles are 256x128 diamonds. Corners are transparent. Pivot is the diamond center.",
+    "Characters are 256x256. Feet sit 16px above the bottom. One scale per character.",
+    "Fire_2 frames include a composited muzzle flash. Aim frames are body-only.",
+    "Walls are 256x384 and share a footprint width. Tower is 256x448. Gate is 256x384. FOB is 512x512. Pivot is bottom-center.",
+    "Props are 128x128, pivot bottom-center.",
+    "FX frames are the previous set, unchanged."
+  ]
+}
