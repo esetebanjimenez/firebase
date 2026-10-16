@@ -1,101 +1,34 @@
 /**
- * offline.ts — calculated offline progress.
+ * offline.ts — offline progress for "The Line".
  *
- * The doc is explicit: offline progress is *calculated, not simulated* (browsers
- * suspend background tabs), using a "holds or falls back" model rather than
- * replaying waves. This resolver credits `floor(timeAway / waveInterval)` waves,
- * capped by `config.offline.maxWaves`, and resolves each wave in closed form
- * using the SAME `combat.ts` formulas the live engine uses (ring DPS, enemy HP,
- * wave size, bounties). That shared formula layer is the single source of truth,
- * so live play and offline progress can't drift apart.
- *
- * Per-wave resolution: enemies flow through the rings outer → inner. Each active
- * ring deals `dps × occupancy` damage to the stream (occupancy ≈ how long the
- * stream sits in its band); whatever it can't kill passes through and breaches
- * that ring. If enemies reach the core it's a full breach (supply penalty, all
- * rings down, innermost built ring self-restores) and that wave holds no day.
- * Breached rings stay down for the rest of the absence, so a long under-defended
- * absence naturally falls back to a sustainable line — exactly the soft-failure
- * the design calls for.
+ * Reuses the live engine directly: it credits `floor(timeAway / waveInterval)`
+ * waves (capped) and fast-forwards them by running `step()` headlessly at a
+ * coarse fixed timestep, auto-launching each wave. Because it's the same engine,
+ * live play and offline can't diverge in their rules. The player is away, so
+ * nobody repairs — a wall worn down offline simply stalls Days until it
+ * regenerates, exactly as the live rules say.
  */
 
 import type { GameConfig } from './config';
-import { RING_ORDER } from './config';
-import { bandTransitSec, enemyBounty, enemyHp, ringDps, waveCount } from './combat';
-import { innermostBuiltRing } from './engine';
-import type { RingId, SimState, Sitrep } from './types';
+import { step } from './engine';
+import { sendNextWave } from './actions';
+import type { SimState, Sitrep } from './types';
 
-/** Reset the transient (live-only) fields to a clean "next wave incoming" state. */
 function resetToIdle(state: SimState, cfg: GameConfig): void {
   state.enemies = [];
-  state.daysHeldPaused = false;
-  state.restoreTimerSec = 0;
   state.wave.inProgress = false;
   state.wave.toSpawn = 0;
   state.wave.spawnTimerSec = 0;
   state.wave.timerSec = cfg.wave.intervalSec;
+  state.fireSupport.cooldownRemaining = 0;
 }
 
-/** Resolve a single wave in place against the current ring state. Returns supply gained + whether it held. */
-function resolveWave(state: SimState, cfg: GameConfig): { held: boolean; supplyGained: number } {
-  const day = state.day + 1;
-  const n = waveCount(cfg, day);
-  const hp = enemyHp(cfg, 'infantry', day);
-  const bounty = enemyBounty(cfg, 'infantry', day);
-  const speed = cfg.enemies.infantry.speed;
-  const spacing = cfg.wave.spawnSpacingSec;
-
-  let survivors = n;
-  let supplyGained = 0;
-
-  for (const id of RING_ORDER) {
-    const ring = state.rings[id];
-    if (survivors <= 0) break;
-    if (ring.status !== 'active' || ring.level <= 0) continue; // inert ring: pass, no breach
-
-    const dps = ringDps(cfg, id, ring.level, 'infantry');
-    const occupancySec = Math.max(0, survivors - 1) * spacing + bandTransitSec(cfg.rings[id], speed);
-    const damage = dps * occupancySec;
-    const kills = Math.min(survivors, Math.floor(damage / hp));
-    survivors -= kills;
-    supplyGained += kills * bounty;
-
-    if (survivors > 0) {
-      // Live enemies got through this ring → it breaches and stays down.
-      ring.status = 'down';
-    }
-  }
-
-  // Bank the kills regardless of the wave's final outcome.
-  state.supply += supplyGained;
-  state.stats.totalKills += n - survivors;
-  state.stats.totalSupplyEarned += supplyGained;
-
-  if (survivors > 0) {
-    // Full breach: the position is overrun this wave.
-    const supplyLost = Math.floor(state.supply * cfg.breach.fullBreachSupplyLossPct);
-    state.supply -= supplyLost;
-    supplyGained -= supplyLost;
-    for (const r of RING_ORDER) state.rings[r].status = 'down';
-    state.rings[innermostBuiltRing(state)].status = 'active';
-    return { held: false, supplyGained };
-  }
-
-  state.day += 1;
-  state.stats.bestDay = Math.max(state.stats.bestDay, state.day);
-  return { held: true, supplyGained };
-}
-
-/**
- * Apply offline progress for an absence of `elapsedMs`. Mutates `state` in place
- * and returns a SITREP summary for the return screen.
- */
 export function applyOfflineProgress(state: SimState, cfg: GameConfig, elapsedMs: number): Sitrep {
   const empty: Sitrep = {
     daysGained: 0,
     supplyEarned: 0,
-    ringsFallen: [],
     wavesResolved: 0,
+    wallDown: state.barrier.hp <= 0,
     secondsCredited: 0,
     capped: false,
   };
@@ -106,27 +39,27 @@ export function applyOfflineProgress(state: SimState, cfg: GameConfig, elapsedMs
   if (wavesAway <= 0) return empty;
 
   const capped = wavesAway > cfg.offline.maxWaves;
-  const wavesToResolve = Math.min(wavesAway, cfg.offline.maxWaves);
-
+  const toResolve = Math.min(wavesAway, cfg.offline.maxWaves);
   const startDay = state.day;
   const startSupply = state.supply;
+  const dt = cfg.offline.stepSec;
 
-  for (let i = 0; i < wavesToResolve; i++) {
-    resolveWave(state, cfg);
+  for (let i = 0; i < toResolve; i++) {
+    sendNextWave(state);
+    step(state, dt, cfg); // launches the wave
+    let guard = cfg.offline.maxStepsPerWave;
+    while (state.wave.inProgress && guard-- > 0) step(state, dt, cfg);
   }
 
+  const wallDown = state.barrier.hp <= 0;
   resetToIdle(state, cfg);
-
-  const ringsFallen: RingId[] = RING_ORDER.filter(
-    (id) => state.rings[id].level > 0 && state.rings[id].status === 'down',
-  );
 
   return {
     daysGained: state.day - startDay,
     supplyEarned: state.supply - startSupply,
-    ringsFallen,
-    wavesResolved: wavesToResolve,
-    secondsCredited: wavesToResolve * cfg.wave.intervalSec,
+    wavesResolved: toResolve,
+    wallDown,
+    secondsCredited: toResolve * cfg.wave.intervalSec,
     capped,
   };
 }

@@ -1,36 +1,45 @@
 /**
- * Public API of the simulation core. The UI, renderer, and game loop import
- * only from here, never from individual sim modules, so the internal layout can
- * change freely.
+ * Public API of the simulation core. UI, renderer, and game loop import only
+ * from here.
  */
 
 export * from './types';
-export { defaultConfig, RING_ORDER } from './config';
-export type { GameConfig, RingConfig, EnemyConfig } from './config';
+export { defaultConfig } from './config';
+export type { GameConfig, EnemyConfig } from './config';
 
 export { createInitialState } from './state';
-export { step, innermostBuiltRing } from './engine';
+export { step, syncBarrierMax } from './engine';
 export { applyOfflineProgress } from './offline';
 
 export {
-  ringDps,
-  upgradeCost,
+  firepowerDps,
+  firepowerCost,
+  barrierMaxHp,
+  barrierRegen,
+  barrierCost,
   repairCost,
+  fireSupportDamage,
+  fireSupportCooldown,
+  fireSupportCost,
   enemyHp,
   enemyBounty,
+  enemyAttackDps,
   waveCount,
-  activeDps,
-  activeRings,
-  bandTransitSec,
+  wallStanding,
 } from './combat';
 
 export {
-  buyUpgrade,
-  repairRing,
+  upgradeFirepower,
+  upgradeBarrier,
+  upgradeFireSupport,
+  repairBarrier,
+  useFireSupport,
   sendNextWave,
-  canUpgrade,
-  canRepair,
-  nextUpgradeCost,
+  canUseFireSupport,
+  firepowerUpgradeCost,
+  barrierUpgradeCost,
+  fireSupportUpgradeCost,
+  barrierRepairCost,
 } from './actions';
 
 export { serialize, deserialize } from './persistence';

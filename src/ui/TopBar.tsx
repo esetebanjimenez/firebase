@@ -1,21 +1,19 @@
-/** TopBar — the headline counters: Days Held, Supply, wave status. */
+/** TopBar — Days Held, Supply, and wave/wall status. */
 
 import type { UiSnapshot } from '../game/useGameLoop';
 
-interface Props {
-  snapshot: UiSnapshot;
-}
+export function TopBar({ snapshot }: { snapshot: UiSnapshot }) {
+  const { day, supply, wave, barrier } = snapshot;
 
-export function TopBar({ snapshot }: Props) {
-  const { day, supply, wave, daysHeldPaused, restoreTimerSec } = snapshot;
-
-  let waveLabel: string;
-  if (daysHeldPaused) {
-    waveLabel = `OVERRUN — rallying in ${restoreTimerSec.toFixed(1)}s`;
+  let status: string;
+  let alert = false;
+  if (barrier.down) {
+    status = 'WALL DOWN — repair to resume';
+    alert = true;
   } else if (wave.inProgress) {
-    waveLabel = `Wave ${wave.index} inbound`;
+    status = `Wave ${wave.index} at the wall`;
   } else {
-    waveLabel = `Next wave in ${wave.timerSec.toFixed(1)}s (${wave.nextCount} inf)`;
+    status = `Next wave in ${wave.timerSec.toFixed(1)}s (${wave.nextCount} inf)`;
   }
 
   return (
@@ -28,7 +26,7 @@ export function TopBar({ snapshot }: Props) {
         <span className="stat__value">{supply}</span>
         <span className="stat__label">Supply</span>
       </div>
-      <div className={`wavebar ${daysHeldPaused ? 'wavebar--alert' : ''}`}>{waveLabel}</div>
+      <div className={`wavebar ${alert ? 'wavebar--alert' : ''}`}>{status}</div>
     </header>
   );
 }

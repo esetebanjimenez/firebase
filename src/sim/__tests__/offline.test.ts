@@ -8,69 +8,63 @@ const cfg = defaultConfig;
 const ms = (waves: number) => waves * cfg.wave.intervalSec * 1000;
 
 describe('offline progress', () => {
-  it('credits zero for a trivially short absence', () => {
+  it('credits nothing for a trivially short absence', () => {
     const s = createInitialState(cfg);
-    const sit = applyOfflineProgress(s, cfg, 500); // half a wave interval
+    const sit = applyOfflineProgress(s, cfg, 500);
     expect(sit.wavesResolved).toBe(0);
     expect(sit.daysGained).toBe(0);
     expect(s.day).toBe(0);
   });
 
-  it('holds and advances Days Held + Supply for a well-defended base', () => {
+  it('a strong line holds: Days and Supply advance, wall stays up', () => {
     const s = createInitialState(cfg);
-    // A heavily fortified outer ring solos the early waves with nothing getting
-    // through, so no ring breaches.
-    s.rings.outer.level = 50;
+    s.firepowerLevel = 20; // overwhelming firepower
+    s.barrier.level = 10;
+    s.barrier.maxHp = 1000;
+    s.barrier.hp = 1000;
 
     const sit = applyOfflineProgress(s, cfg, ms(10));
     expect(sit.wavesResolved).toBe(10);
     expect(sit.daysGained).toBe(10);
     expect(s.day).toBe(10);
     expect(sit.supplyEarned).toBeGreaterThan(0);
-    expect(sit.ringsFallen).toHaveLength(0);
-    expect(sit.capped).toBe(false);
+    expect(sit.wallDown).toBe(false);
   });
 
-  it('falls back (rings down) when under-defended, without ending the run', () => {
-    const s = createInitialState(cfg); // only outer, level 1
-    const sit = applyOfflineProgress(s, cfg, ms(30));
-    // The weak outer-only base cannot hold rising waves forever → it falls back.
-    expect(sit.daysGained).toBeLessThan(30);
+  it('an under-defended line stalls (fewer Days) but never loses Supply', () => {
+    const s = createInitialState(cfg); // starter firepower
+    const sit = applyOfflineProgress(s, cfg, ms(40));
+    expect(sit.daysGained).toBeLessThan(40);
+    expect(sit.supplyEarned).toBeGreaterThanOrEqual(0); // repair-only: no penalty
     expect(s.day).toBeGreaterThanOrEqual(0);
-    // Run never ends: at least one built ring remains active afterwards.
-    const anyActive = Object.values(s.rings).some((r) => r.level > 0 && r.status === 'active');
-    expect(anyActive).toBe(true);
   });
 
   it('respects the offline wave cap', () => {
-    const small: GameConfig = { ...cfg, offline: { maxWaves: 5 } };
+    const small: GameConfig = { ...cfg, offline: { ...cfg.offline, maxWaves: 5 } };
     const s = createInitialState(small);
-    s.rings.outer.level = 50; // hold everything so capping is the only limiter
+    s.firepowerLevel = 30;
     const sit = applyOfflineProgress(s, small, ms(1000));
     expect(sit.wavesResolved).toBe(5);
     expect(sit.capped).toBe(true);
   });
 
-  it('leaves the base in a clean "next wave incoming" state', () => {
+  it('leaves the base idle and ready afterwards', () => {
     const s = createInitialState(cfg);
-    s.rings.outer.level = 50;
+    s.firepowerLevel = 20;
     applyOfflineProgress(s, cfg, ms(5));
     expect(s.enemies).toHaveLength(0);
     expect(s.wave.inProgress).toBe(false);
-    expect(s.daysHeldPaused).toBe(false);
     expect(s.wave.timerSec).toBe(cfg.wave.intervalSec);
+    expect(s.fireSupport.cooldownRemaining).toBe(0);
   });
 
-  it('uses the same formulas as live: a stronger base out-holds a weaker one', () => {
-    // Both live and offline derive strength/HP/counts from combat.ts, so more
-    // ring strength must mean at least as many days held offline.
-    const weak = createInitialState(cfg); // outer level 1
+  it('shares formulas with live play: a stronger line out-holds a weaker one', () => {
+    const weak = createInitialState(cfg);
     const strong = createInitialState(cfg);
-    strong.rings.outer.level = 8;
+    strong.firepowerLevel = 12;
 
-    const weakSit = applyOfflineProgress(weak, cfg, ms(20));
-    const strongSit = applyOfflineProgress(strong, cfg, ms(20));
-
-    expect(strongSit.daysGained).toBeGreaterThan(weakSit.daysGained);
+    const w = applyOfflineProgress(weak, cfg, ms(20));
+    const st = applyOfflineProgress(strong, cfg, ms(20));
+    expect(st.daysGained).toBeGreaterThan(w.daysGained);
   });
 });

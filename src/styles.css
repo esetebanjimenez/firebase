@@ -8,9 +8,12 @@
   --supply: #8fe8b0;
   --accent: #e0a23c;
   --danger: #e5533c;
-  --outer: #5fb0e6;
-  --middle: #5fe0a0;
-  --inner: #9f8cff;
+  --fire: #e0a23c;
+  --wall: #5fb0e6;
+  --support: #b57aff;
+  --hp-good: #5fe08a;
+  --hp-mid: #e8c54a;
+  --hp-low: #e5533c;
   --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
 
@@ -261,6 +264,128 @@ body {
 
 .controls__wave {
   margin-top: 2px;
+}
+
+/* ---------- The Line controls ---------- */
+.wallrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--panel);
+  border: 1px solid var(--edge);
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+.wallrow--down {
+  border-color: var(--danger);
+  background: #2a1510;
+}
+.wallrow__info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+.wallrow__title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-dim);
+}
+.hpbar {
+  flex: 1;
+  height: 10px;
+  background: #140f08;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--edge);
+}
+.hpbar__fill {
+  height: 100%;
+  border-radius: 6px 0 0 6px;
+  transition: width 0.12s linear;
+}
+.wallrow__hp {
+  font-size: 12px;
+  color: var(--ink-dim);
+  font-variant-numeric: tabular-nums;
+  min-width: 64px;
+  text-align: right;
+}
+
+.upgrades3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.upg {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  background: var(--panel);
+  border: 1px solid var(--edge);
+  border-top-width: 3px;
+  border-radius: 10px;
+  padding: 8px 9px;
+  color: var(--ink);
+  font-family: var(--font);
+  cursor: pointer;
+  text-align: left;
+}
+.upg--fire {
+  border-top-color: var(--fire);
+}
+.upg--wall {
+  border-top-color: var(--wall);
+}
+.upg--support {
+  border-top-color: var(--support);
+}
+.upg:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.upg__label {
+  font-size: 12px;
+  font-weight: 700;
+}
+.upg__detail {
+  font-size: 11px;
+  color: var(--ink-dim);
+}
+.upg__cost {
+  margin-top: 2px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--supply);
+  font-variant-numeric: tabular-nums;
+}
+
+.abilities {
+  display: flex;
+  gap: 8px;
+}
+.abilities .btn {
+  flex: 1;
+}
+.btn--strike {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(180deg, #b57aff, #8a52e0);
+  color: #fff;
+}
+.btn__cdfill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.18);
+  transition: width 0.1s linear;
+}
+.btn__text {
+  position: relative;
+  z-index: 1;
 }
 
 /* ---------- Modal / SITREP ---------- */

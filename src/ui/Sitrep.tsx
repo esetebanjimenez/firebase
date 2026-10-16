@@ -2,11 +2,6 @@
 
 import type { Sitrep as SitrepData } from '../sim';
 
-interface Props {
-  sitrep: SitrepData;
-  onDismiss: () => void;
-}
-
 function formatDuration(seconds: number): string {
   const m = Math.floor(seconds / 60);
   if (m < 1) return `${Math.round(seconds)}s`;
@@ -17,7 +12,7 @@ function formatDuration(seconds: number): string {
   return `${d}d ${h % 24}h`;
 }
 
-export function Sitrep({ sitrep, onDismiss }: Props) {
+export function Sitrep({ sitrep, onDismiss }: { sitrep: SitrepData; onDismiss: () => void }) {
   return (
     <div className="modal-backdrop" onClick={onDismiss}>
       <div className="modal sitrep" onClick={(e) => e.stopPropagation()}>
@@ -34,19 +29,13 @@ export function Sitrep({ sitrep, onDismiss }: Props) {
             <dd>+{Math.round(sitrep.supplyEarned)}</dd>
           </div>
           <div>
-            <dt>Waves resolved</dt>
+            <dt>Waves</dt>
             <dd>{sitrep.wavesResolved}</dd>
           </div>
         </dl>
 
-        {sitrep.ringsFallen.length > 0 && (
-          <p className="sitrep__warn">
-            Rings fallen and needing repair: {sitrep.ringsFallen.join(', ')}
-          </p>
-        )}
-        {sitrep.capped && (
-          <p className="sitrep__note">Offline progress was capped — report back sooner for full credit.</p>
-        )}
+        {sitrep.wallDown && <p className="sitrep__warn">The wall was overrun — repair it to resume gaining Days.</p>}
+        {sitrep.capped && <p className="sitrep__note">Offline progress was capped — report back sooner for full credit.</p>}
 
         <button className="btn btn--send" onClick={onDismiss}>
           Resume command

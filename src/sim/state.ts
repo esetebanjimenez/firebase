@@ -1,26 +1,14 @@
 /**
- * state.ts — construct a fresh simulation state from config.
+ * state.ts — construct a fresh "The Line" simulation state from config.
  */
 
 import type { GameConfig } from './config';
-import { RING_ORDER } from './config';
+import { barrierMaxHp } from './combat';
 import { seedState } from './rng';
-import type { RingId, RingState, SimState } from './types';
+import type { SimState } from './types';
 
-/** Build a brand-new run from the given config (defaults to `cfg.seed`). */
 export function createInitialState(cfg: GameConfig, seed: number = cfg.seed): SimState {
-  const rings = {} as Record<RingId, RingState>;
-  for (const id of RING_ORDER) {
-    const rc = cfg.rings[id];
-    rings[id] = {
-      id,
-      level: rc.startLevel,
-      // A ring that starts built is active; an unbuilt ring (level 0) is inert
-      // (not "down" — there is nothing breached yet, it simply isn't firing).
-      status: rc.startLevel > 0 ? 'active' : 'down',
-    };
-  }
-
+  const maxHp = barrierMaxHp(cfg, cfg.barrier.startLevel);
   return {
     version: cfg.version,
     seed,
@@ -28,7 +16,9 @@ export function createInitialState(cfg: GameConfig, seed: number = cfg.seed): Si
     nextEnemyId: 1,
     day: 0,
     supply: 0,
-    rings,
+    firepowerLevel: cfg.firepower.startLevel,
+    barrier: { level: cfg.barrier.startLevel, hp: maxHp, maxHp },
+    fireSupport: { level: 0, cooldownRemaining: 0 },
     enemies: [],
     wave: {
       index: 0,
@@ -37,8 +27,6 @@ export function createInitialState(cfg: GameConfig, seed: number = cfg.seed): Si
       toSpawn: 0,
       spawnTimerSec: 0,
     },
-    daysHeldPaused: false,
-    restoreTimerSec: 0,
     stats: { totalKills: 0, totalSupplyEarned: 0, bestDay: 0 },
   };
 }
