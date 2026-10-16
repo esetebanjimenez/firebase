@@ -104,12 +104,13 @@ export class IsoRenderer {
     const frontX = wallBottomX + wsegW * 0.5 + 10;
     const laneRight = w - 6;
 
-    // Single cohesive wall sprite (wall_line_*): placed to cover the same
-    // logical rampart line the garrison fans along and enemies target, so the
-    // sim-facing geometry above is unchanged whether we draw one piece or tiles.
-    const wallLineCX = wallBottomX + numSeg * segDX * 0.5;
+    // Single cohesive wall sprite (wall_line_*): spans the whole viewport width
+    // and overhangs the left edge so the rampart reads as running off-screen
+    // (GER-style), while still sitting on the logical rampart line the garrison
+    // fans along — so the sim-facing geometry above is unchanged.
+    const wallLineWidth = w * 1.18;
+    const wallLineCX = w * 0.44; // left edge ≈ -0.15w (off-screen), tower near the right edge
     const wallLineBaseY = wallBottomY - numSeg * segDY * 0.5 + wsegW * 0.18;
-    const wallLineWidth = numSeg * segDX + wsegW * 1.15;
 
     return {
       w, h, HW, HH, ox, oy, unitH,

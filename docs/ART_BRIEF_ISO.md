@@ -97,6 +97,11 @@ them with the real art at the same filenames/canvas and it just works.)
     frame it with a **gentler rise** (≈300px over the 1280 width) and let the art
     carry the perspective — the engine scales it by width and anchors it at the
     base, it does not force a 2:1 slope on this sprite.
+  - Note on framing: the engine spans the wall across the whole viewport and
+    overhangs the left edge, so draw the **near (lower-left) end reaching the
+    canvas's left edge** (minimal transparent margin there) — the rampart should
+    look like it runs off-screen — with the **tower capping the far (upper-right)
+    end** inside the canvas.
 - `fob` — the HQ keep behind the wall: a sandbag command bunker with antenna and
   a blue flag, iso 3/4, ~2×2 tile footprint. Canvas **512×512**.
 
