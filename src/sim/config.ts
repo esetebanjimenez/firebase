@@ -93,37 +93,37 @@ export const defaultConfig: GameConfig = {
 
   wave: {
     intervalSec: 6,
-    baseCount: 4,
-    countPerDay: 0.8,
+    baseCount: 5,
+    countPerDay: 0.7,
     maxCount: 80,
-    spawnSpacingSec: 0.3,
+    spawnSpacingSec: 0.28,
   },
 
   enemies: {
     infantry: {
-      baseHp: 12,
-      hpPerDay: 4,
-      speed: 0.12, // ~8s to cross the lane unopposed
+      baseHp: 14,
+      hpPerDay: 3.3, // gentler scaling keeps the fight recoverable for longer
+      speed: 0.2, // ~5s to cross the lane; a few leak to the wall from the first waves
       baseBounty: 3,
-      bountyPerDay: 0.5,
-      attackDps: 2.5,
+      bountyPerDay: 0.55,
+      attackDps: 4.5, // a few reaching the wall is felt immediately
       attackDpsPerDay: 0.5,
     },
   },
 
   firepower: {
-    baseDps: 10,
-    dpsPerLevel: 6,
+    baseDps: 11,
+    dpsPerLevel: 7, // each upgrade matters more, so you can out-scale if you invest
     baseCost: 12,
-    costGrowth: 1.5,
+    costGrowth: 1.45,
     startLevel: 1,
   },
 
   barrier: {
-    baseMaxHp: 120,
+    baseMaxHp: 110,
     maxHpPerLevel: 70,
-    baseRegenPerSec: 2,
-    regenPerSecPerLevel: 1,
+    baseRegenPerSec: 1.4, // slow enough that damage lingers within a wave
+    regenPerSecPerLevel: 0.8,
     baseCost: 20,
     costGrowth: 1.5,
     startLevel: 1,
