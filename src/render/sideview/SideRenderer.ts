@@ -245,13 +245,25 @@ export class SideRenderer {
         this.enemies.set(e.id, v);
       }
       const sc = this.laneScale(v.lane, g);
-      v.sprite.position.set(this.enemyX(e.pos, g), this.laneY(v.lane, g));
+      const baseX = this.enemyX(e.pos, g);
+      let recoil = 0;
+      if (e.engaging) {
+        // standoff: play a 2-frame firing loop with a recoil kick away from the wall
+        const f1 = (this.time * 3.2 + v.phase) % 1 < 0.5;
+        v.sprite.texture =
+          v.skin === 'zombie'
+            ? f1 ? this.tex.zombieFire1 : this.tex.zombieFire2
+            : f1 ? this.tex.raiderFire1 : this.tex.raiderFire2;
+        recoil = f1 ? 0 : 2.5;
+      } else {
+        const frame = Math.floor(this.time * 7 + v.phase) % 2;
+        v.sprite.texture =
+          v.skin === 'zombie'
+            ? frame === 0 ? this.tex.zombieWalk1 : this.tex.zombieWalk2
+            : frame === 0 ? this.tex.raiderWalk1 : this.tex.raiderWalk2;
+      }
+      v.sprite.position.set(baseX + recoil, this.laneY(v.lane, g));
       v.sprite.scale.set(-sc, sc); // face left
-      const frame = e.engaging ? 0 : Math.floor(this.time * 7 + v.phase) % 2;
-      v.sprite.texture =
-        v.skin === 'zombie'
-          ? frame === 0 ? this.tex.zombieWalk1 : this.tex.zombieWalk2
-          : frame === 0 ? this.tex.raiderWalk1 : this.tex.raiderWalk2;
       v.sprite.tint = COL.hostile;
       v.sprite.alpha = 0.65 + 0.35 * (e.hp / e.maxHp);
     }

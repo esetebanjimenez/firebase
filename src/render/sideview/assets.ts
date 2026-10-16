@@ -17,9 +17,13 @@ import soldierFire from '../assets/units/soldier_fire.png';
 import soldierHold from '../assets/units/soldier_hold.png';
 import zombieWalk1 from '../assets/units/zombie_walk1.png';
 import zombieWalk2 from '../assets/units/zombie_walk2.png';
+import zombieFire1 from '../assets/units/zombie_fire1.png';
+import zombieFire2 from '../assets/units/zombie_fire2.png';
 import zombieHurt from '../assets/units/zombie_hurt.png';
 import raiderWalk1 from '../assets/units/raider_walk1.png';
 import raiderWalk2 from '../assets/units/raider_walk2.png';
+import raiderFire1 from '../assets/units/raider_fire1.png';
+import raiderFire2 from '../assets/units/raider_fire2.png';
 
 export const SPRITE_URLS = {
   soldierStand,
@@ -27,9 +31,13 @@ export const SPRITE_URLS = {
   soldierHold,
   zombieWalk1,
   zombieWalk2,
+  zombieFire1,
+  zombieFire2,
   zombieHurt,
   raiderWalk1,
   raiderWalk2,
+  raiderFire1,
+  raiderFire2,
 } as const;
 
 export type SpriteKey = keyof typeof SPRITE_URLS;
