@@ -1,13 +1,14 @@
 name: Deploy to GitHub Pages
 
 # Builds the Vite app and publishes dist/ to GitHub Pages.
-# Deploys on a push to the default branch (where merges land) and to the
-# active development branch; can also be run manually.
+#
+# Only the default branch deploys: the github-pages environment rejects
+# deployments from any other branch, so triggering on a development branch
+# builds and tests fine but always ends in a red deploy job. Use
+# workflow_dispatch to publish on demand.
 on:
   push:
-    branches:
-      - 'claude/firebase-idle-slice-plan-v6lurn'
-      - 'claude/idle-tower-defense-game-mzvltg'
+    branches: ['claude/firebase-idle-slice-plan-v6lurn']
   workflow_dispatch:
 
 # Permissions the GITHUB_TOKEN needs to publish to Pages.
