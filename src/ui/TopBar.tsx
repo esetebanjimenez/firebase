@@ -11,7 +11,7 @@ function compact(value: number): string {
 
 export { compact };
 
-export function TopBar({ snapshot }: { snapshot: UiSnapshot }) {
+export function TopBar({ snapshot, onRestart }: { snapshot: UiSnapshot; onRestart: () => void }) {
   const { credits, incomePerSec, wave, bestWave, phase, battle, wall } = snapshot;
   const status =
     phase === 'battle'
@@ -25,11 +25,16 @@ export function TopBar({ snapshot }: { snapshot: UiSnapshot }) {
           <span className="stat__value stat__value--credits">{compact(credits)}</span>
           <span className="stat__label">credits · {incomePerSec.toFixed(1)}/s</span>
         </div>
-        <div className="stat stat--right">
-          <span className="stat__value">
-            {phase === 'battle' ? `WAVE ${wave}` : `W${wave}`}
-          </span>
-          <span className="stat__label">best {bestWave}</span>
+        <div className="topbar__right">
+          <div className="stat stat--right">
+            <span className="stat__value">
+              {phase === 'battle' ? `WAVE ${wave}` : `W${wave}`}
+            </span>
+            <span className="stat__label">best {bestWave}</span>
+          </div>
+          <button className="restart" onClick={onRestart} title="Restart the run">
+            RESTART
+          </button>
         </div>
       </div>
       <div className={`topbar__status ${wall.pct < 0.3 ? 'topbar__status--alert' : ''}`}>{status}</div>

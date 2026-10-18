@@ -78,6 +78,31 @@ body {
   align-items: flex-start;
 }
 
+.topbar__right {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+/* Restart sits in the corner of every screen, so it is deliberately quiet —
+   and it only ever opens the confirmation, never wipes on the first press. */
+.restart {
+  padding: 4px 6px;
+  background: transparent;
+  border: 1px solid var(--edge-light);
+  border-radius: 2px;
+  color: var(--ink-faint);
+  font-family: inherit;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.restart:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
 .stat {
   display: flex;
   flex-direction: column;
@@ -603,6 +628,23 @@ body {
   font-size: 11px;
   line-height: 1.5;
   color: var(--ink-dim);
+}
+
+.modal__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn--ghost {
+  background: var(--panel-2);
+  border-color: var(--edge-light);
+  color: var(--ink-dim);
+}
+
+.btn--danger {
+  background: linear-gradient(180deg, #e5533c, #b43826);
+  border-color: #ef7a66;
+  color: #220703;
 }
 
 .modal__note {

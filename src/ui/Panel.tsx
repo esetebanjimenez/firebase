@@ -14,6 +14,8 @@ type Tab = 'defense' | 'troops' | 'support';
 interface Props {
   snapshot: UiSnapshot;
   actions: GameActions;
+  /** Opens the restart confirmation; the wipe itself lives in App. */
+  onRestart: () => void;
 }
 
 function Row({
@@ -57,7 +59,7 @@ function Row({
   );
 }
 
-export function Panel({ snapshot, actions }: Props) {
+export function Panel({ snapshot, actions, onRestart }: Props) {
   const [tab, setTab] = useState<Tab>('defense');
   const { upgrades, units, abilities, automation, wall, towers, charges, preview, phase } = snapshot;
 
@@ -197,8 +199,8 @@ export function Panel({ snapshot, actions }: Props) {
               );
             })}
 
-            <button className="reset" onClick={actions.hardReset}>
-              Abandon the firebase (wipe save)
+            <button className="reset" onClick={onRestart}>
+              Restart the run from wave 1
             </button>
           </>
         )}

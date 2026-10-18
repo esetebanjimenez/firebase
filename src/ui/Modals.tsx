@@ -79,3 +79,52 @@ export function WelcomeBack({ report, onDismiss }: { report: IdleReport; onDismi
     </div>
   );
 }
+
+/**
+ * The restart confirmation. Wiping a run can throw away hours, and the button
+ * sits in the corner of every screen, so it asks first and spells out exactly
+ * what goes — no undo afterwards.
+ */
+export function ConfirmRestart({
+  snapshot,
+  onConfirm,
+  onCancel,
+}: {
+  snapshot: { wave: number; bestWave: number; credits: number };
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="backdrop" onClick={onCancel}>
+      <div className="modal modal--loss" onClick={(e) => e.stopPropagation()}>
+        <h2>RESTART THE RUN?</h2>
+        <p className="modal__sub">
+          Everything goes back to wave 1: your credits, every upgrade and soldier level, every
+          unlock, and the abilities. This cannot be undone.
+        </p>
+        <dl className="grid">
+          <div>
+            <dt>On wave</dt>
+            <dd>{snapshot.wave}</dd>
+          </div>
+          <div>
+            <dt>Best wave</dt>
+            <dd>{snapshot.bestWave}</dd>
+          </div>
+          <div>
+            <dt>Credits</dt>
+            <dd>{compact(snapshot.credits)}</dd>
+          </div>
+        </dl>
+        <div className="modal__actions">
+          <button className="btn btn--ghost" onClick={onCancel}>
+            Keep playing
+          </button>
+          <button className="btn btn--danger" onClick={onConfirm}>
+            Restart
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
