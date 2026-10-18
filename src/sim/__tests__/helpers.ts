@@ -3,7 +3,15 @@
 import { defaultConfig, type GameConfig } from '../config';
 import { createInitialState } from '../state';
 import { startBattle, step } from '../engine';
-import { buyAbility, buyUpgrade, deployUnit, trackCost, unlockUnit } from '../actions';
+import {
+  buyAbility,
+  buyUpgrade,
+  deployUnit,
+  trackCost,
+  unitLevelCost,
+  unlockUnit,
+  upgradeUnit,
+} from '../actions';
 import { castAbility } from '../abilities';
 import { abilityCost } from '../derive';
 import { PLAYER_UNITS, PLAYER_UNIT_ORDER } from '../roster';
@@ -91,18 +99,13 @@ export function pin(unit: Unit): void {
 // — so what it reaches is a floor on what a thinking player can reach.
 // ---------------------------------------------------------------------------
 
-const TRACKS: UpgradeTrack[] = [
-  'wall',
-  'towers',
-  'soldierHp',
-  'soldierDamage',
-  'soldierSpeed',
-  'charges',
-  'recharge',
-];
+const TRACKS: UpgradeTrack[] = ['wall', 'towers', 'charges', 'recharge'];
 const ABILITIES: AbilityId[] = ['artillery', 'barrage', 'napalm'];
 
-/** Unlock what is comfortably affordable, then buy the cheapest track. */
+/**
+ * Unlock what is comfortably affordable, then buy the cheapest thing on offer —
+ * a command track, or a level for one of the soldier kinds.
+ */
 export function autoShop(state: SimState, cfg: GameConfig = defaultConfig): void {
   for (let i = 0; i < 80; i++) {
     let acted = false;
@@ -116,9 +119,18 @@ export function autoShop(state: SimState, cfg: GameConfig = defaultConfig): void
         acted = buyAbility(state, cfg, id) || acted;
       }
     }
-    const cheapest = [...TRACKS].sort((a, b) => trackCost(cfg, state, a) - trackCost(cfg, state, b))[0];
-    if (state.credits >= trackCost(cfg, state, cheapest) * 1.1) {
-      acted = buyUpgrade(state, cfg, cheapest) || acted;
+
+    const cheapestTrack = [...TRACKS].sort((a, b) => trackCost(cfg, state, a) - trackCost(cfg, state, b))[0];
+    const cheapestUnit = PLAYER_UNIT_ORDER.filter((id) => state.unlocked[id]).sort(
+      (a, b) => unitLevelCost(cfg, state, a) - unitLevelCost(cfg, state, b),
+    )[0];
+
+    const trackPrice = trackCost(cfg, state, cheapestTrack);
+    const unitPrice = cheapestUnit ? unitLevelCost(cfg, state, cheapestUnit) : Infinity;
+    if (unitPrice <= trackPrice && state.credits >= unitPrice * 1.1) {
+      acted = upgradeUnit(state, cfg, cheapestUnit) || acted;
+    } else if (state.credits >= trackPrice * 1.1) {
+      acted = buyUpgrade(state, cfg, cheapestTrack) || acted;
     }
     if (!acted) return;
   }

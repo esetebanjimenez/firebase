@@ -50,6 +50,8 @@ export interface PlayerUnitDef extends UnitStats {
   readonly chargeCost: number;
   /** Credits to unlock. 0 = available from the first wave. */
   readonly unlockCost: number;
+  /** Credits for this kind's level 1 → 2; later levels grow geometrically. */
+  readonly upgradeCost: number;
   readonly blurb: string;
 }
 
@@ -95,6 +97,7 @@ export const PLAYER_UNITS: Readonly<Record<PlayerUnitId, PlayerUnitDef>> = {
     radius: 4,
     chargeCost: 1,
     unlockCost: 0,
+    upgradeCost: 30,
     silhouette: 'trooper',
     mark: 'gun',
     colors: ['#3f4a33', '#6b7a50', '#cfa98a', '#2a3124'],
@@ -118,6 +121,7 @@ export const PLAYER_UNITS: Readonly<Record<PlayerUnitId, PlayerUnitDef>> = {
     radius: 5,
     chargeCost: 1,
     unlockCost: 120,
+    upgradeCost: 45,
     silhouette: 'armored',
     mark: 'shield',
     colors: ['#2f3a44', '#55656f', '#cfa98a', '#1d242a'],
@@ -141,6 +145,7 @@ export const PLAYER_UNITS: Readonly<Record<PlayerUnitId, PlayerUnitDef>> = {
     radius: 4,
     chargeCost: 2,
     unlockCost: 400,
+    upgradeCost: 80,
     silhouette: 'trooper',
     mark: 'bigGun',
     colors: ['#3b4330', '#7d8a5c', '#cfa98a', '#23281c'],
@@ -164,6 +169,7 @@ export const PLAYER_UNITS: Readonly<Record<PlayerUnitId, PlayerUnitDef>> = {
     radius: 4,
     chargeCost: 2,
     unlockCost: 900,
+    upgradeCost: 130,
     silhouette: 'trooper',
     mark: 'launcher',
     colors: ['#43402c', '#8a7f4e', '#cfa98a', '#272519'],

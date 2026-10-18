@@ -8,19 +8,11 @@
  */
 
 import type { GameConfig } from './config';
-import { soldierDamageMult, soldierHpMult, soldierSpeedMult, waveBountyScale, waveDamageScale, waveHpScale, waveBudget } from './derive';
+import { playerUnitStats, waveBountyScale, waveDamageScale, waveHpScale, waveBudget } from './derive';
 import { RngStream, deriveSeed } from './rng';
 import { ENEMY_UNITS, FACTIONS, FACTION_ORDER, PLAYER_UNITS, bossFor, rosterFor } from './roster';
 import type { EnemyUnitDef } from './roster';
-import type {
-  EnemyUnitId,
-  FactionId,
-  PlayerUnitId,
-  QueuedSpawn,
-  SimState,
-  Unit,
-  UpgradeState,
-} from './types';
+import type { EnemyUnitId, FactionId, PlayerUnitId, QueuedSpawn, SimState, Unit } from './types';
 
 export interface WaveComposition {
   readonly kind: EnemyUnitId;
@@ -212,13 +204,9 @@ function makeUnit(args: MakeUnitArgs, stats: typeof PLAYER_UNITS[PlayerUnitId] |
 }
 
 /** Deploy one of your soldiers in the gate mouth. Mutates the id counter. */
-export function createPlayerUnit(
-  state: SimState,
-  cfg: GameConfig,
-  kind: PlayerUnitId,
-  upgrades: UpgradeState = state.upgrades,
-): Unit {
+export function createPlayerUnit(state: SimState, cfg: GameConfig, kind: PlayerUnitId): Unit {
   const def = PLAYER_UNITS[kind];
+  const stats = playerUnitStats(cfg, state.unitLevels, kind);
   const rng = new RngStream(state.rngState);
   const x = cfg.field.gateX + rng.spread(cfg.field.gateHalfWidth * 0.6);
   state.rngState = rng.state;
@@ -229,9 +217,9 @@ export function createPlayerUnit(
       kind,
       x,
       y: cfg.field.wallTop - cfg.sim.gateSpawnOffset,
-      hp: def.hp * soldierHpMult(cfg, upgrades.soldierHp),
-      damage: def.damage * soldierDamageMult(cfg, upgrades.soldierDamage),
-      speed: def.speed * soldierSpeedMult(cfg, upgrades.soldierSpeed),
+      hp: stats.hp,
+      damage: stats.damage,
+      speed: stats.speed,
       bounty: 0,
       aim: -Math.PI / 2,
       spawnPeriod: 0,
@@ -301,7 +289,4 @@ export function createRaisedUnit(
   );
 }
 
-/** Speed of a player unit kind at the current upgrades — used by the UI. */
-export function playerUnitSpeed(cfg: GameConfig, upgrades: UpgradeState, kind: PlayerUnitId): number {
-  return PLAYER_UNITS[kind].speed * soldierSpeedMult(cfg, upgrades.soldierSpeed);
-}
+

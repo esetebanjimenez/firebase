@@ -8,7 +8,7 @@
 
 import type { AbilityConfig, GameConfig } from './config';
 import { PLAYER_UNITS } from './roster';
-import type { AbilityId, PlayerUnitId, SimState, UpgradeState } from './types';
+import type { AbilityId, PlayerUnitId, SimState } from './types';
 
 /** The standard idle-game price curve: base * growth^(level-1). */
 export function geometricCost(base: number, growth: number, level: number): number {
@@ -49,44 +49,41 @@ export function towerUpgradeCost(cfg: GameConfig, level: number): number {
   return geometricCost(cfg.towers.baseCost, cfg.towers.costGrowth, level);
 }
 
-// --- Soldiers --------------------------------------------------------------
+// --- Soldiers -------------------------------------------------------------
+//
+// Each kind levels on its own. A level lifts that kind's hit points, damage and
+// a little of its speed, so the question is which soldiers you invest in.
 
-export function soldierHpMult(cfg: GameConfig, level: number): number {
+export function unitHpMult(cfg: GameConfig, level: number): number {
   return Math.pow(cfg.soldiers.hpGrowth, Math.max(0, level - 1));
 }
 
-export function soldierDamageMult(cfg: GameConfig, level: number): number {
+export function unitDamageMult(cfg: GameConfig, level: number): number {
   return Math.pow(cfg.soldiers.damageGrowth, Math.max(0, level - 1));
 }
 
-export function soldierSpeedMult(cfg: GameConfig, level: number): number {
+export function unitSpeedMult(cfg: GameConfig, level: number): number {
   const raw = 1 + cfg.soldiers.speedPerLevel * Math.max(0, level - 1);
   return Math.min(cfg.soldiers.maxSpeedMult, raw);
 }
 
-export function soldierHpCost(cfg: GameConfig, level: number): number {
-  return geometricCost(cfg.soldiers.hpCost, cfg.soldiers.hpCostGrowth, level);
+/** Credits to take a kind from `level` to the next one. */
+export function unitUpgradeCost(cfg: GameConfig, id: PlayerUnitId, level: number): number {
+  return geometricCost(PLAYER_UNITS[id].upgradeCost, cfg.soldiers.costGrowth, level);
 }
 
-export function soldierDamageCost(cfg: GameConfig, level: number): number {
-  return geometricCost(cfg.soldiers.damageCost, cfg.soldiers.damageCostGrowth, level);
-}
-
-export function soldierSpeedCost(cfg: GameConfig, level: number): number {
-  return geometricCost(cfg.soldiers.speedCost, cfg.soldiers.speedCostGrowth, level);
-}
-
-/** A player unit's stats after the global soldier upgrades. */
+/** A player unit's stats at its current level. */
 export function playerUnitStats(
   cfg: GameConfig,
-  upgrades: UpgradeState,
+  levels: Record<PlayerUnitId, number>,
   id: PlayerUnitId,
-): { hp: number; damage: number; speed: number; dps: number } {
+): { hp: number; damage: number; speed: number; dps: number; level: number } {
   const def = PLAYER_UNITS[id];
-  const hp = def.hp * soldierHpMult(cfg, upgrades.soldierHp);
-  const damage = def.damage * soldierDamageMult(cfg, upgrades.soldierDamage);
-  const speed = def.speed * soldierSpeedMult(cfg, upgrades.soldierSpeed);
-  return { hp, damage, speed, dps: damage / def.attackPeriod };
+  const level = Math.max(1, levels[id]);
+  const hp = def.hp * unitHpMult(cfg, level);
+  const damage = def.damage * unitDamageMult(cfg, level);
+  const speed = def.speed * unitSpeedMult(cfg, level);
+  return { hp, damage, speed, dps: damage / def.attackPeriod, level };
 }
 
 // --- Deployment charges ----------------------------------------------------

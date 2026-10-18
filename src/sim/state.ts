@@ -17,7 +17,11 @@ export function createInitialState(cfg: GameConfig, seed: number = cfg.seed): Si
   const maxCharges = chargeMax(cfg, 1);
 
   const unlocked = {} as Record<PlayerUnitId, boolean>;
-  for (const id of PLAYER_UNIT_ORDER) unlocked[id] = PLAYER_UNITS[id].unlockCost === 0;
+  const unitLevels = {} as Record<PlayerUnitId, number>;
+  for (const id of PLAYER_UNIT_ORDER) {
+    unlocked[id] = PLAYER_UNITS[id].unlockCost === 0;
+    unitLevels[id] = unlocked[id] ? 1 : 0;
+  }
 
   const abilities = {} as SimState['abilities'];
   for (const id of ABILITY_IDS) abilities[id] = { level: 0, cooldown: 0 };
@@ -38,13 +42,11 @@ export function createInitialState(cfg: GameConfig, seed: number = cfg.seed): Si
     upgrades: {
       wall: 1,
       towers: 1,
-      soldierHp: 1,
-      soldierDamage: 1,
-      soldierSpeed: 1,
       charges: 1,
       recharge: 1,
     },
     unlocked,
+    unitLevels,
     abilities,
     automation: {
       autoLaunch: { unlocked: false, enabled: false },

@@ -63,19 +63,19 @@ export interface GameConfig {
     readonly costGrowth: number;
   };
 
-  /** Multipliers applied to every player unit's stat block. */
+  /**
+   * What a level buys a single soldier kind. One purchase lifts that kind's
+   * hit points, damage and (a little) speed, so investment is a choice about
+   * which soldiers you want to be good, not a stat shopping list.
+   */
   readonly soldiers: {
     readonly hpGrowth: number;
     readonly damageGrowth: number;
     /** Speed stays linear and capped: sprinting soldiers break the formations. */
     readonly speedPerLevel: number;
     readonly maxSpeedMult: number;
-    readonly hpCost: number;
-    readonly hpCostGrowth: number;
-    readonly damageCost: number;
-    readonly damageCostGrowth: number;
-    readonly speedCost: number;
-    readonly speedCostGrowth: number;
+    /** Price growth per level; the base price is per kind, in the roster. */
+    readonly costGrowth: number;
   };
 
   /** The deployment charge pool: how many soldiers you can push out, and how fast. */
@@ -186,7 +186,7 @@ export interface AbilityConfig {
 }
 
 export const defaultConfig: GameConfig = {
-  version: 1,
+  version: 2,
   seed: 1,
 
   field: {
@@ -225,16 +225,11 @@ export const defaultConfig: GameConfig = {
   },
 
   soldiers: {
-    hpGrowth: 1.14,
-    damageGrowth: 1.14,
-    speedPerLevel: 0.05,
-    maxSpeedMult: 2.2,
-    hpCost: 35,
-    hpCostGrowth: 1.16,
-    damageCost: 40,
-    damageCostGrowth: 1.17,
-    speedCost: 60,
-    speedCostGrowth: 1.3,
+    hpGrowth: 1.15,
+    damageGrowth: 1.15,
+    speedPerLevel: 0.03,
+    maxSpeedMult: 1.6,
+    costGrowth: 1.17,
   },
 
   charges: {

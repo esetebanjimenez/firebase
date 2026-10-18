@@ -12,10 +12,8 @@ import {
   abilityCost,
   chargeMaxCost,
   rechargeCost,
-  soldierDamageCost,
-  soldierHpCost,
-  soldierSpeedCost,
   towerUpgradeCost,
+  unitUpgradeCost,
   wallMaxHp,
   wallUpgradeCost,
 } from './derive';
@@ -24,15 +22,8 @@ import { PLAYER_UNITS } from './roster';
 import { createPlayerUnit } from './waves';
 import type { AbilityId, AutomationState, PlayerUnitId, SimEvent, SimState } from './types';
 
-/** The seven credit-sinks that have levels. */
-export type UpgradeTrack =
-  | 'wall'
-  | 'towers'
-  | 'soldierHp'
-  | 'soldierDamage'
-  | 'soldierSpeed'
-  | 'charges'
-  | 'recharge';
+/** The command-level credit sinks. Soldiers level per kind, not here. */
+export type UpgradeTrack = 'wall' | 'towers' | 'charges' | 'recharge';
 
 export type AutomationId = keyof AutomationState;
 
@@ -44,12 +35,6 @@ export function trackCost(cfg: GameConfig, state: SimState, track: UpgradeTrack)
       return wallUpgradeCost(cfg, level);
     case 'towers':
       return towerUpgradeCost(cfg, level);
-    case 'soldierHp':
-      return soldierHpCost(cfg, level);
-    case 'soldierDamage':
-      return soldierDamageCost(cfg, level);
-    case 'soldierSpeed':
-      return soldierSpeedCost(cfg, level);
     case 'charges':
       return chargeMaxCost(cfg, level);
     case 'recharge':
@@ -81,7 +66,7 @@ export function buyUpgrade(state: SimState, cfg: GameConfig, track: UpgradeTrack
   return true;
 }
 
-/** Permanently unlock a soldier type for deployment. */
+/** Permanently unlock a soldier kind for deployment. It starts at level 1. */
 export function unlockUnit(state: SimState, cfg: GameConfig, id: PlayerUnitId): boolean {
   void cfg;
   if (state.unlocked[id]) return false;
@@ -89,7 +74,26 @@ export function unlockUnit(state: SimState, cfg: GameConfig, id: PlayerUnitId): 
   if (state.credits < cost) return false;
   state.credits -= cost;
   state.unlocked[id] = true;
+  state.unitLevels[id] = Math.max(1, state.unitLevels[id]);
   state.selectedUnit = id;
+  return true;
+}
+
+/** Credits to take a soldier kind to its next level. */
+export function unitLevelCost(cfg: GameConfig, state: SimState, id: PlayerUnitId): number {
+  return unitUpgradeCost(cfg, id, Math.max(1, state.unitLevels[id]));
+}
+
+/**
+ * Level up one soldier kind: more hit points, more damage, a little more speed
+ * — for that kind alone. Locked kinds have to be unlocked first.
+ */
+export function upgradeUnit(state: SimState, cfg: GameConfig, id: PlayerUnitId): boolean {
+  if (!state.unlocked[id]) return false;
+  const cost = unitLevelCost(cfg, state, id);
+  if (state.credits < cost) return false;
+  state.credits -= cost;
+  state.unitLevels[id] = Math.max(1, state.unitLevels[id]) + 1;
   return true;
 }
 

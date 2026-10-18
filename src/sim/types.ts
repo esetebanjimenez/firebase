@@ -176,12 +176,14 @@ export interface QueuedSpawn {
 }
 
 /** Everything the player buys with credits. Plain levels, 1-based. */
+/**
+ * The command-level tracks. Soldiers are not upgraded here — each kind carries
+ * its own level in `SimState.unitLevels`, so improving riflemen is a different
+ * decision from improving rocketeers.
+ */
 export interface UpgradeState {
   wall: number;
   towers: number;
-  soldierHp: number;
-  soldierDamage: number;
-  soldierSpeed: number;
   /** Size of the deployment charge pool. */
   charges: number;
   /** Charge recharge rate. */
@@ -244,6 +246,8 @@ export interface SimState {
   towers: Tower[];
   upgrades: UpgradeState;
   unlocked: Record<PlayerUnitId, boolean>;
+  /** Per-kind level: 0 while the kind is still locked, 1 once unlocked. */
+  unitLevels: Record<PlayerUnitId, number>;
   abilities: Record<AbilityId, AbilityState>;
   automation: AutomationState;
 
