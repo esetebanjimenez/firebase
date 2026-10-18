@@ -1,46 +1,83 @@
 /**
- * Public API of the simulation core. UI, renderer, and game loop import only
- * from here.
+ * The simulation's public API. The game loop, UI and renderer import only from
+ * here, never from the modules directly.
  */
 
 export * from './types';
+
 export { defaultConfig } from './config';
-export type { GameConfig, EnemyConfig } from './config';
+export type { AbilityConfig, GameConfig } from './config';
+
+export {
+  ENEMY_UNITS,
+  FACTIONS,
+  FACTION_ORDER,
+  PLAYER_UNITS,
+  PLAYER_UNIT_ORDER,
+  bossFor,
+  rosterFor,
+} from './roster';
+export type { EnemyUnitDef, FactionDef, PlayerUnitDef, UnitStats } from './roster';
 
 export { createInitialState } from './state';
-export { step, syncBarrierMax } from './engine';
+export { startBattle, step, syncDerived } from './engine';
 export { applyOfflineProgress } from './offline';
+export { canCast, castAbility } from './abilities';
 
 export {
-  firepowerDps,
-  firepowerCost,
-  barrierMaxHp,
-  barrierRegen,
-  barrierCost,
-  repairCost,
-  fireSupportDamage,
-  fireSupportCooldown,
-  fireSupportCost,
-  enemyHp,
-  enemyBounty,
-  enemyAttackDps,
-  waveCount,
-  wallStanding,
-} from './combat';
+  abilityCooldown,
+  abilityCost,
+  abilityDamage,
+  abilityTotalDamage,
+  applyArmor,
+  chargeMax,
+  chargeMaxCost,
+  geometricCost,
+  incomePerSec,
+  playerUnitStats,
+  rechargeCost,
+  rechargeSec,
+  soldierDamageMult,
+  soldierHpMult,
+  soldierSpeedMult,
+  soldierDamageCost,
+  soldierHpCost,
+  soldierSpeedCost,
+  totalTowerDps,
+  towerDamage,
+  towerDps,
+  towerPeriod,
+  towerRange,
+  towerUpgradeCost,
+  unitUnlockCost,
+  wallMaxHp,
+  wallUpgradeCost,
+  waveBudget,
+  waveBountyScale,
+  waveDamageScale,
+  waveHpScale,
+} from './derive';
 
 export {
-  upgradeFirepower,
-  upgradeBarrier,
-  upgradeFireSupport,
-  repairBarrier,
-  useFireSupport,
-  sendNextWave,
-  canUseFireSupport,
-  firepowerUpgradeCost,
-  barrierUpgradeCost,
-  fireSupportUpgradeCost,
-  barrierRepairCost,
+  automationCost,
+  buyAbility,
+  buyUpgrade,
+  canDeploy,
+  chargeCost,
+  clearResult,
+  deployUnit,
+  launchWave,
+  selectAbility,
+  selectUnit,
+  toggleAutomation,
+  trackCost,
+  unlockAutomation,
+  unlockUnit,
 } from './actions';
+export type { AutomationId, UpgradeTrack } from './actions';
 
-export { serialize, deserialize } from './persistence';
+export { availableFactions, factionsForWave, planWave } from './waves';
+export type { WaveComposition, WavePlan } from './waves';
+
+export { deserialize, serialize, toSaveState } from './persistence';
 export type { SaveEnvelope } from './persistence';
