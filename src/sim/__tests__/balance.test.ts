@@ -33,8 +33,8 @@ describe('the opening', () => {
     let cleared = 0;
     for (let i = 0; i < 25; i++) {
       autoShop(state);
-      const { won } = runWave(state, { deploy: null });
-      if (won) cleared = state.bestWave;
+      const { result } = runWave(state, { deploy: null });
+      if (result.won) cleared = state.bestWave;
       else break;
     }
     expect(cleared).toBeLessThan(25);

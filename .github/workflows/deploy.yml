@@ -4,7 +4,7 @@ name: Deploy to GitHub Pages
 # Deploys on every push to the default branch; can also be run manually.
 on:
   push:
-    branches: ['claude/firebase-idle-slice-plan-v6lurn']
+    branches: ['claude/idle-tower-defense-game-mzvltg']
   workflow_dispatch:
 
 # Permissions the GITHUB_TOKEN needs to publish to Pages.

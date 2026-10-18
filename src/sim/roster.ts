@@ -44,6 +44,8 @@ export interface UnitStats {
 
 export interface PlayerUnitDef extends UnitStats {
   readonly id: PlayerUnitId;
+  /** Two-to-six characters, for the deployment chips. */
+  readonly short: string;
   /** Deployment charges consumed per unit. */
   readonly chargeCost: number;
   /** Credits to unlock. 0 = available from the first wave. */
@@ -77,6 +79,7 @@ export const PLAYER_UNITS: Readonly<Record<PlayerUnitId, PlayerUnitDef>> = {
   rifleman: {
     id: 'rifleman',
     name: 'Rifleman',
+    short: 'Rifle',
     blurb: 'Cheap, mobile, accurate. The backbone of the line.',
     hp: 60,
     damage: 8,
@@ -99,6 +102,7 @@ export const PLAYER_UNITS: Readonly<Record<PlayerUnitId, PlayerUnitDef>> = {
   shield: {
     id: 'shield',
     name: 'Shield Bearer',
+    short: 'Shield',
     blurb: 'Riot shield and armour. Soaks the charge so the rifles keep firing.',
     hp: 240,
     damage: 8,
@@ -121,6 +125,7 @@ export const PLAYER_UNITS: Readonly<Record<PlayerUnitId, PlayerUnitDef>> = {
   gunner: {
     id: 'gunner',
     name: 'Machine Gunner',
+    short: 'MG',
     blurb: 'Belt-fed and brutal against crowds, but slow to reposition.',
     hp: 90,
     damage: 4.5,
@@ -143,6 +148,7 @@ export const PLAYER_UNITS: Readonly<Record<PlayerUnitId, PlayerUnitDef>> = {
   rocketeer: {
     id: 'rocketeer',
     name: 'Rocketeer',
+    short: 'Rocket',
     blurb: 'Anti-armour rockets with splash. Answer to golems, rams and giants.',
     hp: 75,
     damage: 34,
