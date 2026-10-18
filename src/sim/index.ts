@@ -37,12 +37,10 @@ export {
   playerUnitStats,
   rechargeCost,
   rechargeSec,
-  soldierDamageMult,
-  soldierHpMult,
-  soldierSpeedMult,
-  soldierDamageCost,
-  soldierHpCost,
-  soldierSpeedCost,
+  unitDamageMult,
+  unitHpMult,
+  unitSpeedMult,
+  unitUpgradeCost,
   totalTowerDps,
   towerDamage,
   towerDps,
@@ -71,8 +69,10 @@ export {
   selectUnit,
   toggleAutomation,
   trackCost,
+  unitLevelCost,
   unlockAutomation,
   unlockUnit,
+  upgradeUnit,
 } from './actions';
 export type { AutomationId, UpgradeTrack } from './actions';
 

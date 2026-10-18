@@ -1,9 +1,11 @@
 /**
- * CommandBar — the thumb-reach controls: the charge pool and the soldier it
- * spends on, the fire-support buttons, and the launch button between waves.
+ * CommandBar — the thumb-reach controls: a deploy button per soldier kind, the
+ * charge pool they spend from, the fire-support buttons, and the launch button
+ * between waves.
  */
 
 import type { GameActions, UiSnapshot } from '../game/useGameLoop';
+import { UnitIcon } from './UnitIcon';
 
 interface Props {
   snapshot: UiSnapshot;
@@ -47,7 +49,6 @@ function Charges({ current, max, progress }: { current: number; max: number; pro
 
 export function CommandBar({ snapshot, actions }: Props) {
   const { phase, units, abilities, charges, preview } = snapshot;
-  const selected = units.find((u) => u.selected) ?? units[0];
   const unlockedUnits = units.filter((u) => u.unlocked);
   const unlockedAbilities = abilities.filter((a) => a.unlocked);
 
@@ -63,34 +64,26 @@ export function CommandBar({ snapshot, actions }: Props) {
         </button>
       ) : (
         <div className="command__deploy">
-          <button
-            className="btn btn--deploy"
-            disabled={!selected.deployable}
-            onClick={actions.deploy}
-          >
-            <span className="btn__title">DEPLOY</span>
-            <span className="btn__sub">
-              {selected.name} · {selected.chargeCost} chg
-            </span>
-          </button>
+          {/* One button per soldier: pressing it puts that soldier through the
+              gate straight away, so there is no selection step mid-fight. */}
+          <div className={`deploys deploys--${unlockedUnits.length}`}>
+            {unlockedUnits.map((unit) => (
+              <button
+                key={unit.id}
+                className="deploy"
+                disabled={!unit.deployable}
+                onClick={() => actions.deploy(unit.id)}
+                style={{ borderColor: unit.colors[1] }}
+              >
+                <UnitIcon kind={unit.id} className="deploy__icon" scale={3} />
+                <span className="deploy__name">{unit.short}</span>
+                <span className="deploy__meta">
+                  L{unit.level} · {unit.chargeCost}
+                </span>
+              </button>
+            ))}
+          </div>
           <Charges current={charges.current} max={charges.max} progress={charges.rechargeProgress} />
-        </div>
-      )}
-
-      {unlockedUnits.length > 1 && (
-        <div className="chips">
-          {unlockedUnits.map((unit) => (
-            <button
-              key={unit.id}
-              className={`chip ${unit.selected ? 'chip--on' : ''}`}
-              onClick={() => actions.select(unit.id)}
-              style={{ borderColor: unit.selected ? unit.colors[1] : undefined }}
-            >
-              <span className="chip__swatch" style={{ background: unit.colors[1] }} />
-              {unit.short}
-              <span className="chip__meta">{unit.chargeCost}</span>
-            </button>
-          ))}
         </div>
       )}
 

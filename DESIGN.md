@@ -63,6 +63,20 @@ Riflemen and shield bearers cost one; machine gunners and rocketeers cost two.
 This is the game's main pacing knob: how much force you can project per wave,
 and how fast it comes back.
 
+Each kind gets its own button, and pressing it deploys that kind immediately.
+There is no select-then-deploy step: mid-fight the decision is *which soldier,
+now*, and making that one press rather than two is the difference between
+reacting to a wave and watching it.
+
+### Soldier levels
+
+Soldiers are not improved by global stat tracks. Each kind carries its own
+level, and a level raises that kind's hit points, damage and a little of its
+speed — for that kind alone. Specialising in riflemen is cheap and leaves your
+rocketeers where they were; spreading investment costs more and keeps every
+answer available. "Armour +1" applied to everyone was a shopping list; "Rifleman
+L7" is a statement about how you fight.
+
 ### Fire support
 
 Ground-targeted and telegraphed. A cast does not damage anything on the spot —
@@ -99,9 +113,10 @@ geometric prices stalled dead at wave 14 in simulation; compounding both, and
 letting bounty scale with enemy HP, is what makes a long run possible.
 
 Enemy stats scale in two stages: gently early, then steeply from wave 15. The
-player compounds across seven upgrade tracks while the enemy only has stats and
-numbers, and numbers are capped by what the field can hold — without the second
-stage, wave 40 was a formality.
+player compounds across the wall, the towers, the charge pool and a level track
+per soldier kind, while the enemy only has stats and numbers, and numbers are
+capped by what the field can hold — without the second stage, wave 40 was a
+formality.
 
 ### Balance method
 
@@ -139,4 +154,5 @@ touching a rule.
   wave" affixes yet).
 - The renderer draws units direction-agnostically with a procedural weapon mark
   rather than four-facing sprites; at this scale it reads, but real facings
-  would read better.
+  would read better. The same sprite-plus-mark is what the deploy buttons show,
+  so UI icons can never drift from the battlefield.

@@ -11,8 +11,10 @@ import {
   selectUnit,
   toggleAutomation,
   trackCost,
+  unitLevelCost,
   unlockAutomation,
   unlockUnit,
+  upgradeUnit,
 } from '../actions';
 import { chargeMax, wallMaxHp } from '../derive';
 import { step } from '../engine';
@@ -67,13 +69,63 @@ describe('unit unlocks', () => {
     expect(state.selectedUnit).toBe('rifleman');
   });
 
-  it('unlocks a kind for its price and selects it', () => {
+  it('unlocks a kind for its price, at level 1, and selects it', () => {
     const state = freshState();
     state.credits = PLAYER_UNITS.shield.unlockCost;
     expect(unlockUnit(state, cfg, 'shield')).toBe(true);
     expect(state.unlocked.shield).toBe(true);
+    expect(state.unitLevels.shield).toBe(1);
     expect(state.selectedUnit).toBe('shield');
     expect(unlockUnit(state, cfg, 'shield')).toBe(false);
+  });
+});
+
+describe('levelling a soldier kind', () => {
+  it('refuses a locked kind', () => {
+    const state = freshState();
+    state.credits = 1e6;
+    expect(upgradeUnit(state, cfg, 'rocketeer')).toBe(false);
+    expect(state.unitLevels.rocketeer).toBe(0);
+  });
+
+  it('charges credits and raises that kindʼs level only', () => {
+    const state = freshState();
+    const cost = unitLevelCost(cfg, state, 'rifleman');
+    state.credits = cost;
+    expect(upgradeUnit(state, cfg, 'rifleman')).toBe(true);
+    expect(state.credits).toBe(0);
+    expect(state.unitLevels.rifleman).toBe(2);
+    expect(state.unitLevels.shield).toBe(0);
+    expect(unitLevelCost(cfg, state, 'rifleman')).toBeGreaterThan(cost);
+  });
+
+  it('puts a tougher soldier on the field', () => {
+    const base = freshState();
+    launchWave(base, cfg);
+    deployUnit(base, cfg, 'rifleman');
+    const before = base.units.find((u) => u.team === 'player')!;
+
+    const levelled = freshState();
+    levelled.credits = 1e6;
+    for (let i = 0; i < 5; i++) upgradeUnit(levelled, cfg, 'rifleman');
+    launchWave(levelled, cfg);
+    deployUnit(levelled, cfg, 'rifleman');
+    const after = levelled.units.find((u) => u.team === 'player')!;
+
+    expect(after.maxHp).toBeGreaterThan(before.maxHp);
+    expect(after.damage).toBeGreaterThan(before.damage);
+    expect(after.speed).toBeGreaterThan(before.speed);
+  });
+
+  it('leaves other kinds alone', () => {
+    const state = freshState();
+    state.credits = 1e6;
+    unlockUnit(state, cfg, 'shield');
+    for (let i = 0; i < 4; i++) upgradeUnit(state, cfg, 'rifleman');
+    launchWave(state, cfg);
+    deployUnit(state, cfg, 'shield');
+    const shield = state.units.find((u) => u.team === 'player')!;
+    expect(shield.maxHp).toBeCloseTo(PLAYER_UNITS.shield.hp, 6);
   });
 });
 

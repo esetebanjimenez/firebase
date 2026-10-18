@@ -11,16 +11,19 @@ rams, golems, wraiths and the necromancers raising more of them.
 
 ## The loop
 
-1. **Prep.** Spend credits. The wall gets tougher, the towers hit harder, your
-   soldiers get armour, firepower and speed, the deployment pool gets deeper and
-   recharges faster, and fire support unlocks and levels up.
+1. **Prep.** Spend credits. The wall gets tougher, the towers hit harder, the
+   deployment pool gets deeper and recharges faster, and fire support unlocks
+   and levels up. Soldiers improve **one kind at a time**: a Rifleman level
+   buys riflemen more hit points, damage and a little speed — and nothing for
+   your rocketeers.
 2. **Launch.** You decide when the wave comes — nothing starts without you.
    Enemies pour in from the top and head for the wall.
-3. **Fight.** Towers shoot what comes into range. You spend **deployment
-   charges** to push soldiers out of the gate — a charge per rifleman or shield
-   bearer, two for a gunner or a rocketeer — and charges come back one at a
-   time, so a wave is a sequence of decisions, not one big one. Tap the ground
-   to call in artillery, a mortar barrage, or napalm.
+3. **Fight.** Towers shoot what comes into range. Each soldier kind has its own
+   button, and pressing one puts that soldier through the gate immediately — a
+   charge per rifleman or shield bearer, two for a gunner or a rocketeer.
+   Charges come back one at a time, so a wave is a sequence of decisions, not
+   one big one. Tap the ground to call in artillery, a mortar barrage, or
+   napalm.
 4. **Resolve.** Clear the field and the next wave is tougher. Let the wall reach
    0 HP and you re-fight the same wave. Either way **every credit you earned is
    yours** and the wall is rebuilt to full.
@@ -45,19 +48,21 @@ From wave 16 on, two armies can attack together. Every tenth wave brings a boss.
 - The **garrison earns credits whether you are playing or not**, at a rate that
   compounds with the furthest wave you have cleared.
 - Time away is credited when you come back, capped at 8 hours.
-- **Auto-deploy** spends charges on your selected soldier for you;
+- **Auto-deploy** spends charges on your selected soldier kind for you;
   **auto-launch** sends the next wave as soon as you are back in prep. Buy both
   and the run advances while you watch.
 
 ## Controls
 
 - **LAUNCH WAVE** — start the wave you have been preparing for.
-- **DEPLOY** — spend charges on the selected soldier. The chips under it switch
-  which one.
+- **One button per soldier** — pressing it deploys that kind on the spot, for
+  the charges shown on the button. Each button carries that kind's own level and
+  its own sprite, the same one that walks out of the gate.
 - **Ability buttons** — arm fire support, then **press and drag on the field** to
   place the strike and release to call it in.
-- **Defense / Troops / Support** tabs — the shop. Everything is buyable
-  mid-battle too, which is often the right move.
+- **Defense / Troops / Support** tabs — the shop. The Troops tab is where a
+  soldier kind takes its next level. Everything is buyable mid-battle too, which
+  is often the right move.
 
 ## Tech
 

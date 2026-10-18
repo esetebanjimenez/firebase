@@ -11,11 +11,13 @@ import {
   playerUnitStats,
   rechargeSec,
   towerDps,
+  unitUpgradeCost,
   towerPeriod,
   wallMaxHp,
   waveBudget,
   waveHpScale,
 } from '../derive';
+import { PLAYER_UNITS } from '../roster';
 import { createInitialState } from '../state';
 
 describe('cost curves', () => {
@@ -51,19 +53,33 @@ describe('derived stats', () => {
     expect(abilityDamage(cfg, 'napalm', 2)).toBeGreaterThan(abilityDamage(cfg, 'napalm', 1));
   });
 
-  it('applies soldier upgrades to every unit stat', () => {
+  it('lifts hp, damage and speed as a kind levels', () => {
     const state = createInitialState(cfg);
-    const base = playerUnitStats(cfg, state.upgrades, 'rifleman');
-    const upgraded = playerUnitStats(
-      cfg,
-      { ...state.upgrades, soldierHp: 5, soldierDamage: 5, soldierSpeed: 5 },
-      'rifleman',
-    );
+    const base = playerUnitStats(cfg, state.unitLevels, 'rifleman');
+    const upgraded = playerUnitStats(cfg, { ...state.unitLevels, rifleman: 5 }, 'rifleman');
     expect(upgraded.hp).toBeGreaterThan(base.hp);
     expect(upgraded.damage).toBeGreaterThan(base.damage);
     expect(upgraded.speed).toBeGreaterThan(base.speed);
     expect(upgraded.dps).toBeCloseTo(upgraded.damage / 0.7, 5);
     expect(upgraded.speed).toBeLessThanOrEqual(base.speed * cfg.soldiers.maxSpeedMult + 1e-9);
+  });
+
+  it('levels each kind independently', () => {
+    const state = createInitialState(cfg);
+    const levels = { ...state.unitLevels, rifleman: 6, shield: 1 };
+    const rifle = playerUnitStats(cfg, levels, 'rifleman');
+    const shield = playerUnitStats(cfg, levels, 'shield');
+    expect(rifle.level).toBe(6);
+    expect(shield.level).toBe(1);
+    expect(rifle.damage).toBeGreaterThan(PLAYER_UNITS.rifleman.damage);
+    expect(shield.damage).toBeCloseTo(PLAYER_UNITS.shield.damage, 6);
+  });
+
+  it('prices a kindʼs next level above its last', () => {
+    expect(unitUpgradeCost(cfg, 'rifleman', 1)).toBe(PLAYER_UNITS.rifleman.upgradeCost);
+    expect(unitUpgradeCost(cfg, 'rifleman', 4)).toBeGreaterThan(unitUpgradeCost(cfg, 'rifleman', 3));
+    // Heavier kinds cost more to improve than riflemen do.
+    expect(unitUpgradeCost(cfg, 'rocketeer', 1)).toBeGreaterThan(unitUpgradeCost(cfg, 'rifleman', 1));
   });
 });
 

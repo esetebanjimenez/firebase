@@ -9,8 +9,9 @@
  * tiny art budget, and it means new kinds are data, not drawings.
  */
 
+import { drawMark } from './marks';
 import { PALETTE } from './palette';
-import { bake, bakeFlat, bobbed, type PixelGrid, type Ramp, type Sprite } from './pixel';
+import { bake, bakeFlat, bobbed, createLayer, type PixelGrid, type Ramp, type Sprite } from './pixel';
 import { ENEMY_UNITS, PLAYER_UNITS } from '../sim';
 import type { Silhouette, UnitKindId } from '../sim';
 
@@ -163,4 +164,52 @@ export function propSprite(id: PropId): Sprite {
 /** The art for a kind, for UI chips and the roster screens. */
 export function unitRamp(kind: UnitKindId): Ramp {
   return defFor(kind).colors as Ramp;
+}
+
+export interface UnitIconArt {
+  readonly url: string;
+  /** Unscaled size in sprite pixels; the caller scales by a whole number. */
+  readonly width: number;
+  readonly height: number;
+}
+
+const iconCache = new Map<UnitKindId, UnitIconArt>();
+
+/**
+ * A button-sized portrait of a unit kind: the very sprite that walks out of the
+ * gate, weapon mark and all, facing up. Buttons made from the game's own art
+ * cannot drift from the battlefield the way a separate icon set would — and
+ * nothing here is anti-aliased, so it sits under the field without looking
+ * imported from another game.
+ *
+ * Baked at 1:1 and reported with its pixel size, so the caller can scale it by
+ * a whole number and keep every pixel square.
+ */
+export function unitIcon(kind: UnitKindId): UnitIconArt {
+  const cached = iconCache.get(kind);
+  if (cached) return cached;
+
+  const def = defFor(kind);
+  const body = unitSprites(kind).frames[0];
+  // Just enough room: a little to the sides for a shield, more above for the
+  // barrel or blade the mark extends upward.
+  const width = body.width + 4;
+  const height = body.height + 8;
+  const centreX = width / 2;
+  const centreY = height - body.height / 2 - 1;
+
+  const { canvas, ctx } = createLayer(width, height);
+  drawMark(ctx, {
+    x: centreX,
+    y: centreY,
+    aim: -Math.PI / 2, // facing up the field, the way it leaves the gate
+    mark: def.mark,
+    ramp: def.colors as Ramp,
+    radius: def.radius,
+  });
+  ctx.drawImage(body.canvas, Math.round(centreX - body.width / 2), Math.round(centreY - body.height / 2));
+
+  const art: UnitIconArt = { url: canvas.toDataURL(), width, height };
+  iconCache.set(kind, art);
+  return art;
 }

@@ -7,12 +7,15 @@
 import { useState } from 'react';
 import type { GameActions, UiSnapshot } from '../game/useGameLoop';
 import { compact } from './TopBar';
+import { UnitIcon } from './UnitIcon';
 
 type Tab = 'defense' | 'troops' | 'support';
 
 interface Props {
   snapshot: UiSnapshot;
   actions: GameActions;
+  /** Opens the restart confirmation; the wipe itself lives in App. */
+  onRestart: () => void;
 }
 
 function Row({
@@ -24,6 +27,7 @@ function Row({
   onClick,
   accent,
   disabled,
+  icon,
 }: {
   title: string;
   detail: string;
@@ -33,6 +37,7 @@ function Row({
   onClick?: () => void;
   accent?: string;
   disabled?: boolean;
+  icon?: React.ReactNode;
 }) {
   return (
     <button
@@ -41,6 +46,7 @@ function Row({
       disabled={disabled || !affordable || !onClick}
       style={accent ? { borderLeftColor: accent } : undefined}
     >
+      {icon}
       <span className="row__main">
         <span className="row__title">
           {title}
@@ -53,19 +59,12 @@ function Row({
   );
 }
 
-export function Panel({ snapshot, actions }: Props) {
+export function Panel({ snapshot, actions, onRestart }: Props) {
   const [tab, setTab] = useState<Tab>('defense');
   const { upgrades, units, abilities, automation, wall, towers, charges, preview, phase } = snapshot;
 
   const defenseTracks = upgrades.filter((u) => u.track === 'wall' || u.track === 'towers');
-  const troopTracks = upgrades.filter(
-    (u) =>
-      u.track === 'soldierHp' ||
-      u.track === 'soldierDamage' ||
-      u.track === 'soldierSpeed' ||
-      u.track === 'charges' ||
-      u.track === 'recharge',
-  );
+  const chargeTracks = upgrades.filter((u) => u.track === 'charges' || u.track === 'recharge');
 
   return (
     <section className="panel">
@@ -113,17 +112,19 @@ export function Panel({ snapshot, actions }: Props) {
             <p className="panel__note">
               {charges.current}/{charges.max} charges · one back every {charges.rechargeSec.toFixed(1)}s
             </p>
+            {/* Soldiers level one kind at a time: a level is hit points,
+                damage and a little speed, for that kind alone. */}
             {units.map((unit) =>
               unit.unlocked ? (
                 <Row
                   key={unit.id}
-                  title={unit.name}
-                  badge={unit.selected ? 'selected' : undefined}
+                  title={`${unit.name} L${unit.level}`}
                   detail={`${unit.hp} hp · ${unit.dps.toFixed(1)} dps · ${unit.chargeCost} charge${unit.chargeCost > 1 ? 's' : ''}`}
-                  cost={null}
-                  affordable
+                  cost={unit.upgradeCost}
+                  affordable={unit.upgradeAffordable}
                   accent={unit.colors[1]}
-                  onClick={() => actions.select(unit.id)}
+                  icon={<UnitIcon kind={unit.id} scale={2} />}
+                  onClick={() => actions.levelUp(unit.id)}
                 />
               ) : (
                 <Row
@@ -133,11 +134,12 @@ export function Panel({ snapshot, actions }: Props) {
                   cost={unit.unlockCost}
                   affordable={unit.affordable}
                   accent={unit.colors[1]}
+                  icon={<UnitIcon kind={unit.id} scale={2} />}
                   onClick={() => actions.unlock(unit.id)}
                 />
               ),
             )}
-            {troopTracks.map((u) => (
+            {chargeTracks.map((u) => (
               <Row
                 key={u.track}
                 title={`${u.label} L${u.level}`}
@@ -197,8 +199,8 @@ export function Panel({ snapshot, actions }: Props) {
               );
             })}
 
-            <button className="reset" onClick={actions.hardReset}>
-              Abandon the firebase (wipe save)
+            <button className="reset" onClick={onRestart}>
+              Restart the run from wave 1
             </button>
           </>
         )}

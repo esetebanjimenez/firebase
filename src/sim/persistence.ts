@@ -65,7 +65,16 @@ export function deserialize(raw: string, cfg: GameConfig): SaveEnvelope | null {
   for (const key of required) {
     if (typeof candidate[key] !== 'number') return null;
   }
-  for (const key of ['wall', 'upgrades', 'unlocked', 'abilities', 'automation', 'charges', 'stats'] as const) {
+  for (const key of [
+    'wall',
+    'upgrades',
+    'unlocked',
+    'unitLevels',
+    'abilities',
+    'automation',
+    'charges',
+    'stats',
+  ] as const) {
     if (!isRecord(candidate[key])) return null;
   }
   if (!Array.isArray(candidate.towers)) return null;

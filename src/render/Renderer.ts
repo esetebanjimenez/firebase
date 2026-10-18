@@ -15,6 +15,7 @@
 import { ENEMY_UNITS, PLAYER_UNITS, towerPeriod } from '../sim';
 import type { GameConfig, Hazard, SimEvent, SimState, Unit, UnitKindId, UnitMark } from '../sim';
 import { PALETTE } from './palette';
+import { drawMark } from './marks';
 import { createLayer, type Ramp } from './pixel';
 import { unitSprites } from './sprites';
 import { bakeTerrain, type TerrainLayer } from './terrain';
@@ -40,12 +41,6 @@ export interface RenderOptions {
   /** True when the armed ability is ready to fire (otherwise the reticle greys). */
   readonly aimReady?: boolean;
 }
-
-const MARK_COLORS = {
-  barrel: '#23262a',
-  blade: '#dfe4ea',
-  bowstring: '#e8d6a8',
-};
 
 export class Renderer {
   private readonly display: CanvasRenderingContext2D;
@@ -355,81 +350,15 @@ export class Renderer {
 
   /** The weapon or trait that tells kinds apart, drawn along the unit's aim. */
   private drawMark(unit: Unit): void {
-    const mark = markOf(unit.kind);
-    if (mark === 'none') return;
-    const cos = Math.cos(unit.aim);
-    const sin = Math.sin(unit.aim);
-    const ramp = rampOf(unit.kind);
-
-    switch (mark) {
-      case 'gun':
-      case 'bigGun':
-      case 'launcher': {
-        const len = mark === 'gun' ? 6 : 7;
-        const thick = mark === 'gun' ? 1 : 2;
-        for (let i = 2; i <= len; i++) {
-          this.px(unit.x + cos * i, unit.y + sin * i, MARK_COLORS.barrel, thick, thick);
-        }
-        if (mark === 'launcher') {
-          this.px(unit.x + cos * (len + 1), unit.y + sin * (len + 1), PALETTE.rocket, 2, 2);
-        }
-        break;
-      }
-      case 'blade': {
-        for (let i = 3; i <= 8; i++) {
-          this.px(unit.x + cos * i, unit.y + sin * i, MARK_COLORS.blade);
-        }
-        break;
-      }
-      case 'bow': {
-        const px = -sin;
-        const py = cos;
-        for (let o = -2; o <= 2; o++) {
-          this.px(unit.x + cos * 4 + px * o, unit.y + sin * 4 + py * o, MARK_COLORS.bowstring);
-        }
-        break;
-      }
-      case 'staff': {
-        for (let i = 3; i <= 6; i++) this.px(unit.x + cos * i, unit.y + sin * i, PALETTE.dirtDark);
-        this.px(unit.x + cos * 7 - 0.5, unit.y + sin * 7 - 0.5, ramp[2], 2, 2);
-        break;
-      }
-      case 'shield': {
-        const px = -sin;
-        const py = cos;
-        for (let o = -3; o <= 3; o++) {
-          this.px(unit.x + cos * 5 + px * o, unit.y + sin * 5 + py * o, ramp[1]);
-        }
-        for (let o = -2; o <= 2; o++) {
-          this.px(unit.x + cos * 6 + px * o, unit.y + sin * 6 + py * o, ramp[3]);
-        }
-        break;
-      }
-      case 'horns': {
-        for (const side of [-1, 1]) {
-          const a = unit.aim + side * 0.6;
-          this.px(unit.x + Math.cos(a) * 5, unit.y + Math.sin(a) * 5, ramp[2]);
-        }
-        break;
-      }
-      case 'wheels': {
-        const px = -sin;
-        const py = cos;
-        const roll = Math.floor(this.clock * 8) % 2;
-        for (const side of [-1, 1]) {
-          this.px(
-            unit.x + px * side * (unit.radius + 1),
-            unit.y + py * side * (unit.radius + 1) + roll,
-            PALETTE.dirtDark,
-            2,
-            2,
-          );
-        }
-        break;
-      }
-      default:
-        break;
-    }
+    drawMark(this.field, {
+      x: unit.x,
+      y: unit.y,
+      aim: unit.aim,
+      mark: markOf(unit.kind),
+      ramp: rampOf(unit.kind),
+      radius: unit.radius,
+      roll: Math.floor(this.clock * 8) % 2,
+    });
   }
 
   private drawUnitHp(unit: Unit): void {

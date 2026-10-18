@@ -34,17 +34,16 @@ import {
   rechargeSec,
   selectAbility,
   selectUnit,
-  soldierDamageMult,
-  soldierHpMult,
-  soldierSpeedMult,
   step,
   syncDerived,
   toggleAutomation,
   towerDps,
   towerRange,
   trackCost,
+  unitLevelCost,
   unlockAutomation,
   unlockUnit,
+  upgradeUnit,
   wallMaxHp,
   incomePerSec,
 } from '../sim';
@@ -83,6 +82,10 @@ export interface UnitView {
   unlocked: boolean;
   unlockCost: number;
   affordable: boolean;
+  /** This kind's own level, and what the next one costs. */
+  level: number;
+  upgradeCost: number;
+  upgradeAffordable: boolean;
   chargeCost: number;
   selected: boolean;
   deployable: boolean;
@@ -128,7 +131,6 @@ export interface UiSnapshot {
   wall: { level: number; hp: number; maxHp: number; pct: number };
   towers: { level: number; count: number; dps: number; range: number };
   charges: { current: number; max: number; rechargeProgress: number; rechargeSec: number };
-  soldiers: { hpMult: number; damageMult: number; speedMult: number };
   upgrades: UpgradeView[];
   units: UnitView[];
   abilities: AbilityView[];
@@ -145,11 +147,12 @@ export interface UiSnapshot {
 export interface GameActions {
   buy: (track: UpgradeTrack) => void;
   unlock: (id: PlayerUnitId) => void;
+  levelUp: (id: PlayerUnitId) => void;
   select: (id: PlayerUnitId) => void;
   buyAbility: (id: AbilityId) => void;
   armAbility: (id: AbilityId | null) => void;
   castAt: (x: number, y: number) => void;
-  deploy: () => void;
+  deploy: (id?: PlayerUnitId) => void;
   launch: () => void;
   automate: (id: AutomationId) => void;
   toggle: (id: AutomationId) => void;
@@ -160,23 +163,12 @@ export interface GameActions {
 const TRACK_LABELS: Record<UpgradeTrack, string> = {
   wall: 'Wall',
   towers: 'Towers',
-  soldierHp: 'Armour',
-  soldierDamage: 'Firepower',
-  soldierSpeed: 'Mobility',
   charges: 'Charge Pool',
   recharge: 'Recharge',
 };
 
 function buildUpgrades(state: SimState, cfg: GameConfig): UpgradeView[] {
-  const tracks: UpgradeTrack[] = [
-    'wall',
-    'towers',
-    'soldierHp',
-    'soldierDamage',
-    'soldierSpeed',
-    'charges',
-    'recharge',
-  ];
+  const tracks: UpgradeTrack[] = ['wall', 'towers', 'charges', 'recharge'];
   return tracks.map((track) => {
     const level = state.upgrades[track];
     const cost = trackCost(cfg, state, track);
@@ -187,15 +179,6 @@ function buildUpgrades(state: SimState, cfg: GameConfig): UpgradeView[] {
         break;
       case 'towers':
         detail = `${towerDps(cfg, level).toFixed(1)} → ${towerDps(cfg, level + 1).toFixed(1)} dps each`;
-        break;
-      case 'soldierHp':
-        detail = `×${soldierHpMult(cfg, level).toFixed(2)} → ×${soldierHpMult(cfg, level + 1).toFixed(2)} hp`;
-        break;
-      case 'soldierDamage':
-        detail = `×${soldierDamageMult(cfg, level).toFixed(2)} → ×${soldierDamageMult(cfg, level + 1).toFixed(2)} dmg`;
-        break;
-      case 'soldierSpeed':
-        detail = `×${soldierSpeedMult(cfg, level).toFixed(2)} → ×${soldierSpeedMult(cfg, level + 1).toFixed(2)} speed`;
         break;
       case 'charges':
         detail = `${chargeMax(cfg, level)} → ${chargeMax(cfg, level + 1)} charges`;
@@ -218,7 +201,8 @@ function buildUpgrades(state: SimState, cfg: GameConfig): UpgradeView[] {
 function buildUnits(state: SimState, cfg: GameConfig): UnitView[] {
   return PLAYER_UNIT_ORDER.map((id) => {
     const def = PLAYER_UNITS[id];
-    const stats = playerUnitStats(cfg, state.upgrades, id);
+    const stats = playerUnitStats(cfg, state.unitLevels, id);
+    const upgradeCost = unitLevelCost(cfg, state, id);
     return {
       id,
       name: def.name,
@@ -227,6 +211,9 @@ function buildUnits(state: SimState, cfg: GameConfig): UnitView[] {
       unlocked: state.unlocked[id],
       unlockCost: def.unlockCost,
       affordable: state.credits >= def.unlockCost,
+      level: state.unitLevels[id],
+      upgradeCost,
+      upgradeAffordable: state.unlocked[id] && state.credits >= upgradeCost,
       chargeCost: def.chargeCost,
       selected: state.selectedUnit === id,
       deployable: canDeploy(state, cfg, id),
@@ -303,11 +290,6 @@ function buildSnapshot(state: SimState, cfg: GameConfig): UiSnapshot {
           ? 1
           : Math.min(1, Math.max(0, 1 - state.charges.rechargeIn / rechargeTotal)),
       rechargeSec: rechargeTotal,
-    },
-    soldiers: {
-      hpMult: soldierHpMult(cfg, state.upgrades.soldierHp),
-      damageMult: soldierDamageMult(cfg, state.upgrades.soldierDamage),
-      speedMult: soldierSpeedMult(cfg, state.upgrades.soldierSpeed),
     },
     upgrades: buildUpgrades(state, cfg),
     units: buildUnits(state, cfg),
@@ -415,6 +397,9 @@ export function useGameLoop(cfg: GameConfig = defaultConfig): UseGameLoop {
       unlock: (id) => {
         if (unlockUnit(stateRef.current, cfg, id)) publish();
       },
+      levelUp: (id) => {
+        if (upgradeUnit(stateRef.current, cfg, id)) publish();
+      },
       select: (id) => {
         if (selectUnit(stateRef.current, id)) publish();
       },
@@ -429,8 +414,9 @@ export function useGameLoop(cfg: GameConfig = defaultConfig): UseGameLoop {
         if (!state.selectedAbility) return;
         if (castAbility(state, cfg, state.selectedAbility, x, y)) publish();
       },
-      deploy: () => {
-        if (deployUnit(stateRef.current, cfg, stateRef.current.selectedUnit, fxRef.current)) publish();
+      deploy: (id) => {
+        const state = stateRef.current;
+        if (deployUnit(state, cfg, id ?? state.selectedUnit, fxRef.current)) publish();
       },
       launch: () => {
         if (launchWave(stateRef.current, cfg, fxRef.current)) publish();
