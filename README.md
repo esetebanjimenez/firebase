@@ -1,75 +1,92 @@
-# Firebase Idle — "The Line"
+# Iron Line
 
-A mobile-browser idle defense game with a modern-military theme. You hold a
-single fortified line: enemies advance across the field and pound your wall;
-your soldiers shoot back; you grow your firepower, your wall, and your fire
-support to hold longer. See [`DESIGN.md`](./DESIGN.md) for the original vision
-(note: the playable build has since pivoted from the 3-ring concept to this
-single-barrier "castle defense" model).
+An 8-bit, top-down **idle incremental defense game**. You command a modern
+military force holding the bottom of the map — a wall with a gate in the middle,
+towers on the parapet — against three fantasy armies that do not stop coming.
 
 **Play it:** https://esetebanjimenez.github.io/firebase/
 
+Rifles, machine guns, rockets and artillery against levies, knights, battering
+rams, golems, wraiths and the necromancers raising more of them.
+
 ## The loop
 
-- **One wall** with an HP bar stands in front of your FOB.
-- **Enemies** march in from the right, reach the wall and shoot it, chipping its HP.
-- **Your soldiers** on the wall shoot the nearest enemy; each kill earns **Supply**.
-- A cleared wave counts as a **Day Held** — but only if the wall is still standing.
-- **Supply buys three tracks** plus instant repair:
-  - **Firepower** — soldier damage (your DPS).
-  - **Fortify** — wall max HP (and faster passive regen).
-  - **Fire Support** — an active, tappable AoE airstrike on a cooldown.
-  - **Repair** — instantly restore the wall to full.
-- **Repair-only failure:** if the wall is destroyed you lose no Supply — your Days
-  just stall until it's repaired or slowly regenerates. The run never ends.
-- **Save/load** to `localStorage` with **calculated offline progress** and a
-  **SITREP** on return.
+1. **Prep.** Spend credits. The wall gets tougher, the towers hit harder, your
+   soldiers get armour, firepower and speed, the deployment pool gets deeper and
+   recharges faster, and fire support unlocks and levels up.
+2. **Launch.** You decide when the wave comes — nothing starts without you.
+   Enemies pour in from the top and head for the wall.
+3. **Fight.** Towers shoot what comes into range. You spend **deployment
+   charges** to push soldiers out of the gate — a charge per rifleman or shield
+   bearer, two for a gunner or a rocketeer — and charges come back one at a
+   time, so a wave is a sequence of decisions, not one big one. Tap the ground
+   to call in artillery, a mortar barrage, or napalm.
+4. **Resolve.** Clear the field and the next wave is tougher. Let the wall reach
+   0 HP and you re-fight the same wave. Either way **every credit you earned is
+   yours** and the wall is rebuilt to full.
 
-## Tech stack
+Your soldiers charge the nearest enemy, and fall back to the muster point in
+mid-field when nothing is left to fight. Enemies charge your soldiers, and press
+the wall when there are none — except siege engines, which ignore your soldiers
+entirely and drive straight for the wall.
 
-- **Vite + React + TypeScript** app shell and UI.
-- **PixiJS** side-view battlefield renderer (desert sky/dunes/ground, FOB, a
-  3-state wall, soldiers, two enemy types, tracers, sprite explosions and an
-  airstrike). Art is a bespoke commissioned set in
-  `src/assets/sprites/firebase-idle/delivery` (see its `manifest.json`); the
-  renderer loads it via a Vite glob, so swapping or extending the set needs no
-  code change.
-- **Vitest** unit tests on the simulation core.
+## The three armies
 
-## Architecture
+| Army | Shows up | What it does |
+| --- | --- | --- |
+| **Kingdom Army** | wave 1 | Levies and archers, then armoured knights, battering rams and catapults. A Royal Champion leads the boss waves. |
+| **Magical Army** | wave 4 | Imps and casters hurling bolts from range, behind stone golems that soak everything. The Archmage drops splash from across the field. |
+| **Necromancer Army** | wave 7 | Endless cheap bodies — skeletons, zombies, ghouls — plus wraiths, and necromancers that raise more skeletons until you kill them. Bone Giants anchor the boss waves. |
 
-```
-src/
-  sim/     Plain-TS simulation core — NO DOM / React / Pixi. Deterministic + tested.
-    config.ts     ★ ALL balance numbers (the single tuning file)
-    types.ts      SimState: wall, firepower level, fire support, enemies (lane pos)
-    combat.ts     ★ single source of truth: firepower/enemy/wall/cost/support formulas
-    waves.ts      wave composition + spawning
-    engine.ts     step(state, dt, cfg) — the authoritative per-tick simulation
-    offline.ts    offline progress (reuses the live engine, headless + coarse dt)
-    actions.ts    upgrades, repair, fire support, send wave
-    persistence.ts  pure (de)serialization + version gate
-  game/    useGameLoop (fixed-timestep loop, UI snapshot, autosave, offline) + storage
-  render/sideview/  SideRenderer + canvas + CC0 sprite loader
-  ui/      App, TopBar, ControlPanel, Sitrep
-```
+From wave 16 on, two armies can attack together. Every tenth wave brings a boss.
 
-The simulation is a 1-D model (each enemy's `pos` is its distance to the wall),
-so the live game and offline progress run the exact same `step()` — offline just
-fast-forwards it headlessly. All balance lives in
-[`src/sim/config.ts`](./src/sim/config.ts).
+## The idle half
 
-## Scripts
+- The **garrison earns credits whether you are playing or not**, at a rate that
+  compounds with the furthest wave you have cleared.
+- Time away is credited when you come back, capped at 8 hours.
+- **Auto-deploy** spends charges on your selected soldier for you;
+  **auto-launch** sends the next wave as soon as you are back in prep. Buy both
+  and the run advances while you watch.
+
+## Controls
+
+- **LAUNCH WAVE** — start the wave you have been preparing for.
+- **DEPLOY** — spend charges on the selected soldier. The chips under it switch
+  which one.
+- **Ability buttons** — arm fire support, then **press and drag on the field** to
+  place the strike and release to call it in.
+- **Defense / Troops / Support** tabs — the shop. Everything is buyable
+  mid-battle too, which is often the right move.
+
+## Tech
+
+- **Vite + React + TypeScript**, no game engine and no art assets: the sprites
+  are string-art baked into canvases at startup, and the battlefield is one
+  `<canvas>` drawn at a 192×240 virtual resolution and upscaled with smoothing
+  off.
+- **`src/sim/` is pure TypeScript** — no DOM, no React, no renderer. It is the
+  whole game: the engine, the roster, the wave planner, the economy. The UI
+  renders a snapshot of it; the renderer reads it.
+- **Deterministic**: wave plans derive from the seed and the wave number, so the
+  "next wave" preview *is* the wave you fight, and a lost wave is a rematch
+  rather than a reroll.
+- **Saved to `localStorage`**, with the battlefield cleared on save — progress
+  lives in credits, levels, unlocks and the wave number.
+
+## Development
 
 ```bash
 npm install
-npm run dev        # dev server
-npm test           # Vitest simulation suite
-npm run build      # production build (also runs in CI before deploy)
+npm run dev        # http://localhost:5173
+npm test           # the simulation's test suite
+npm run typecheck
+npm run build      # tsc -b && vite build
 ```
 
-## Deferred (designed for, not built yet)
+Balance lives in exactly two files: `src/sim/config.ts` (global curves, field
+geometry, abilities, the idle layer) and `src/sim/roster.ts` (per-unit stat
+blocks for both sides). `src/sim/__tests__/balance.test.ts` plays the game with
+a scripted player and fails if the curve stops making sense.
 
-More enemy types (armor/arty/air) via the `EnemyType` union + per-type config,
-more active abilities, multiple walls/fronts, prestige, and bespoke art. The data
-model and single-config tuning are shaped so these slot in without rewrites.
+See [`DESIGN.md`](./DESIGN.md) for the design and the reasoning behind it.

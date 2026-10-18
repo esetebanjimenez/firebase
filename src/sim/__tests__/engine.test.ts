@@ -1,102 +1,182 @@
 import { describe, expect, it } from 'vitest';
-import type { GameConfig } from '../config';
-import { defaultConfig } from '../config';
-import { createInitialState } from '../state';
-import { step } from '../engine';
-import { sendNextWave } from '../actions';
-import type { SimEvent, SimState } from '../types';
+import { defaultConfig as cfg } from '../config';
+import { startBattle, step, syncDerived } from '../engine';
+import { buyUpgrade, deployUnit } from '../actions';
+import { planWave } from '../waves';
+import { DT, freshState, pin, runWave } from './helpers';
 
-const DT = 1 / 30;
+describe('battle lifecycle', () => {
+  it('queues the planned wave when launched, and refuses to launch twice', () => {
+    const state = freshState();
+    expect(startBattle(state, cfg)).toBe(true);
+    expect(state.phase).toBe('battle');
+    expect(state.spawnQueue.length).toBe(planWave(cfg, 1).spawns.length);
+    expect(startBattle(state, cfg)).toBe(false);
+  });
 
-function run(state: SimState, seconds: number, cfg: GameConfig): SimEvent[] {
-  const events: SimEvent[] = [];
-  const steps = Math.round(seconds / DT);
-  for (let i = 0; i < steps; i++) events.push(...step(state, DT, cfg));
-  return events;
-}
-function runUntil(state: SimState, type: SimEvent['type'], cfg: GameConfig, maxSeconds = 30): SimEvent[] {
-  const events: SimEvent[] = [];
-  const steps = Math.round(maxSeconds / DT);
-  for (let i = 0; i < steps; i++) {
-    const got = step(state, DT, cfg);
-    events.push(...got);
-    if (got.some((e) => e.type === type)) break;
-  }
-  return events;
-}
+  it('walks enemies on from the top over the spawn window', () => {
+    const state = freshState();
+    startBattle(state, cfg);
+    step(state, DT, cfg);
+    const first = state.units.filter((u) => u.team === 'enemy');
+    expect(first.length).toBeGreaterThan(0);
+    for (const u of first) expect(u.y).toBeLessThanOrEqual(cfg.field.spawnBottom);
+    for (let i = 0; i < 20 * 30; i++) step(state, DT, cfg);
+    expect(state.spawnQueue.length).toBe(0);
+  });
 
-describe('engine — start of run', () => {
-  it('starts with soldiers, a full wall, and fire support locked', () => {
-    const s = createInitialState(defaultConfig);
-    expect(s.firepowerLevel).toBe(1);
-    expect(s.barrier.hp).toBe(s.barrier.maxHp);
-    expect(s.barrier.hp).toBeGreaterThan(0);
-    expect(s.fireSupport.level).toBe(0);
-    expect(s.day).toBe(0);
+  it('clears wave 1 with towers alone and advances the wave', () => {
+    const state = freshState();
+    const { result } = runWave(state, { deploy: null });
+    expect(result.won).toBe(true);
+    expect(result.wave).toBe(1);
+    expect(state.wave).toBe(2);
+    expect(state.bestWave).toBe(1);
+    expect(state.phase).toBe('prep');
+    expect(result.kills).toBeGreaterThan(0);
+  });
+
+  it('pays credits per kill and keeps them after the wave', () => {
+    const state = freshState();
+    const before = state.credits;
+    const { result } = runWave(state, { deploy: null });
+    expect(result.credits).toBeGreaterThan(0);
+    expect(state.credits).toBeGreaterThan(before);
+  });
+
+  it('restores the wall and the charge pool between waves', () => {
+    const state = freshState();
+    state.wall.hp = 10;
+    runWave(state, { deploy: 'rifleman' });
+    expect(state.wall.hp).toBe(state.wall.maxHp);
+    expect(state.charges.current).toBe(state.charges.max);
+    expect(state.units).toHaveLength(0);
+    expect(state.projectiles).toHaveLength(0);
+  });
+
+  it('loses the wave when the wall falls, without losing the wave number or credits', () => {
+    const state = freshState();
+    // Strip the towers and deploy nobody: the militia get to the wall unopposed.
+    state.towers = [];
+    const { result } = runWave(state, { deploy: null });
+    expect(result.won).toBe(false);
+    expect(state.wave).toBe(1);
+    expect(state.bestWave).toBe(0);
+    expect(state.stats.wavesLost).toBe(1);
+    expect(state.credits).toBeGreaterThan(0);
+    expect(state.wall.hp).toBe(state.wall.maxHp);
+  });
+
+  it('re-fights the identical wave after a loss', () => {
+    const state = freshState();
+    state.towers = [];
+    runWave(state, { deploy: null });
+    syncDerived(state, cfg);
+    expect(state.wave).toBe(1);
+    expect(planWave(cfg, state.wave).composition).toEqual(planWave(cfg, 1).composition);
   });
 });
 
-describe('engine — holding the line', () => {
-  it('clears early waves into Days Held and Supply with the wall intact', () => {
-    const s = createInitialState(defaultConfig);
-    sendNextWave(s);
-    const events = run(s, 14, defaultConfig);
-    expect(s.day).toBeGreaterThanOrEqual(1);
-    expect(s.supply).toBeGreaterThan(0);
-    expect(s.stats.totalKills).toBeGreaterThan(0);
-    expect(events.some((e) => e.type === 'waveResolved' && e.counted)).toBe(true);
-    expect(s.barrier.hp).toBeGreaterThan(0);
-    expect(events.some((e) => e.type === 'wallBroken')).toBe(false);
+describe('unit behaviour', () => {
+  it('sends soldiers out of the gate to meet the enemy', () => {
+    const state = freshState();
+    startBattle(state, cfg);
+    deployUnit(state, cfg, 'rifleman');
+    const soldier = state.units.find((u) => u.team === 'player')!;
+    const startY = soldier.y;
+    expect(startY).toBeLessThan(cfg.field.wallTop);
+    expect(Math.abs(soldier.x - cfg.field.gateX)).toBeLessThanOrEqual(cfg.field.gateHalfWidth);
+    for (let i = 0; i < 90; i++) step(state, DT, cfg);
+    expect(state.units.find((u) => u.id === soldier.id)?.y ?? 0).toBeLessThan(startY);
   });
 
-  it('is deterministic for a given seed', () => {
-    const a = createInitialState(defaultConfig, 123);
-    const b = createInitialState(defaultConfig, 123);
-    sendNextWave(a);
-    sendNextWave(b);
-    run(a, 45, defaultConfig);
-    run(b, 45, defaultConfig);
-    expect(JSON.stringify(a)).toBe(JSON.stringify(b));
+  it('parks soldiers at the muster point when no enemy is on the field', () => {
+    const state = freshState();
+    startBattle(state, cfg);
+    // Nothing on the field, but reinforcements still owed, so the wave runs on.
+    state.units = [];
+    state.spawnQueue = [{ kind: 'militia', x: 96, at: 999, hpScale: 1, damageScale: 1, bountyScale: 1 }];
+    deployUnit(state, cfg, 'rifleman');
+    const soldier = state.units.find((u) => u.team === 'player')!;
+    for (let i = 0; i < 20 * 30; i++) step(state, DT, cfg);
+    expect(state.phase).toBe('battle');
+    expect(Math.abs(soldier.y - cfg.field.musterY)).toBeLessThan(20);
   });
 
-  it('"send next wave" skips the idle timer', () => {
-    const s = createInitialState(defaultConfig);
-    expect(s.wave.inProgress).toBe(false);
-    sendNextWave(s);
-    step(s, DT, defaultConfig);
-    expect(s.wave.inProgress).toBe(true);
-    expect(s.wave.index).toBe(1);
+  it('keeps enemies on the attacking side of the wall', () => {
+    const state = freshState();
+    state.wall.maxHp = 100000;
+    state.wall.hp = 100000;
+    startBattle(state, cfg);
+    for (let i = 0; i < 60 * 30; i++) {
+      step(state, DT, cfg);
+      if (state.phase !== 'battle') break;
+      for (const u of state.units) {
+        expect(u.y).toBeLessThanOrEqual(cfg.field.wallTop);
+        expect(u.x).toBeGreaterThanOrEqual(0);
+        expect(u.x).toBeLessThanOrEqual(cfg.field.width);
+      }
+    }
+  });
+
+  it('lets enemies chew through an undefended wall', () => {
+    const state = freshState();
+    state.towers = [];
+    const start = state.wall.hp;
+    startBattle(state, cfg);
+    for (let i = 0; i < 40 * 30 && state.phase === 'battle'; i++) step(state, DT, cfg);
+    expect(state.lastResult?.won).toBe(false);
+    expect(start).toBeGreaterThan(0);
+  });
+
+  it('spreads crowds out instead of stacking them in one spot', () => {
+    const state = freshState();
+    startBattle(state, cfg);
+    for (let i = 0; i < 10 * 30; i++) step(state, DT, cfg);
+    const enemies = state.units.filter((u) => u.team === 'enemy');
+    for (let i = 0; i < enemies.length; i++) {
+      for (let j = i + 1; j < enemies.length; j++) {
+        const d = Math.hypot(enemies[i].x - enemies[j].x, enemies[i].y - enemies[j].y);
+        expect(d).toBeGreaterThan(1);
+      }
+    }
   });
 });
 
-describe('engine — wall under pressure', () => {
-  // Feeble soldiers + fast, hard-hitting enemies: the wall cannot hold.
-  const weak: GameConfig = {
-    ...defaultConfig,
-    firepower: { ...defaultConfig.firepower, baseDps: 0.2 },
-    barrier: { ...defaultConfig.barrier, baseMaxHp: 30, baseRegenPerSec: 0 },
-    enemies: {
-      ...defaultConfig.enemies,
-      infantry: { ...defaultConfig.enemies.infantry, speed: 0.8, attackDps: 12 },
-    },
-  };
-
-  it('breaks the wall and does not count that wave as a Day (no penalty)', () => {
-    const s = createInitialState(weak);
-    const supplyBefore = s.supply;
-    sendNextWave(s);
-    const events = runUntil(s, 'wallBroken', weak);
-    expect(events.some((e) => e.type === 'wallBroken')).toBe(true);
-    expect(s.barrier.hp).toBe(0);
-    expect(s.day).toBe(0); // stalled, not advanced
-    expect(s.supply).toBeGreaterThanOrEqual(supplyBefore); // repair-only: never loses supply
+describe('towers', () => {
+  it('only shoots what is inside their range', () => {
+    const state = freshState();
+    startBattle(state, cfg);
+    state.spawnQueue = [];
+    // One enemy parked at the very top, far out of tower reach.
+    step(state, DT, cfg);
+    const enemy = state.units.find((u) => u.team === 'enemy');
+    if (enemy) {
+      enemy.y = 2;
+      pin(enemy);
+      state.projectiles = [];
+      for (let i = 0; i < 60; i++) step(state, DT, cfg);
+      expect(state.projectiles.filter((p) => p.team === 'player')).toHaveLength(0);
+    }
   });
 
-  it('regenerates a broken wall back to standing (wallRepaired)', () => {
-    const s = createInitialState(defaultConfig);
-    s.barrier.hp = 0; // pretend it was just broken
-    const events = run(s, 1, defaultConfig);
-    expect(events.some((e) => e.type === 'wallRepaired')).toBe(true);
-    expect(s.barrier.hp).toBeGreaterThan(0);
+  it('kills faster once upgraded', () => {
+    const slow = freshState();
+    const fast = freshState();
+    for (let i = 0; i < 6; i++) {
+      fast.credits += 100000;
+      buyUpgrade(fast, cfg, 'towers');
+    }
+    const a = runWave(slow, { deploy: null });
+    const b = runWave(fast, { deploy: null });
+    expect(b.seconds).toBeLessThan(a.seconds);
+  });
+});
+
+describe('determinism', () => {
+  it('produces the same battle from the same inputs', () => {
+    const a = runWave(freshState(), { deploy: 'rifleman' });
+    const b = runWave(freshState(), { deploy: 'rifleman' });
+    expect(b.result).toEqual(a.result);
   });
 });

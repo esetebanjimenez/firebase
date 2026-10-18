@@ -1,156 +1,343 @@
 /**
- * config.ts — THE single balance/tuning file.
+ * config.ts — the global balance curves and the field geometry.
  *
- * Game model ("The Line"): a single defended barrier. Enemies advance from the
- * right, stop at the wall and shoot it (chipping its HP); your soldiers shoot
- * back and earn Supply per kill. Supply buys three tracks — Firepower (soldier
- * DPS), Fortify (wall max HP + regen), Fire Support (an active cooldown strike)
- * — plus instant Repair. A wave counts as a Day only if the wall still stands
- * when it's cleared; a destroyed wall just stalls progress (no penalty).
+ * Balance surface #2 (roster.ts holds the per-unit stat blocks). Everything
+ * here is data only: no DOM, no React, no renderer.
  *
- * Nothing here depends on the DOM, React, or Pixi.
+ * The game model: you hold the bottom of the map behind a wall with a gate.
+ * In PREP you spend credits on the wall, the towers, your soldiers, your
+ * deployment charges and your ground-targeted abilities. Then you launch the
+ * wave yourself. Enemies pour in from the top; towers shoot what comes in
+ * range and you spend charges to push soldiers out of the gate. The wave is
+ * lost if the wall reaches 0 HP (you re-fight the same wave) and won if the
+ * field is cleared (the next wave is tougher). Either way every kill's credits
+ * are yours to keep and the wall comes back to full.
  */
-
-import type { EnemyType } from './types';
-
-export interface EnemyConfig {
-  /** Hit points at day 1. */
-  readonly baseHp: number;
-  readonly hpPerDay: number;
-  /** Advance speed toward the wall, in normalized lane units per second (1 = full lane). */
-  readonly speed: number;
-  /** Supply awarded per kill at day 1. */
-  readonly baseBounty: number;
-  readonly bountyPerDay: number;
-  /** Damage dealt to the wall per second while engaged, at day 1. */
-  readonly attackDps: number;
-  readonly attackDpsPerDay: number;
-  /** Lane distance from the wall at which the enemy stops and opens fire (1 = full lane). */
-  readonly attackRange: number;
-  /** Random +/- spread on attackRange so enemies form a loose firing line, not a column. */
-  readonly attackRangeJitter: number;
-}
 
 export interface GameConfig {
   readonly version: number;
   readonly seed: number;
 
-  readonly wave: {
-    readonly intervalSec: number;
-    readonly baseCount: number;
-    readonly countPerDay: number;
-    readonly maxCount: number;
-    readonly spawnSpacingSec: number;
+  /** The 8-bit field, in the single coordinate space sim and renderer share. */
+  readonly field: {
+    readonly width: number;
+    readonly height: number;
+    /** Top edge of the wall band; the wall's damage line. */
+    readonly wallTop: number;
+    readonly wallThickness: number;
+    readonly gateX: number;
+    readonly gateHalfWidth: number;
+    /** Enemies walk on between these two rows. */
+    readonly spawnTop: number;
+    readonly spawnBottom: number;
+    /** Keep spawns and movement this far from the left/right edges. */
+    readonly sideMargin: number;
+    /** Where idle player units park when the field is clear. */
+    readonly musterY: number;
+    /** Tower emplacements along the wall. */
+    readonly towerX: readonly number[];
+    readonly towerY: number;
   };
 
-  readonly enemies: Readonly<Record<EnemyType, EnemyConfig>>;
-
-  /** Soldier firepower track — your total damage output. Starts built (level 1). */
-  readonly firepower: {
-    readonly baseDps: number;
-    readonly dpsPerLevel: number;
-    readonly baseCost: number;
-    readonly costGrowth: number;
-    readonly startLevel: number;
-  };
-
-  /** The wall: max HP, passive regen, and instant repair cost. Starts built (level 1). */
-  readonly barrier: {
-    readonly baseMaxHp: number;
-    readonly maxHpPerLevel: number;
-    readonly baseRegenPerSec: number;
-    readonly regenPerSecPerLevel: number;
-    readonly baseCost: number;
-    readonly costGrowth: number;
-    readonly startLevel: number;
-    /** Supply cost per HP restored by an instant Repair. */
-    readonly repairCostPerHp: number;
-    readonly minRepairCost: number;
-  };
-
-  /** Fire Support — an active, tappable AoE strike on cooldown. Starts locked (level 0). */
-  readonly fireSupport: {
+  /** Static defenses on the wall. One level raises damage, rate and range. */
+  readonly towers: {
     readonly baseDamage: number;
-    readonly damagePerLevel: number;
-    readonly baseCooldownSec: number;
-    /** Cooldown reduction per level (added; negative shortens). Clamped by minCooldownSec. */
-    readonly cooldownPerLevel: number;
-    readonly minCooldownSec: number;
-    /** Strike hits every enemy whose lane position is within this distance of the wall. */
-    readonly radius: number;
+    /** Damage is multiplied by this per level: power has to compound, or the
+     *  geometric upgrade prices outrun it within a dozen waves. */
+    readonly damageGrowth: number;
+    readonly basePeriodSec: number;
+    /** Subtracted per level, floored by minPeriodSec. */
+    readonly periodPerLevel: number;
+    readonly minPeriodSec: number;
+    readonly baseRange: number;
+    readonly rangePerLevel: number;
+    readonly projectileSpeed: number;
     readonly baseCost: number;
     readonly costGrowth: number;
   };
 
-  readonly offline: {
-    readonly maxWaves: number;
-    /** Fixed timestep (seconds) used by the headless offline run. */
-    readonly stepSec: number;
-    /** Safety cap on steps per simulated wave. */
-    readonly maxStepsPerWave: number;
+  readonly wall: {
+    readonly baseMaxHp: number;
+    readonly maxHpGrowth: number;
+    readonly baseCost: number;
+    readonly costGrowth: number;
+  };
+
+  /** Multipliers applied to every player unit's stat block. */
+  readonly soldiers: {
+    readonly hpGrowth: number;
+    readonly damageGrowth: number;
+    /** Speed stays linear and capped: sprinting soldiers break the formations. */
+    readonly speedPerLevel: number;
+    readonly maxSpeedMult: number;
+    readonly hpCost: number;
+    readonly hpCostGrowth: number;
+    readonly damageCost: number;
+    readonly damageCostGrowth: number;
+    readonly speedCost: number;
+    readonly speedCostGrowth: number;
+  };
+
+  /** The deployment charge pool: how many soldiers you can push out, and how fast. */
+  readonly charges: {
+    readonly baseMax: number;
+    readonly maxPerLevel: number;
+    readonly baseRechargeSec: number;
+    /** Multiplied per level (<1 shortens), floored by minRechargeSec. */
+    readonly rechargeFactor: number;
+    readonly minRechargeSec: number;
+    readonly maxCost: number;
+    readonly maxCostGrowth: number;
+    readonly rechargeCost: number;
+    readonly rechargeCostGrowth: number;
+  };
+
+  /** Wave planning: budget growth, pacing, and which army shows up. */
+  readonly waves: {
+    readonly baseBudget: number;
+    readonly budgetGrowth: number;
+    readonly maxBudget: number;
+    /** Hard cap on enemies planned for a single wave. */
+    readonly maxUnits: number;
+    readonly hpScaleGrowth: number;
+    readonly damageScaleGrowth: number;
+    readonly bountyScaleGrowth: number;
+    /**
+     * Your power compounds across seven upgrade tracks; the enemy only has
+     * stats and numbers, and numbers are capped. So from this wave on the
+     * armies scale on a steeper curve, which is what keeps a wave-40 fight a
+     * fight instead of a formality.
+     */
+    readonly lateFromWave: number;
+    readonly lateHpScaleGrowth: number;
+    readonly lateDamageScaleGrowth: number;
+    readonly lateBountyScaleGrowth: number;
+    /** Seconds over which a wave's spawns are spread. */
+    readonly spawnWindowSec: number;
+    /** Enemies walk on in clumps of up to this many at the same moment. */
+    readonly groupSize: number;
+    /** A boss joins every Nth wave. */
+    readonly bossEvery: number;
+    /** Boss waves spend less on rank-and-file, since the boss is the wave. */
+    readonly bossBudgetFactor: number;
+    /** From this wave on, a wave can draw from two armies at once. */
+    readonly mixFromWave: number;
+  };
+
+  readonly abilities: {
+    readonly artillery: AbilityConfig;
+    readonly barrage: AbilityConfig;
+    readonly napalm: AbilityConfig;
+  };
+
+  /** Idle layer: passive credits, scaled by the furthest wave you've cleared. */
+  readonly idle: {
+    readonly baseCreditsPerSec: number;
+    /** Income is multiplied by this for every wave cleared. */
+    readonly incomeGrowth: number;
+    /** Offline time beyond this is not credited. */
+    readonly maxOfflineSec: number;
+    readonly autoDeployCost: number;
+    readonly autoLaunchCost: number;
+    /** Seconds of prep before auto-launch fires the next wave. */
+    readonly autoLaunchDelaySec: number;
+  };
+
+  /** Simulation details that are tuning, not rules. */
+  readonly sim: {
+    /** Fraction of damage that always lands, however thick the armor. */
+    readonly minDamageFraction: number;
+    /** Seconds between a unit re-evaluating its target. */
+    readonly retargetSec: number;
+    /** How hard overlapping units push each other apart (px/sec per px). */
+    readonly separationPush: number;
+    /** Enemies stop this far short of the wall line to attack it. */
+    readonly wallStandoff: number;
+    /** Player units spawn this far above the wall, in the gate mouth. */
+    readonly gateSpawnOffset: number;
+    /** Hit-flash duration for the renderer. */
+    readonly flashSec: number;
+    /** Safety cap on live entities. */
+    readonly maxUnits: number;
   };
 }
 
+export interface AbilityConfig {
+  readonly name: string;
+  readonly blurb: string;
+  readonly baseDamage: number;
+  readonly damageGrowth: number;
+  readonly radius: number;
+  readonly baseCooldownSec: number;
+  readonly cooldownPerLevel: number;
+  readonly minCooldownSec: number;
+  readonly unlockCost: number;
+  readonly costGrowth: number;
+  /** Shells per cast (barrage); 1 for single-impact abilities. */
+  readonly shells: number;
+  /** Seconds from cast to first impact. */
+  readonly delaySec: number;
+  /** Extra seconds between shells of a barrage. */
+  readonly shellSpacingSec: number;
+  /** Scatter radius for a barrage's impact points. */
+  readonly scatter: number;
+  /** Burn duration; 0 = an instant strike. */
+  readonly burnSec: number;
+}
+
 export const defaultConfig: GameConfig = {
-  version: 2,
+  version: 1,
   seed: 1,
 
-  wave: {
-    intervalSec: 6,
-    baseCount: 5,
-    countPerDay: 0.7,
-    maxCount: 80,
-    spawnSpacingSec: 0.28,
+  field: {
+    width: 192,
+    height: 240,
+    wallTop: 206,
+    wallThickness: 11,
+    gateX: 96,
+    gateHalfWidth: 15,
+    spawnTop: 4,
+    spawnBottom: 18,
+    sideMargin: 10,
+    musterY: 128,
+    towerX: [20, 56, 136, 172],
+    towerY: 211,
   },
 
-  enemies: {
-    infantry: {
-      baseHp: 14,
-      hpPerDay: 3.3, // gentler scaling keeps the fight recoverable for longer
-      speed: 0.2, // ~5s to cross the lane; a few leak to the wall from the first waves
-      baseBounty: 3,
-      bountyPerDay: 0.55,
-      attackDps: 4.5, // a few reaching the wall is felt immediately
-      attackDpsPerDay: 0.5,
-      attackRange: 0.24, // halt well out from the wall and shoot it from distance
-      attackRangeJitter: 0.09,
+  towers: {
+    baseDamage: 9,
+    damageGrowth: 1.17,
+    basePeriodSec: 0.9,
+    periodPerLevel: 0.02,
+    minPeriodSec: 0.4,
+    baseRange: 62,
+    rangePerLevel: 1.5,
+    projectileSpeed: 230,
+    baseCost: 50,
+    costGrowth: 1.17,
+  },
+
+  wall: {
+    baseMaxHp: 520,
+    maxHpGrowth: 1.2,
+    baseCost: 40,
+    costGrowth: 1.16,
+  },
+
+  soldiers: {
+    hpGrowth: 1.14,
+    damageGrowth: 1.14,
+    speedPerLevel: 0.05,
+    maxSpeedMult: 2.2,
+    hpCost: 35,
+    hpCostGrowth: 1.16,
+    damageCost: 40,
+    damageCostGrowth: 1.17,
+    speedCost: 60,
+    speedCostGrowth: 1.3,
+  },
+
+  charges: {
+    baseMax: 3,
+    maxPerLevel: 1,
+    baseRechargeSec: 9,
+    rechargeFactor: 0.9,
+    minRechargeSec: 2.5,
+    maxCost: 150,
+    maxCostGrowth: 1.45,
+    rechargeCost: 90,
+    rechargeCostGrowth: 1.35,
+  },
+
+  waves: {
+    baseBudget: 5,
+    budgetGrowth: 1.17,
+    maxBudget: 600,
+    maxUnits: 90,
+    hpScaleGrowth: 1.14,
+    damageScaleGrowth: 1.1,
+    bountyScaleGrowth: 1.16,
+    lateFromWave: 15,
+    lateHpScaleGrowth: 1.23,
+    lateDamageScaleGrowth: 1.17,
+    lateBountyScaleGrowth: 1.21,
+    spawnWindowSec: 18,
+    groupSize: 4,
+    bossEvery: 10,
+    bossBudgetFactor: 0.6,
+    mixFromWave: 16,
+  },
+
+  abilities: {
+    artillery: {
+      name: 'Artillery Strike',
+      blurb: 'A single heavy shell. Tap the ground to call it in.',
+      baseDamage: 130,
+      damageGrowth: 1.3,
+      radius: 26,
+      baseCooldownSec: 24,
+      cooldownPerLevel: 0.8,
+      minCooldownSec: 10,
+      unlockCost: 150,
+      costGrowth: 1.5,
+      shells: 1,
+      delaySec: 1.1,
+      shellSpacingSec: 0,
+      scatter: 0,
+      burnSec: 0,
+    },
+    barrage: {
+      name: 'Mortar Barrage',
+      blurb: 'Six shells walked across a wide area over several seconds.',
+      baseDamage: 70,
+      damageGrowth: 1.3,
+      radius: 16,
+      baseCooldownSec: 50,
+      cooldownPerLevel: 1.5,
+      minCooldownSec: 22,
+      unlockCost: 600,
+      costGrowth: 1.55,
+      shells: 6,
+      delaySec: 0.9,
+      shellSpacingSec: 0.45,
+      scatter: 34,
+      burnSec: 0,
+    },
+    napalm: {
+      name: 'Napalm',
+      blurb: 'Sets the ground alight, burning everything that walks through.',
+      baseDamage: 50,
+      damageGrowth: 1.3,
+      radius: 24,
+      baseCooldownSec: 60,
+      cooldownPerLevel: 2,
+      minCooldownSec: 28,
+      unlockCost: 1400,
+      costGrowth: 1.6,
+      shells: 1,
+      delaySec: 0.8,
+      shellSpacingSec: 0,
+      scatter: 0,
+      burnSec: 6,
     },
   },
 
-  firepower: {
-    baseDps: 11,
-    dpsPerLevel: 7, // each upgrade matters more, so you can out-scale if you invest
-    baseCost: 12,
-    costGrowth: 1.45,
-    startLevel: 1,
+  idle: {
+    baseCreditsPerSec: 0.25,
+    incomeGrowth: 1.12,
+    maxOfflineSec: 8 * 3600,
+    autoDeployCost: 2500,
+    autoLaunchCost: 5000,
+    autoLaunchDelaySec: 4,
   },
 
-  barrier: {
-    baseMaxHp: 110,
-    maxHpPerLevel: 70,
-    baseRegenPerSec: 1.4, // slow enough that damage lingers within a wave
-    regenPerSecPerLevel: 0.8,
-    baseCost: 20,
-    costGrowth: 1.5,
-    startLevel: 1,
-    repairCostPerHp: 0.15,
-    minRepairCost: 4,
-  },
-
-  fireSupport: {
-    baseDamage: 45,
-    damagePerLevel: 30,
-    baseCooldownSec: 20,
-    cooldownPerLevel: -1.4,
-    minCooldownSec: 6,
-    radius: 0.55,
-    baseCost: 30,
-    costGrowth: 1.6,
-  },
-
-  offline: {
-    maxWaves: 2000,
-    stepSec: 0.2,
-    maxStepsPerWave: 600,
+  sim: {
+    minDamageFraction: 0.3,
+    retargetSec: 0.4,
+    separationPush: 9,
+    wallStandoff: 3,
+    gateSpawnOffset: 6,
+    flashSec: 0.12,
+    maxUnits: 260,
   },
 };

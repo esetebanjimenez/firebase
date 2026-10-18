@@ -1,115 +1,180 @@
 /**
- * actions.ts — player-initiated state transitions. Pure mutations of SimState.
- * Upgrades/repair return a boolean; Fire Support returns the FX events it
- * produced (empty if it couldn't fire) so the UI can play its juice.
+ * actions.ts — everything the player can do, as pure mutations of SimState.
+ *
+ * Each action checks its own preconditions (credits, charges, phase) and
+ * returns a boolean, so the UI layer never has to duplicate the rules. Upgrades
+ * are deliberately legal mid-battle too: buying a wall level while a ram is
+ * chewing on it is a real decision, not a bug.
  */
 
 import type { GameConfig } from './config';
 import {
-  barrierCost,
-  barrierMaxHp,
-  fireSupportCost,
-  fireSupportCooldown,
-  fireSupportDamage,
-  firepowerCost,
-  repairCost,
-} from './combat';
-import { syncBarrierMax } from './engine';
-import type { Enemy, SimEvent, SimState } from './types';
+  abilityCost,
+  chargeMaxCost,
+  rechargeCost,
+  soldierDamageCost,
+  soldierHpCost,
+  soldierSpeedCost,
+  towerUpgradeCost,
+  wallMaxHp,
+  wallUpgradeCost,
+} from './derive';
+import { startBattle, syncDerived } from './engine';
+import { PLAYER_UNITS } from './roster';
+import { createPlayerUnit } from './waves';
+import type { AbilityId, AutomationState, PlayerUnitId, SimEvent, SimState } from './types';
 
-export function firepowerUpgradeCost(cfg: GameConfig, state: SimState): number {
-  return firepowerCost(cfg, state.firepowerLevel);
-}
-export function barrierUpgradeCost(cfg: GameConfig, state: SimState): number {
-  return barrierCost(cfg, state.barrier.level);
-}
-export function fireSupportUpgradeCost(cfg: GameConfig, state: SimState): number {
-  return fireSupportCost(cfg, state.fireSupport.level);
-}
-export function barrierRepairCost(cfg: GameConfig, state: SimState): number {
-  return repairCost(cfg, state.barrier.hp, state.barrier.maxHp);
-}
+/** The seven credit-sinks that have levels. */
+export type UpgradeTrack =
+  | 'wall'
+  | 'towers'
+  | 'soldierHp'
+  | 'soldierDamage'
+  | 'soldierSpeed'
+  | 'charges'
+  | 'recharge';
 
-/** Upgrade soldier firepower by one level. */
-export function upgradeFirepower(state: SimState, cfg: GameConfig): boolean {
-  const cost = firepowerCost(cfg, state.firepowerLevel);
-  if (state.supply < cost) return false;
-  state.supply -= cost;
-  state.firepowerLevel += 1;
-  return true;
-}
+export type AutomationId = keyof AutomationState;
 
-/** Upgrade the wall by one level (raises max HP; current HP rises by the same delta). */
-export function upgradeBarrier(state: SimState, cfg: GameConfig): boolean {
-  const cost = barrierCost(cfg, state.barrier.level);
-  if (state.supply < cost) return false;
-  state.supply -= cost;
-  const before = barrierMaxHp(cfg, state.barrier.level);
-  state.barrier.level += 1;
-  const after = barrierMaxHp(cfg, state.barrier.level);
-  state.barrier.hp += after - before; // reward feels tangible: the wall visibly gains HP
-  syncBarrierMax(state, cfg);
-  return true;
-}
-
-/** Unlock or upgrade Fire Support by one level. */
-export function upgradeFireSupport(state: SimState, cfg: GameConfig): boolean {
-  const cost = fireSupportCost(cfg, state.fireSupport.level);
-  if (state.supply < cost) return false;
-  state.supply -= cost;
-  state.fireSupport.level += 1;
-  return true;
-}
-
-/** Instantly repair the wall to full HP. */
-export function repairBarrier(state: SimState, cfg: GameConfig): boolean {
-  const cost = repairCost(cfg, state.barrier.hp, state.barrier.maxHp);
-  if (cost <= 0) return false; // already full
-  if (state.supply < cost) return false;
-  state.supply -= cost;
-  state.barrier.hp = state.barrier.maxHp;
-  return true;
-}
-
-/**
- * Trigger Fire Support: an AoE strike on every enemy near the wall. Returns the
- * events it produced (a `fireSupport` marker plus any `kill`s) — empty if it is
- * locked or still on cooldown.
- */
-export function useFireSupport(state: SimState, cfg: GameConfig): SimEvent[] {
-  if (state.fireSupport.level <= 0) return [];
-  if (state.fireSupport.cooldownRemaining > 0) return [];
-  const damage = fireSupportDamage(cfg, state.fireSupport.level);
-  const radius = cfg.fireSupport.radius;
-  state.fireSupport.cooldownRemaining = fireSupportCooldown(cfg, state.fireSupport.level);
-
-  const events: SimEvent[] = [{ type: 'fireSupport', damage }];
-  const survivors: Enemy[] = [];
-  for (const e of state.enemies) {
-    if (e.pos <= radius) {
-      e.hp -= damage;
-      if (e.hp <= 0) {
-        state.supply += e.bounty;
-        state.stats.totalKills += 1;
-        state.stats.totalSupplyEarned += e.bounty;
-        events.push({ type: 'kill', enemyId: e.id, pos: e.pos, bounty: e.bounty });
-        continue;
-      }
-    }
-    survivors.push(e);
+/** Credits for the next level of a track. */
+export function trackCost(cfg: GameConfig, state: SimState, track: UpgradeTrack): number {
+  const level = state.upgrades[track];
+  switch (track) {
+    case 'wall':
+      return wallUpgradeCost(cfg, level);
+    case 'towers':
+      return towerUpgradeCost(cfg, level);
+    case 'soldierHp':
+      return soldierHpCost(cfg, level);
+    case 'soldierDamage':
+      return soldierDamageCost(cfg, level);
+    case 'soldierSpeed':
+      return soldierSpeedCost(cfg, level);
+    case 'charges':
+      return chargeMaxCost(cfg, level);
+    case 'recharge':
+      return rechargeCost(cfg, level);
   }
-  state.enemies = survivors;
-  return events;
 }
 
-/** Launch the next wave immediately (skip the idle timer). */
-export function sendNextWave(state: SimState): boolean {
-  if (state.wave.inProgress) return false;
-  state.wave.timerSec = 0;
+/** Buy one level of a track. */
+export function buyUpgrade(state: SimState, cfg: GameConfig, track: UpgradeTrack): boolean {
+  const cost = trackCost(cfg, state, track);
+  if (state.credits < cost) return false;
+  state.credits -= cost;
+
+  if (track === 'wall') {
+    // The wall visibly gains the new HP straight away, mid-battle included.
+    const before = wallMaxHp(cfg, state.upgrades.wall);
+    state.upgrades.wall += 1;
+    state.wall.level = state.upgrades.wall;
+    const after = wallMaxHp(cfg, state.upgrades.wall);
+    state.wall.hp += after - before;
+  } else {
+    state.upgrades[track] += 1;
+  }
+
+  // A bigger charge pool hands you the new charges immediately.
+  if (track === 'charges') state.charges.current += cfg.charges.maxPerLevel;
+
+  syncDerived(state, cfg);
   return true;
 }
 
-/** Whether Fire Support can be fired right now. */
-export function canUseFireSupport(state: SimState): boolean {
-  return state.fireSupport.level > 0 && state.fireSupport.cooldownRemaining <= 0;
+/** Permanently unlock a soldier type for deployment. */
+export function unlockUnit(state: SimState, cfg: GameConfig, id: PlayerUnitId): boolean {
+  void cfg;
+  if (state.unlocked[id]) return false;
+  const cost = PLAYER_UNITS[id].unlockCost;
+  if (state.credits < cost) return false;
+  state.credits -= cost;
+  state.unlocked[id] = true;
+  state.selectedUnit = id;
+  return true;
+}
+
+/** Unlock (level 0 → 1) or upgrade a fire-support ability. */
+export function buyAbility(state: SimState, cfg: GameConfig, id: AbilityId): boolean {
+  const level = state.abilities[id].level;
+  const cost = abilityCost(cfg, id, level);
+  if (state.credits < cost) return false;
+  state.credits -= cost;
+  state.abilities[id].level += 1;
+  if (level === 0) {
+    state.selectedAbility = id;
+    state.abilities[id].cooldown = 0;
+  }
+  return true;
+}
+
+export function automationCost(cfg: GameConfig, id: AutomationId): number {
+  return id === 'autoDeploy' ? cfg.idle.autoDeployCost : cfg.idle.autoLaunchCost;
+}
+
+export function unlockAutomation(state: SimState, cfg: GameConfig, id: AutomationId): boolean {
+  if (state.automation[id].unlocked) return false;
+  const cost = automationCost(cfg, id);
+  if (state.credits < cost) return false;
+  state.credits -= cost;
+  state.automation[id].unlocked = true;
+  state.automation[id].enabled = true;
+  return true;
+}
+
+export function toggleAutomation(state: SimState, id: AutomationId, enabled?: boolean): boolean {
+  if (!state.automation[id].unlocked) return false;
+  state.automation[id].enabled = enabled ?? !state.automation[id].enabled;
+  return true;
+}
+
+/** Charges needed to deploy one of a kind. */
+export function chargeCost(id: PlayerUnitId): number {
+  return PLAYER_UNITS[id].chargeCost;
+}
+
+/** Can a charge be spent on this kind right now? */
+export function canDeploy(state: SimState, cfg: GameConfig, id: PlayerUnitId = state.selectedUnit): boolean {
+  return (
+    state.phase === 'battle' &&
+    state.unlocked[id] &&
+    state.charges.current >= chargeCost(id) &&
+    state.units.length < cfg.sim.maxUnits
+  );
+}
+
+/** Spend charges to push a soldier out of the gate. */
+export function deployUnit(
+  state: SimState,
+  cfg: GameConfig,
+  id: PlayerUnitId = state.selectedUnit,
+  events?: SimEvent[],
+): boolean {
+  if (!canDeploy(state, cfg, id)) return false;
+  state.charges.current -= chargeCost(id);
+  const unit = createPlayerUnit(state, cfg, id);
+  state.units.push(unit);
+  events?.push({ type: 'spawn', team: 'player', kind: unit.kind, x: unit.x, y: unit.y });
+  return true;
+}
+
+export function selectUnit(state: SimState, id: PlayerUnitId): boolean {
+  if (!state.unlocked[id]) return false;
+  state.selectedUnit = id;
+  return true;
+}
+
+export function selectAbility(state: SimState, id: AbilityId | null): boolean {
+  if (id !== null && state.abilities[id].level <= 0) return false;
+  state.selectedAbility = id;
+  return true;
+}
+
+/** Launch the wave the player has been preparing for. */
+export function launchWave(state: SimState, cfg: GameConfig, events?: SimEvent[]): boolean {
+  return startBattle(state, cfg, events);
+}
+
+/** Dismiss the after-action report. */
+export function clearResult(state: SimState): void {
+  state.lastResult = null;
 }

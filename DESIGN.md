@@ -1,131 +1,142 @@
-# Firebase Idle — High-Level Design
+# Iron Line — design
 
-An idle/incremental tower-defense game themed around modern warfare. You command a firebase that holds against endless waves while the threat keeps evolving.
+## Pitch
 
-**Core fantasy:** your base holds, but the threat keeps evolving.
+*Grow Empire: Rome*'s loop, turned 90° into a top-down 8-bit battlefield and
+re-themed: a modern military firebase against the fantasy genre. The joke is the
+matchup — riot shields and belt-fed machine guns against knights, golems and
+raised skeletons — and the game plays the matchup straight.
 
----
+## Pillars
 
-## Platform & Presentation
+1. **You decide when the fight starts.** Waves never arrive on a timer. The
+   tension is in choosing to launch before you are quite ready, because the
+   credits are on the field.
+2. **A wave is a sequence of decisions, not one.** Deployment charges trickle
+   back during the fight, so you commit a little at a time and react to what is
+   walking at you.
+3. **Losing costs time, never progress.** A breached wall re-arms the same wave.
+   You keep every credit, the wall is rebuilt, and the same wave plan is waiting
+   — so a loss is information, and the next attempt is a plan.
+4. **It keeps playing without you.** Passive income compounds with your best
+   wave, and automation is purchasable, so the run moves while the tab is shut.
 
-- **Target:** mobile browser first; desktop browser as a centered tall column.
-- **Orientation:** portrait.
-- **Perspective:** top-down with a slight 3/4 angle and tall sprites. Rings read as concentric circles, and air units hover visibly above the ground with drop shadows.
-- **Input:** tap-only, no precision dragging. Plays identically on touch and mouse.
-- **Layout:**
-  - Top half: the firebase, rings centered, waves entering from the edges. Readable without zooming.
-  - Bottom half: thumb-reach controls (upgrade tabs, wave forecast, strike buttons).
+## The loop
 
----
+```
+PREP ──spend credits──▶ LAUNCH ──▶ BATTLE ──┬─ field cleared ─▶ wave + 1 ─┐
+  ▲                                         │                            │
+  └─────── wall rebuilt, credits kept ──────┴─ wall at 0 HP ─▶ same wave ─┘
+```
 
-## Art Direction
+## Systems
 
-Simple, colorful pixel art in the spirit of Babel Legacy. Toy-soldier / tabletop-miniature tone: war kept abstract and playful, no gore or real-conflict imagery.
+### The field
 
-- **Tile size:** 16×16 or 24×24 base tiles; units slightly taller for the 3/4 angle.
-- **Rendering:** nearest-neighbor scaling at integer multiples so pixels stay crisp.
-- **Palette:** a fixed set of ~16–32 colors.
-  - Warm earth tones for terrain; saturated colors reserved for things that need attention.
-  - Push brighter than realism (e.g., sandy desert base with vivid accents) so military gear doesn't turn muddy olive and gray.
-- **Color as information:**
-  - Friendly structures in one hue family (e.g., blues/greens).
-  - Enemies in a contrasting family (e.g., reds/oranges).
-  - A distinct accent per threat type so infantry, armor, and drones read differently at a glance.
-- **Silhouettes:** every unit recognizable by shape alone. Tanks wide and heavy, infantry as small clusters, drones as tiny shapes with shadows beneath.
-- **Juice:** chunky oversized explosions, screen shake on big strikes, Supply number pop-ups. Satisfying feedback over detail.
+One coordinate space, 192×240 "field pixels", shared by the simulation and the
+renderer so neither has to translate. The wall sits across the bottom with a
+gate at the centre and four tower emplacements on the parapet; enemies walk on
+from the top edge; the muster point is mid-field.
 
----
+### Unit AI
 
-## Core Loop
+The brief, implemented literally:
 
-1. Waves arrive on a fixed interval; emplacements auto-fire.
-2. Kills earn **Supply**.
-3. Supply buys upgrades.
-4. Main progress number: **Days Held**. Every 10 days brings a harder wave tier with a boss assault.
+- Player units charge the nearest enemy; with the field clear they fall back to
+  the muster point and hold.
+- Enemy units charge the nearest player unit; with none left they advance on the
+  wall and attack it.
 
-### Days Held
-- **One resolved wave = one day.** Days Held measures the defense's strength, not just elapsed time.
-- Waves spawn on a fixed interval. A **"Send next wave"** button lets strong players speed up, while idle players still progress on the timer.
-- Offline progress = time away ÷ wave interval.
-- The night cycle (mid game) fits as alternating day and night waves.
+With one deliberate addition: **siege engines (battering rams, catapults) ignore
+your soldiers entirely** and drive for the wall. Without them, a line of
+soldiers parked in mid-field would be a permanent plug — the siege units are
+what force you to actually defend the wall rather than win every fight at the
+muster point.
 
-### Start of a Run
-- **Only the outer ring (wire and mines) is live.** Trenches and bunkers exist but don't fire until built with Supply.
-- Building out the base is a core early satisfaction, and the rings are taught one at a time.
-- Tuning target: the first trench build is affordable within the first one or two waves. A slow start is fine; a dead start is not.
+Ranged units stop at their range and fire; melee close to contact. Bodies push
+each other apart, which turns a column into a firing line without pathfinding.
 
-### Breaches (soft failure)
-- An enemy that crosses a held ring **drops that ring**: it stops firing until repaired with Supply.
-- **Upgrade levels are kept.** A breach never erases investment.
-- If all three rings fall: lose some Supply, Days Held pauses, and the inner ring comes back on its own. The run never ends.
-- Repair doubles as a Supply sink, and fallen rings are easy to read visually.
+### Deployment charges
 
----
+A global pool (3 at the start, upgradeable) that refills one charge at a time.
+Riflemen and shield bearers cost one; machine gunners and rocketeers cost two.
+This is the game's main pacing knob: how much force you can project per wave,
+and how fast it comes back.
 
-## Early Game
+### Fire support
 
-- **Defensive rings**, each with its own upgrade track:
-  - Outer: wire and mines
-  - Middle: trenches and machine guns
-  - Inner: bunkers and mortars
-- **Counter-matching:** different wave types stress different rings and require different counters.
-  - Infantry → machine guns
-  - Armor → ATGMs
-  - Drones → air defense (arrives later)
-- **Active play (optional):** artillery and airstrike call-ins on cooldown. Speeds up early progress before automation takes over.
+Ground-targeted and telegraphed. A cast does not damage anything on the spot —
+it puts hazards on the ground that the engine resolves a beat later:
 
-## Mid Game
+- **Artillery Strike** — one heavy shell, short cooldown.
+- **Mortar Barrage** — six shells walked across a wide area over several seconds.
+- **Napalm** — burning ground that keeps damaging whatever walks through it.
 
-- **Resupply:** convoys and helicopters deliver Supply on a timer. Main idle-income lever.
-- **Recon:** spend **Intel** to see further into the wave forecast and pre-build counters. Shifts play from reacting to planning.
-- **Day/night cycle:** alternating day and night waves; night waves get stealth bonuses until thermals and illumination rounds are unlocked.
-- **Auto-repair:** engineers slowly restore fallen rings without spending Supply manually.
+The telegraph is honest: enemies can and do walk out of a barrage.
 
-## Late Game
+### Enemy design
 
-All late-game twists **add new layers** on top of existing systems. They do not invalidate earlier builds.
+Each army is a different problem:
 
-- **Drone era:** a new air layer of cheap drone swarms, countered by jammers, cheap interceptors, and electronic warfare.
-- **Forward operating bases:** deploy additional firebases outward. Several bases share one supply pool; the game grows from one base into a network.
-- **Counter-battery duel:** enemy artillery targets emplacements directly. Requires radar and counter-fire.
-- **Offensive raids:** surplus Supply funds raids on enemy staging areas, thinning future waves.
+- **Kingdom** — numbers and armour, and the only army with dedicated siege.
+  Teaches you that armour blunts small-calibre fire.
+- **Arcane** — ranged damage behind very tough constructs. Teaches you that
+  reaching the back line matters.
+- **Undead** — individually trivial, endless, and self-replenishing while the
+  necromancers live. Teaches you to kill the right thing, not the nearest thing.
 
----
+Wave composition is budget-driven: a point budget grows with the wave, is spent
+first on a few heavies and then on numbers, drawn only from kinds that have
+debuted by that wave. Bosses arrive every tenth wave on a reduced budget,
+because the boss *is* the wave.
 
-## Prestige: Rotation
+### Economy
 
-- Rotating out resets the run and awards **Veterancy**.
-- Veterancy buys permanent perks: faster build times, starting rings, commander unlocks.
-- **Commanders** give each run its own flavor:
-  - Engineer: cheap fortifications, faster repairs and auto-repair
-  - Artillery officer: strong strikes
-  - EW specialist: early drone counters
-- Commanders could share a universe with Battlepack's generals.
+Credits come from kills (kept win or lose) and from passive garrison income.
+Upgrades are the standard geometric price curve, and — this is the part that
+matters — **power is geometric too**. An early build with linear power against
+geometric prices stalled dead at wave 14 in simulation; compounding both, and
+letting bounty scale with enemy HP, is what makes a long run possible.
 
----
+Enemy stats scale in two stages: gently early, then steeply from wave 15. The
+player compounds across seven upgrade tracks while the enemy only has stats and
+numbers, and numbers are capped by what the field can hold — without the second
+stage, wave 40 was a formality.
 
-## Technical Direction
+### Balance method
 
-- **UI layer:** React (same stack as Battlepack: TanStack Start, deployed on Vercel).
-- **Battlefield renderer:** a canvas renderer inside the React app.
-  - PixiJS: lightweight sprites and effects.
-  - Phaser: more built in (scenes, tweens, particles), larger bundle.
-- **Simulation:** plain TypeScript, separate from rendering, so offline progress can reuse the same logic.
-- **Offline progress:** calculated, not simulated, since browsers suspend background tabs.
-  - Save a timestamp; compute results on return (waves resolved = time away ÷ wave interval).
-  - Show a **SITREP** screen with days held, supply earned, and any fallen rings to repair.
-  - Use a simplified "holds or falls back" model rather than replaying waves.
-- **Saves:** localStorage or IndexedDB, plus an export/import save string as a backup against wiped browser data.
-- **PWA:** support add-to-home-screen so it feels like an app.
-- **Performance:** drone swarms are the heaviest moment on low-end phones. Use pooled sprites and cap visible units (e.g., 50 shown, 300 counted).
+`src/sim/__tests__/balance.test.ts` runs a scripted player: it buys the cheapest
+useful thing, spends every charge the moment it has one, and drops abilities on
+crowds. Every balance claim in this document is something that test checks — the
+opening is winnable on towers alone, naive play reaches wave 20, towers alone
+run out of road, no wave can stall, and a wave deep into a run still takes real
+time to clear.
 
----
+## Architecture
 
-## Open Questions
+```
+src/sim/      pure TypeScript: the whole game, no DOM
+  config.ts   global curves, field geometry, abilities, idle layer   ─┐ the only
+  roster.ts   per-unit stat blocks, both sides, and the factions     ─┘ balance files
+  engine.ts   the authoritative tick: AI, movement, combat, waves
+  waves.ts    deterministic wave planning and unit construction
+  derive.ts   every derived number, so nothing can disagree
+src/render/   canvas renderer: string-art sprites, baked terrain, FX
+src/game/     the React bridge: fixed-timestep loop, snapshots, saves
+src/ui/       the shell: status, controls, shop, reports
+```
 
-- Resource and upgrade economy: costs, scaling curves, number of currencies.
-- Wave and enemy roster: unit types, tier progression, boss designs.
-- Unlock pacing: when each mid- and late-game system arrives.
-- Prestige math: Veterancy earn rate and perk costs.
-- Final palette and tile size (16×16 vs 24×24).
-- Shared universe with Battlepack: lore and commander overlap, if any.
+The simulation never imports from the renderer or React, which is what lets the
+entire game be tested headlessly and lets the renderer be rewritten without
+touching a rule.
+
+## Known gaps / next
+
+- No audio.
+- No prestige layer: a run eventually plateaus rather than resetting into a
+  multiplier.
+- Enemy variety is per-army, not per-wave-modifier (no "armoured wave", "fast
+  wave" affixes yet).
+- The renderer draws units direction-agnostically with a procedural weapon mark
+  rather than four-facing sprites; at this scale it reads, but real facings
+  would read better.

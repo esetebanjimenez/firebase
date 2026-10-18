@@ -1,70 +1,57 @@
 import { describe, expect, it } from 'vitest';
-import type { GameConfig } from '../config';
-import { defaultConfig } from '../config';
-import { createInitialState } from '../state';
+import { defaultConfig as cfg } from '../config';
+import { incomePerSec } from '../derive';
 import { applyOfflineProgress } from '../offline';
-
-const cfg = defaultConfig;
-const ms = (waves: number) => waves * cfg.wave.intervalSec * 1000;
+import { step } from '../engine';
+import { DT, freshState } from './helpers';
 
 describe('offline progress', () => {
-  it('credits nothing for a trivially short absence', () => {
-    const s = createInitialState(cfg);
-    const sit = applyOfflineProgress(s, cfg, 500);
-    expect(sit.wavesResolved).toBe(0);
-    expect(sit.daysGained).toBe(0);
-    expect(s.day).toBe(0);
+  it('pays nothing for no time away', () => {
+    const state = freshState();
+    const report = applyOfflineProgress(state, cfg, 0);
+    expect(report.creditsEarned).toBe(0);
+    expect(state.credits).toBe(0);
   });
 
-  it('a strong line holds: Days and Supply advance, wall stays up', () => {
-    const s = createInitialState(cfg);
-    s.firepowerLevel = 20; // overwhelming firepower
-    s.barrier.level = 10;
-    s.barrier.maxHp = 1000;
-    s.barrier.hp = 1000;
-
-    const sit = applyOfflineProgress(s, cfg, ms(10));
-    expect(sit.wavesResolved).toBe(10);
-    expect(sit.daysGained).toBe(10);
-    expect(s.day).toBe(10);
-    expect(sit.supplyEarned).toBeGreaterThan(0);
-    expect(sit.wallDown).toBe(false);
+  it('pays the garrison rate for the time away', () => {
+    const state = freshState();
+    state.bestWave = 10;
+    const hour = 3600_000;
+    const report = applyOfflineProgress(state, cfg, hour);
+    expect(report.creditsEarned).toBeCloseTo(incomePerSec(cfg, 10) * 3600, 4);
+    expect(state.credits).toBeCloseTo(report.creditsEarned, 4);
+    expect(report.capped).toBe(false);
   });
 
-  it('an under-defended line stalls (fewer Days) but never loses Supply', () => {
-    const s = createInitialState(cfg); // starter firepower
-    const sit = applyOfflineProgress(s, cfg, ms(40));
-    expect(sit.daysGained).toBeLessThan(40);
-    expect(sit.supplyEarned).toBeGreaterThanOrEqual(0); // repair-only: no penalty
-    expect(s.day).toBeGreaterThanOrEqual(0);
+  it('pays more the further the run has got', () => {
+    const early = freshState();
+    const late = freshState();
+    late.bestWave = 25;
+    const hour = 3600_000;
+    expect(applyOfflineProgress(late, cfg, hour).creditsEarned).toBeGreaterThan(
+      applyOfflineProgress(early, cfg, hour).creditsEarned,
+    );
   });
 
-  it('respects the offline wave cap', () => {
-    const small: GameConfig = { ...cfg, offline: { ...cfg.offline, maxWaves: 5 } };
-    const s = createInitialState(small);
-    s.firepowerLevel = 30;
-    const sit = applyOfflineProgress(s, small, ms(1000));
-    expect(sit.wavesResolved).toBe(5);
-    expect(sit.capped).toBe(true);
+  it('caps a long absence and says so', () => {
+    const state = freshState();
+    state.bestWave = 5;
+    const week = 7 * 24 * 3600_000;
+    const report = applyOfflineProgress(state, cfg, week);
+    expect(report.capped).toBe(true);
+    expect(report.secondsCredited).toBe(cfg.idle.maxOfflineSec);
+    expect(report.secondsAway).toBeGreaterThan(report.secondsCredited);
   });
 
-  it('leaves the base idle and ready afterwards', () => {
-    const s = createInitialState(cfg);
-    s.firepowerLevel = 20;
-    applyOfflineProgress(s, cfg, ms(5));
-    expect(s.enemies).toHaveLength(0);
-    expect(s.wave.inProgress).toBe(false);
-    expect(s.wave.timerSec).toBe(cfg.wave.intervalSec);
-    expect(s.fireSupport.cooldownRemaining).toBe(0);
-  });
+  it('matches what the same time would have earned live', () => {
+    const offline = freshState();
+    offline.bestWave = 8;
+    applyOfflineProgress(offline, cfg, 60_000);
 
-  it('shares formulas with live play: a stronger line out-holds a weaker one', () => {
-    const weak = createInitialState(cfg);
-    const strong = createInitialState(cfg);
-    strong.firepowerLevel = 12;
+    const live = freshState();
+    live.bestWave = 8;
+    for (let i = 0; i < 60 / DT; i++) step(live, DT, cfg);
 
-    const w = applyOfflineProgress(weak, cfg, ms(20));
-    const st = applyOfflineProgress(strong, cfg, ms(20));
-    expect(st.daysGained).toBeGreaterThan(w.daysGained);
+    expect(live.credits).toBeCloseTo(offline.credits, 2);
   });
 });

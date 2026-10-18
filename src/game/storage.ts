@@ -1,19 +1,20 @@
 /**
- * storage.ts — the DOM-facing persistence layer (localStorage + timestamp).
+ * storage.ts — the browser-facing persistence layer (localStorage + clock).
  *
- * All the actual (de)serialization/migration lives in the pure
- * `sim/persistence.ts`; this file only owns the browser storage API and is
- * careful to never throw (private mode, blocked storage, quota, SSR).
+ * The (de)serialization and validation live in the pure `sim/persistence.ts`;
+ * this file owns only the storage API, and never throws: private mode, blocked
+ * storage, quota and SSR all degrade to "no save", with the game still playable
+ * in memory.
  */
 
 import type { GameConfig, SimState } from '../sim';
 import { deserialize, serialize } from '../sim';
 
-const STORAGE_KEY = 'firebase-idle:save:v1';
+const STORAGE_KEY = 'iron-line:save:v1';
 
 export interface LoadedSave {
   state: SimState;
-  /** Epoch ms when the save was written (used to compute offline progress). */
+  /** Epoch ms the save was written, for offline credit. */
   savedAt: number;
 }
 
@@ -25,17 +26,15 @@ function hasStorage(): boolean {
   }
 }
 
-/** Persist the current state with a fresh timestamp. Silently no-ops on failure. */
 export function saveGame(state: SimState, now: number = Date.now()): void {
   if (!hasStorage()) return;
   try {
     localStorage.setItem(STORAGE_KEY, serialize(state, now));
   } catch {
-    /* quota exceeded / blocked — ignore, the game stays playable in-memory */
+    /* quota or blocked storage — keep playing, just unsaved */
   }
 }
 
-/** Load the saved game, or null if none / unusable. */
 export function loadGame(cfg: GameConfig): LoadedSave | null {
   if (!hasStorage()) return null;
   let raw: string | null = null;
@@ -46,11 +45,9 @@ export function loadGame(cfg: GameConfig): LoadedSave | null {
   }
   if (!raw) return null;
   const env = deserialize(raw, cfg);
-  if (!env) return null;
-  return { state: env.state, savedAt: env.savedAt };
+  return env ? { state: env.state, savedAt: env.savedAt } : null;
 }
 
-/** Remove the save (used by a hard reset). */
 export function clearSave(): void {
   if (!hasStorage()) return;
   try {

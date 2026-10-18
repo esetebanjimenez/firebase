@@ -1,32 +1,38 @@
-/** TopBar — Days Held, Supply, and wave/wall status. */
+/** TopBar — credits and income, the wave you are on, and what the field is doing. */
 
 import type { UiSnapshot } from '../game/useGameLoop';
 
-export function TopBar({ snapshot }: { snapshot: UiSnapshot }) {
-  const { day, supply, wave, barrier } = snapshot;
+function compact(value: number): string {
+  if (value < 1000) return `${Math.round(value)}`;
+  if (value < 1_000_000) return `${(value / 1000).toFixed(value < 10_000 ? 1 : 0)}k`;
+  if (value < 1_000_000_000) return `${(value / 1_000_000).toFixed(value < 10_000_000 ? 1 : 0)}M`;
+  return `${(value / 1_000_000_000).toFixed(1)}B`;
+}
 
-  let status: string;
-  let alert = false;
-  if (barrier.down) {
-    status = 'WALL DOWN — repair to resume';
-    alert = true;
-  } else if (wave.inProgress) {
-    status = `Wave ${wave.index} at the wall`;
-  } else {
-    status = `Next wave in ${wave.timerSec.toFixed(1)}s (${wave.nextCount} inf)`;
-  }
+export { compact };
+
+export function TopBar({ snapshot }: { snapshot: UiSnapshot }) {
+  const { credits, incomePerSec, wave, bestWave, phase, battle, wall } = snapshot;
+  const status =
+    phase === 'battle'
+      ? `${battle.enemiesLeft} on the field${battle.incoming > 0 ? ` · ${battle.incoming} inbound` : ''}`
+      : `Next: wave ${wave} · ${snapshot.preview.armies.join(' + ')}`;
 
   return (
     <header className="topbar">
-      <div className="stat stat--primary">
-        <span className="stat__value">{day}</span>
-        <span className="stat__label">Days Held</span>
+      <div className="topbar__row">
+        <div className="stat">
+          <span className="stat__value stat__value--credits">{compact(credits)}</span>
+          <span className="stat__label">credits · {incomePerSec.toFixed(1)}/s</span>
+        </div>
+        <div className="stat stat--right">
+          <span className="stat__value">
+            {phase === 'battle' ? `WAVE ${wave}` : `W${wave}`}
+          </span>
+          <span className="stat__label">best {bestWave}</span>
+        </div>
       </div>
-      <div className="stat stat--supply">
-        <span className="stat__value">{supply}</span>
-        <span className="stat__label">Supply</span>
-      </div>
-      <div className={`wavebar ${alert ? 'wavebar--alert' : ''}`}>{status}</div>
+      <div className={`topbar__status ${wall.pct < 0.3 ? 'topbar__status--alert' : ''}`}>{status}</div>
     </header>
   );
 }

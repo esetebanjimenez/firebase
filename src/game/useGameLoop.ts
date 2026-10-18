@@ -1,34 +1,64 @@
 /**
- * useGameLoop.ts — bridge between the plain-TS simulation and React/Pixi.
+ * useGameLoop.ts — the bridge between the plain-TS simulation and React.
  *
- * Owns the authoritative SimState in a ref (read by the renderer every frame),
- * drives engine.step from a fixed-timestep accumulator, publishes a throttled
- * UI snapshot, loads/saves to localStorage with offline progress on mount, and
- * exposes player actions.
+ * Owns the authoritative SimState in a ref (the renderer reads it every frame),
+ * advances it on a fixed timestep from a rAF accumulator, and publishes a
+ * throttled, fully-derived snapshot for the UI — so no React component ever
+ * recomputes a cost or a DPS figure, and no re-render is tied to frame rate.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  PLAYER_UNITS,
+  PLAYER_UNIT_ORDER,
+  FACTIONS,
+  ENEMY_UNITS,
+  abilityCooldown,
+  abilityCost,
+  abilityTotalDamage,
   applyOfflineProgress,
-  barrierRepairCost,
-  barrierUpgradeCost,
-  canUseFireSupport,
+  automationCost,
+  buyAbility,
+  buyUpgrade,
+  canCast,
+  canDeploy,
+  castAbility,
+  chargeMax,
+  clearResult,
   createInitialState,
   defaultConfig,
-  firepowerDps,
-  firepowerUpgradeCost,
-  fireSupportCooldown,
-  fireSupportUpgradeCost,
-  repairBarrier as simRepair,
-  sendNextWave as simSend,
+  deployUnit,
+  launchWave,
+  planWave,
+  playerUnitStats,
+  rechargeSec,
+  selectAbility,
+  selectUnit,
+  soldierDamageMult,
+  soldierHpMult,
+  soldierSpeedMult,
   step,
-  upgradeBarrier as simUpBarrier,
-  upgradeFireSupport as simUpFire,
-  upgradeFirepower as simUpFire2,
-  useFireSupport as simUseFire,
-  waveCount,
+  syncDerived,
+  toggleAutomation,
+  towerDps,
+  towerRange,
+  trackCost,
+  unlockAutomation,
+  unlockUnit,
+  wallMaxHp,
+  incomePerSec,
 } from '../sim';
-import type { GameConfig, SimEvent, SimState, Sitrep } from '../sim';
+import type {
+  AbilityId,
+  AutomationId,
+  GameConfig,
+  IdleReport,
+  PlayerUnitId,
+  SimEvent,
+  SimState,
+  UpgradeTrack,
+  WaveResult,
+} from '../sim';
 import { clearSave, loadGame, saveGame } from './storage';
 
 const FIXED_DT = 1 / 30;
@@ -36,79 +66,277 @@ const MAX_FRAME = 0.25;
 const SNAPSHOT_MS = 100;
 const AUTOSAVE_MS = 5000;
 
+export interface UpgradeView {
+  track: UpgradeTrack;
+  label: string;
+  detail: string;
+  level: number;
+  cost: number;
+  affordable: boolean;
+}
+
+export interface UnitView {
+  id: PlayerUnitId;
+  name: string;
+  short: string;
+  blurb: string;
+  unlocked: boolean;
+  unlockCost: number;
+  affordable: boolean;
+  chargeCost: number;
+  selected: boolean;
+  deployable: boolean;
+  hp: number;
+  dps: number;
+  range: number;
+  colors: readonly [string, string, string, string];
+}
+
+export interface AbilityView {
+  id: AbilityId;
+  name: string;
+  blurb: string;
+  level: number;
+  unlocked: boolean;
+  cost: number;
+  affordable: boolean;
+  selected: boolean;
+  ready: boolean;
+  cooldown: number;
+  cooldownTotal: number;
+  damage: number;
+  radius: number;
+}
+
+export interface WavePreview {
+  wave: number;
+  armies: string[];
+  accent: string;
+  boss: boolean;
+  count: number;
+  threat: number;
+  payout: number;
+  composition: { name: string; count: number }[];
+}
+
 export interface UiSnapshot {
-  day: number;
-  supply: number;
-  firepower: { level: number; dps: number; upgradeCost: number };
-  barrier: {
-    level: number;
-    hp: number;
-    maxHp: number;
-    pct: number;
-    upgradeCost: number;
-    repairCost: number;
-    down: boolean;
+  credits: number;
+  incomePerSec: number;
+  wave: number;
+  bestWave: number;
+  phase: 'prep' | 'battle';
+  wall: { level: number; hp: number; maxHp: number; pct: number };
+  towers: { level: number; count: number; dps: number; range: number };
+  charges: { current: number; max: number; rechargeProgress: number; rechargeSec: number };
+  soldiers: { hpMult: number; damageMult: number; speedMult: number };
+  upgrades: UpgradeView[];
+  units: UnitView[];
+  abilities: AbilityView[];
+  automation: {
+    autoDeploy: { unlocked: boolean; enabled: boolean; cost: number; affordable: boolean };
+    autoLaunch: { unlocked: boolean; enabled: boolean; cost: number; affordable: boolean };
   };
-  fireSupport: {
-    level: number;
-    unlocked: boolean;
-    upgradeCost: number;
-    ready: boolean;
-    cooldownRemaining: number;
-    cooldownTotal: number;
-  };
-  wave: { index: number; inProgress: boolean; timerSec: number; nextCount: number };
-  enemyCount: number;
-  totalKills: number;
-  bestDay: number;
+  battle: { enemiesLeft: number; soldiers: number; timeSec: number; incoming: number };
+  preview: WavePreview;
+  result: WaveResult | null;
+  stats: { kills: number; wavesWon: number; wavesLost: number };
 }
 
 export interface GameActions {
-  upgradeFirepower: () => void;
-  upgradeBarrier: () => void;
-  upgradeFireSupport: () => void;
-  repairBarrier: () => void;
-  useFireSupport: () => void;
-  sendNextWave: () => void;
+  buy: (track: UpgradeTrack) => void;
+  unlock: (id: PlayerUnitId) => void;
+  select: (id: PlayerUnitId) => void;
+  buyAbility: (id: AbilityId) => void;
+  armAbility: (id: AbilityId | null) => void;
+  castAt: (x: number, y: number) => void;
+  deploy: () => void;
+  launch: () => void;
+  automate: (id: AutomationId) => void;
+  toggle: (id: AutomationId) => void;
+  dismissResult: () => void;
   hardReset: () => void;
 }
 
-function buildSnapshot(s: SimState, cfg: GameConfig): UiSnapshot {
-  const fsLevel = s.fireSupport.level;
+const TRACK_LABELS: Record<UpgradeTrack, string> = {
+  wall: 'Wall',
+  towers: 'Towers',
+  soldierHp: 'Armour',
+  soldierDamage: 'Firepower',
+  soldierSpeed: 'Mobility',
+  charges: 'Charge Pool',
+  recharge: 'Recharge',
+};
+
+function buildUpgrades(state: SimState, cfg: GameConfig): UpgradeView[] {
+  const tracks: UpgradeTrack[] = [
+    'wall',
+    'towers',
+    'soldierHp',
+    'soldierDamage',
+    'soldierSpeed',
+    'charges',
+    'recharge',
+  ];
+  return tracks.map((track) => {
+    const level = state.upgrades[track];
+    const cost = trackCost(cfg, state, track);
+    let detail: string;
+    switch (track) {
+      case 'wall':
+        detail = `${Math.round(wallMaxHp(cfg, level))} → ${Math.round(wallMaxHp(cfg, level + 1))} hp`;
+        break;
+      case 'towers':
+        detail = `${towerDps(cfg, level).toFixed(1)} → ${towerDps(cfg, level + 1).toFixed(1)} dps each`;
+        break;
+      case 'soldierHp':
+        detail = `×${soldierHpMult(cfg, level).toFixed(2)} → ×${soldierHpMult(cfg, level + 1).toFixed(2)} hp`;
+        break;
+      case 'soldierDamage':
+        detail = `×${soldierDamageMult(cfg, level).toFixed(2)} → ×${soldierDamageMult(cfg, level + 1).toFixed(2)} dmg`;
+        break;
+      case 'soldierSpeed':
+        detail = `×${soldierSpeedMult(cfg, level).toFixed(2)} → ×${soldierSpeedMult(cfg, level + 1).toFixed(2)} speed`;
+        break;
+      case 'charges':
+        detail = `${chargeMax(cfg, level)} → ${chargeMax(cfg, level + 1)} charges`;
+        break;
+      case 'recharge':
+        detail = `${rechargeSec(cfg, level).toFixed(1)}s → ${rechargeSec(cfg, level + 1).toFixed(1)}s`;
+        break;
+    }
+    return {
+      track,
+      label: TRACK_LABELS[track],
+      detail,
+      level,
+      cost,
+      affordable: state.credits >= cost,
+    };
+  });
+}
+
+function buildUnits(state: SimState, cfg: GameConfig): UnitView[] {
+  return PLAYER_UNIT_ORDER.map((id) => {
+    const def = PLAYER_UNITS[id];
+    const stats = playerUnitStats(cfg, state.upgrades, id);
+    return {
+      id,
+      name: def.name,
+      short: def.short,
+      blurb: def.blurb,
+      unlocked: state.unlocked[id],
+      unlockCost: def.unlockCost,
+      affordable: state.credits >= def.unlockCost,
+      chargeCost: def.chargeCost,
+      selected: state.selectedUnit === id,
+      deployable: canDeploy(state, cfg, id),
+      hp: Math.round(stats.hp),
+      dps: stats.dps,
+      range: def.range,
+      colors: def.colors,
+    };
+  });
+}
+
+function buildAbilities(state: SimState, cfg: GameConfig): AbilityView[] {
+  const ids: AbilityId[] = ['artillery', 'barrage', 'napalm'];
+  return ids.map((id) => {
+    const ac = cfg.abilities[id];
+    const level = state.abilities[id].level;
+    return {
+      id,
+      name: ac.name,
+      blurb: ac.blurb,
+      level,
+      unlocked: level > 0,
+      cost: abilityCost(cfg, id, level),
+      affordable: state.credits >= abilityCost(cfg, id, level),
+      selected: state.selectedAbility === id,
+      ready: canCast(state, id),
+      cooldown: Math.max(0, state.abilities[id].cooldown),
+      cooldownTotal: level > 0 ? abilityCooldown(cfg, id, level) : 0,
+      damage: abilityTotalDamage(cfg, id, level),
+      radius: ac.radius,
+    };
+  });
+}
+
+function buildPreview(state: SimState, cfg: GameConfig): WavePreview {
+  const plan = planWave(cfg, state.wave);
   return {
-    day: s.day,
-    supply: Math.floor(s.supply),
-    firepower: {
-      level: s.firepowerLevel,
-      dps: Math.round(firepowerDps(cfg, s.firepowerLevel)),
-      upgradeCost: firepowerUpgradeCost(cfg, s),
+    wave: state.wave,
+    armies: plan.factions.map((f) => FACTIONS[f].name),
+    accent: FACTIONS[plan.factions[0]].accent,
+    boss: plan.boss,
+    count: plan.spawns.length,
+    threat: Math.round(plan.totalHp),
+    payout: Math.round(plan.totalBounty),
+    composition: plan.composition.map((c) => ({ name: ENEMY_UNITS[c.kind].name, count: c.count })),
+  };
+}
+
+function buildSnapshot(state: SimState, cfg: GameConfig): UiSnapshot {
+  const rechargeTotal = rechargeSec(cfg, state.upgrades.recharge);
+  return {
+    credits: Math.floor(state.credits),
+    incomePerSec: incomePerSec(cfg, state.bestWave),
+    wave: state.wave,
+    bestWave: state.bestWave,
+    phase: state.phase,
+    wall: {
+      level: state.wall.level,
+      hp: Math.ceil(state.wall.hp),
+      maxHp: Math.round(state.wall.maxHp),
+      pct: state.wall.maxHp > 0 ? Math.max(0, state.wall.hp / state.wall.maxHp) : 0,
     },
-    barrier: {
-      level: s.barrier.level,
-      hp: Math.ceil(s.barrier.hp),
-      maxHp: Math.round(s.barrier.maxHp),
-      pct: s.barrier.maxHp > 0 ? Math.max(0, s.barrier.hp / s.barrier.maxHp) : 0,
-      upgradeCost: barrierUpgradeCost(cfg, s),
-      repairCost: barrierRepairCost(cfg, s),
-      down: s.barrier.hp <= 0,
+    towers: {
+      level: state.upgrades.towers,
+      count: state.towers.length,
+      dps: towerDps(cfg, state.upgrades.towers) * state.towers.length,
+      range: towerRange(cfg, state.upgrades.towers),
     },
-    fireSupport: {
-      level: fsLevel,
-      unlocked: fsLevel > 0,
-      upgradeCost: fireSupportUpgradeCost(cfg, s),
-      ready: canUseFireSupport(s),
-      cooldownRemaining: Math.max(0, s.fireSupport.cooldownRemaining),
-      cooldownTotal: fsLevel > 0 ? fireSupportCooldown(cfg, fsLevel) : 0,
+    charges: {
+      current: state.charges.current,
+      max: state.charges.max,
+      rechargeProgress:
+        state.charges.current >= state.charges.max
+          ? 1
+          : Math.min(1, Math.max(0, 1 - state.charges.rechargeIn / rechargeTotal)),
+      rechargeSec: rechargeTotal,
     },
-    wave: {
-      index: s.wave.index,
-      inProgress: s.wave.inProgress,
-      timerSec: Math.max(0, s.wave.timerSec),
-      nextCount: waveCount(cfg, s.day + 1),
+    soldiers: {
+      hpMult: soldierHpMult(cfg, state.upgrades.soldierHp),
+      damageMult: soldierDamageMult(cfg, state.upgrades.soldierDamage),
+      speedMult: soldierSpeedMult(cfg, state.upgrades.soldierSpeed),
     },
-    enemyCount: s.enemies.length,
-    totalKills: s.stats.totalKills,
-    bestDay: s.stats.bestDay,
+    upgrades: buildUpgrades(state, cfg),
+    units: buildUnits(state, cfg),
+    abilities: buildAbilities(state, cfg),
+    automation: {
+      autoDeploy: {
+        ...state.automation.autoDeploy,
+        cost: automationCost(cfg, 'autoDeploy'),
+        affordable: state.credits >= automationCost(cfg, 'autoDeploy'),
+      },
+      autoLaunch: {
+        ...state.automation.autoLaunch,
+        cost: automationCost(cfg, 'autoLaunch'),
+        affordable: state.credits >= automationCost(cfg, 'autoLaunch'),
+      },
+    },
+    battle: {
+      enemiesLeft: state.units.filter((u) => u.team === 'enemy').length,
+      soldiers: state.units.filter((u) => u.team === 'player').length,
+      timeSec: state.battleTime,
+      incoming: state.spawnQueue.length,
+    },
+    preview: buildPreview(state, cfg),
+    result: state.lastResult,
+    stats: {
+      kills: state.stats.totalKills,
+      wavesWon: state.stats.wavesWon,
+      wavesLost: state.stats.wavesLost,
+    },
   };
 }
 
@@ -117,48 +345,46 @@ export interface UseGameLoop {
   fxRef: React.MutableRefObject<SimEvent[]>;
   snapshot: UiSnapshot;
   actions: GameActions;
-  sitrep: Sitrep | null;
-  dismissSitrep: () => void;
+  idleReport: IdleReport | null;
+  dismissIdleReport: () => void;
   config: GameConfig;
 }
 
 export function useGameLoop(cfg: GameConfig = defaultConfig): UseGameLoop {
   const init = useMemo(() => {
     const loaded = loadGame(cfg);
-    if (loaded) {
-      const sit = applyOfflineProgress(loaded.state, cfg, Date.now() - loaded.savedAt);
-      return { state: loaded.state, sitrep: sit.wavesResolved > 0 ? sit : null };
-    }
-    return { state: createInitialState(cfg), sitrep: null };
+    if (!loaded) return { state: createInitialState(cfg), report: null as IdleReport | null };
+    syncDerived(loaded.state, cfg);
+    const report = applyOfflineProgress(loaded.state, cfg, Date.now() - loaded.savedAt);
+    return { state: loaded.state, report: report.creditsEarned >= 1 ? report : null };
   }, [cfg]);
 
   const stateRef = useRef<SimState>(init.state);
   const fxRef = useRef<SimEvent[]>([]);
   const [snapshot, setSnapshot] = useState<UiSnapshot>(() => buildSnapshot(init.state, cfg));
-  const [sitrep, setSitrep] = useState<Sitrep | null>(init.sitrep);
+  const [idleReport, setIdleReport] = useState<IdleReport | null>(init.report);
 
   const publish = useCallback(() => setSnapshot(buildSnapshot(stateRef.current, cfg)), [cfg]);
 
   useEffect(() => {
     let raf = 0;
     let last = performance.now();
-    let acc = 0;
-    let sinceSnap = 0;
+    let accumulator = 0;
+    let sinceSnapshot = 0;
     let sinceSave = 0;
 
     const tick = (now: number) => {
-      let frame = (now - last) / 1000;
+      const frame = Math.min(MAX_FRAME, (now - last) / 1000);
       last = now;
-      if (frame > MAX_FRAME) frame = MAX_FRAME;
-      acc += frame;
-      while (acc >= FIXED_DT) {
-        const ev = step(stateRef.current, FIXED_DT, cfg);
-        if (ev.length) fxRef.current.push(...ev);
-        acc -= FIXED_DT;
+      accumulator += frame;
+      while (accumulator >= FIXED_DT) {
+        const events = step(stateRef.current, FIXED_DT, cfg);
+        if (events.length > 0) fxRef.current.push(...events);
+        accumulator -= FIXED_DT;
       }
-      sinceSnap += frame;
-      if (sinceSnap * 1000 >= SNAPSHOT_MS) {
-        sinceSnap = 0;
+      sinceSnapshot += frame;
+      if (sinceSnapshot * 1000 >= SNAPSHOT_MS) {
+        sinceSnapshot = 0;
         publish();
       }
       sinceSave += frame;
@@ -170,53 +396,67 @@ export function useGameLoop(cfg: GameConfig = defaultConfig): UseGameLoop {
     };
     raf = requestAnimationFrame(tick);
 
-    const onHide = () => saveGame(stateRef.current);
-    document.addEventListener('visibilitychange', onHide);
-    window.addEventListener('pagehide', onHide);
+    const persist = () => saveGame(stateRef.current);
+    document.addEventListener('visibilitychange', persist);
+    window.addEventListener('pagehide', persist);
     return () => {
       cancelAnimationFrame(raf);
-      document.removeEventListener('visibilitychange', onHide);
-      window.removeEventListener('pagehide', onHide);
-      saveGame(stateRef.current);
+      document.removeEventListener('visibilitychange', persist);
+      window.removeEventListener('pagehide', persist);
+      persist();
     };
   }, [cfg, publish]);
 
   const actions = useMemo<GameActions>(
     () => ({
-      upgradeFirepower: () => {
-        if (simUpFire2(stateRef.current, cfg)) publish();
+      buy: (track) => {
+        if (buyUpgrade(stateRef.current, cfg, track)) publish();
       },
-      upgradeBarrier: () => {
-        if (simUpBarrier(stateRef.current, cfg)) publish();
+      unlock: (id) => {
+        if (unlockUnit(stateRef.current, cfg, id)) publish();
       },
-      upgradeFireSupport: () => {
-        if (simUpFire(stateRef.current, cfg)) publish();
+      select: (id) => {
+        if (selectUnit(stateRef.current, id)) publish();
       },
-      repairBarrier: () => {
-        if (simRepair(stateRef.current, cfg)) publish();
+      buyAbility: (id) => {
+        if (buyAbility(stateRef.current, cfg, id)) publish();
       },
-      useFireSupport: () => {
-        const ev = simUseFire(stateRef.current, cfg);
-        if (ev.length) {
-          fxRef.current.push(...ev);
-          publish();
-        }
+      armAbility: (id) => {
+        if (selectAbility(stateRef.current, id)) publish();
       },
-      sendNextWave: () => {
-        if (simSend(stateRef.current)) publish();
+      castAt: (x, y) => {
+        const state = stateRef.current;
+        if (!state.selectedAbility) return;
+        if (castAbility(state, cfg, state.selectedAbility, x, y)) publish();
+      },
+      deploy: () => {
+        if (deployUnit(stateRef.current, cfg, stateRef.current.selectedUnit, fxRef.current)) publish();
+      },
+      launch: () => {
+        if (launchWave(stateRef.current, cfg, fxRef.current)) publish();
+      },
+      automate: (id) => {
+        if (unlockAutomation(stateRef.current, cfg, id)) publish();
+      },
+      toggle: (id) => {
+        if (toggleAutomation(stateRef.current, id)) publish();
+      },
+      dismissResult: () => {
+        clearResult(stateRef.current);
+        publish();
       },
       hardReset: () => {
         clearSave();
         stateRef.current = createInitialState(cfg);
         fxRef.current = [];
-        setSitrep(null);
+        setIdleReport(null);
         publish();
       },
     }),
     [cfg, publish],
   );
 
-  const dismissSitrep = useCallback(() => setSitrep(null), []);
+  const dismissIdleReport = useCallback(() => setIdleReport(null), []);
 
-  return { stateRef, fxRef, snapshot, actions, sitrep, dismissSitrep, config: cfg };
+  return { stateRef, fxRef, snapshot, actions, idleReport, dismissIdleReport, config: cfg };
 }
