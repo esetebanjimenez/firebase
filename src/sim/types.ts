@@ -12,6 +12,8 @@
  * `version` gates save migrations.
  */
 
+import type { Rank } from './ranks';
+
 export type Team = 'player' | 'enemy';
 
 /** The three invading armies. */
@@ -90,6 +92,12 @@ export interface Unit {
   readonly radius: number;
   /** Credits paid out when this unit dies (enemies only). */
   readonly bounty: number;
+  /**
+   * The visible rank: gear carried and the colour it is painted. Player units
+   * take it from the kind's level, enemies from how far they have scaled past
+   * their debut — the same ladder either way, so the colours mean one thing.
+   */
+  readonly rank: Rank;
   /** Siege engines push for the wall and ignore your soldiers entirely. */
   readonly wallFocused: boolean;
   /** Seconds between raising a minion; 0 for everything that can't. */

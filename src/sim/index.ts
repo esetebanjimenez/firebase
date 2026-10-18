@@ -19,6 +19,17 @@ export {
 } from './roster';
 export type { EnemyUnitDef, FactionDef, PlayerUnitDef, UnitStats } from './roster';
 
+export {
+  MAX_RANK,
+  RANK_COLOR_COUNT,
+  RANK_COLOR_NAMES,
+  RANK_GEAR_STEPS,
+  rankName,
+  rankOfLevel,
+  rankOfScale,
+} from './ranks';
+export type { Rank } from './ranks';
+
 export { createInitialState } from './state';
 export { startBattle, step, syncDerived } from './engine';
 export { applyOfflineProgress } from './offline';

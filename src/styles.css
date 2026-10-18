@@ -254,7 +254,9 @@ body {
   grid-template-rows: auto auto;
   gap: 1px 6px;
   align-items: center;
-  padding: 7px 8px;
+  /* Keep the row height tied to the text, not to the sprite. */
+  max-height: 46px;
+  padding: 5px 8px;
   background: linear-gradient(180deg, var(--deploy-light), var(--deploy));
   border: 1px solid var(--edge-light);
   border-radius: 3px;
@@ -280,7 +282,8 @@ body {
 
 .deploy__icon {
   grid-row: 1 / 3;
-  margin: -6px 0 -6px -2px;
+  /* The portrait overflows its row rather than stretching the button. */
+  margin: -8px 2px -8px -4px;
 }
 
 .deploy__name {
@@ -301,7 +304,8 @@ body {
   display: grid;
   grid-auto-flow: column;
   gap: 3px;
-  align-items: stretch;
+  align-items: center;
+  justify-content: center;
 }
 
 .charges--many {
@@ -343,6 +347,7 @@ body {
 .pip {
   position: relative;
   width: 11px;
+  height: 26px;
   background: #0b0e13;
   border: 1px solid var(--edge-light);
   overflow: hidden;
@@ -537,7 +542,9 @@ body {
 }
 
 .row .uniticon {
-  margin: -2px 2px -2px -2px;
+  margin: -6px 4px -6px -2px;
+  max-height: 34px;
+  width: auto;
 }
 
 .row__main {

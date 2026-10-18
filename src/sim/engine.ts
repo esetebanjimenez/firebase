@@ -252,8 +252,8 @@ function musterPoint(cfg: GameConfig, unit: Unit): { x: number; y: number } {
   const column = ((unit.id * 37) % 7) - 3;
   const row = ((unit.id * 17) % 3) - 1;
   return {
-    x: cfg.field.gateX + column * 16,
-    y: cfg.field.musterY + row * 11,
+    x: cfg.field.gateX + column * 32,
+    y: cfg.field.musterY + row * 22,
   };
 }
 

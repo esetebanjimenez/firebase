@@ -123,7 +123,7 @@ export function Panel({ snapshot, actions, onRestart }: Props) {
                   cost={unit.upgradeCost}
                   affordable={unit.upgradeAffordable}
                   accent={unit.colors[1]}
-                  icon={<UnitIcon kind={unit.id} scale={2} />}
+                  icon={<UnitIcon kind={unit.id} level={unit.level} scale={1} />}
                   onClick={() => actions.levelUp(unit.id)}
                 />
               ) : (
@@ -134,7 +134,7 @@ export function Panel({ snapshot, actions, onRestart }: Props) {
                   cost={unit.unlockCost}
                   affordable={unit.affordable}
                   accent={unit.colors[1]}
-                  icon={<UnitIcon kind={unit.id} scale={2} />}
+                  icon={<UnitIcon kind={unit.id} level={1} scale={1} />}
                   onClick={() => actions.unlock(unit.id)}
                 />
               ),

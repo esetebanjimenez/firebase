@@ -1,104 +1,20 @@
 /**
- * sprites.ts — the game's pixel art.
+ * sprites.ts — the sprite registry.
  *
- * Six silhouettes carry every one of the 21 unit kinds. A kind picks a
- * silhouette for its size and bearing, and recolours it with the four-colour
- * ramp from its roster entry; what tells a knight from a zombie at this scale
- * is colour, bulk, and the procedural mark the renderer draws on top (a barrel,
- * a shield, a glowing staff). That is how 8-bit consoles got variety out of a
- * tiny art budget, and it means new kinds are data, not drawings.
+ * Bodies come from the parametric builder (body.ts), sized by each kind's own
+ * radius and coloured by its four-colour ramp; kit comes from the gear ladder
+ * (gear.ts), drawn live so it can follow the unit's aim and wear its rank
+ * colour. Between them, 21 kinds and 50 ranks are data rather than drawings —
+ * and the same two functions draw the battlefield and the UI's icons, so they
+ * cannot disagree.
  */
 
-import { drawMark } from './marks';
+import { buildBody } from './body';
+import { drawGear } from './gear';
 import { PALETTE } from './palette';
-import { bake, bakeFlat, bobbed, createLayer, type PixelGrid, type Ramp, type Sprite } from './pixel';
+import { bake, createLayer, type PixelGrid, type Ramp, type Sprite } from './pixel';
 import { ENEMY_UNITS, PLAYER_UNITS } from '../sim';
-import type { Silhouette, UnitKindId } from '../sim';
-
-// --- Silhouettes (top-down: shoulders, head, and bearing) ------------------
-
-const TROOPER: PixelGrid = [
-  '   4444   ',
-  '  441144  ',
-  ' 41122114 ',
-  ' 41133114 ',
-  ' 41133114 ',
-  ' 41122114 ',
-  '  441144  ',
-  '   4444   ',
-  '          ',
-];
-
-const GRUNT: PixelGrid = [
-  '   444   ',
-  '  41114  ',
-  ' 4112114 ',
-  ' 4113114 ',
-  ' 4112114 ',
-  '  41114  ',
-  '   444   ',
-  '         ',
-];
-
-const ARMORED: PixelGrid = [
-  '   44444   ',
-  '  4411144  ',
-  ' 441222144 ',
-  '44113331144',
-  '41123332114',
-  '44113331144',
-  ' 441222144 ',
-  '  4411144  ',
-  '   44444   ',
-  '           ',
-];
-
-const CASTER: PixelGrid = [
-  '    44    ',
-  '   4224   ',
-  '  412214  ',
-  ' 41233214 ',
-  ' 41233214 ',
-  ' 41222214 ',
-  '  411114  ',
-  '   4444   ',
-  '          ',
-];
-
-const BRUTE: PixelGrid = [
-  '     4444     ',
-  '   44111144   ',
-  '  4412222144  ',
-  ' 441222222144 ',
-  ' 441233332144 ',
-  ' 441233332144 ',
-  ' 441222222144 ',
-  '  4412222144  ',
-  '   44111144   ',
-  '     4444     ',
-  '              ',
-];
-
-const ENGINE: PixelGrid = [
-  ' 444444444444 ',
-  ' 411111111114 ',
-  ' 412222222214 ',
-  ' 412133331214 ',
-  ' 412133331214 ',
-  ' 412222222214 ',
-  ' 411111111114 ',
-  ' 444444444444 ',
-  '              ',
-];
-
-const SILHOUETTES: Record<Silhouette, PixelGrid> = {
-  trooper: TROOPER,
-  grunt: GRUNT,
-  armored: ARMORED,
-  caster: CASTER,
-  brute: BRUTE,
-  engine: ENGINE,
-};
+import type { Rank, UnitKindId } from '../sim';
 
 // --- Props scattered over the ground ---------------------------------------
 
@@ -119,11 +35,13 @@ const PROP_ART: Record<PropId, { grid: PixelGrid; ramp: Ramp }> = {
 // --- Registry --------------------------------------------------------------
 
 export interface UnitSprites {
-  /** Two walk frames: the body, and the body bobbed one pixel. */
+  /** Two walk frames: the body, and the body lifted a pixel. */
   readonly frames: readonly [Sprite, Sprite];
-  /** Flat white silhouette, drawn over the body on a hit. */
+  /** Flat silhouette drawn over the body on a hit. */
   readonly flash: Sprite;
-  readonly grid: PixelGrid;
+  /** Where the unit's centre sits inside the sprite. */
+  readonly originX: number;
+  readonly originY: number;
 }
 
 const unitCache = new Map<UnitKindId, UnitSprites>();
@@ -135,18 +53,35 @@ function defFor(kind: UnitKindId) {
     : ENEMY_UNITS[kind as keyof typeof ENEMY_UNITS];
 }
 
-/** Baked art for a unit kind. Cached: each kind is drawn once per session. */
+/** Paint every lit pixel of a sprite one colour, for the hit flash. */
+function flatten(sprite: Sprite, color: string): Sprite {
+  const { canvas, ctx } = createLayer(sprite.width, sprite.height);
+  ctx.drawImage(sprite.canvas, 0, 0);
+  ctx.globalCompositeOperation = 'source-in';
+  ctx.fillStyle = color;
+  ctx.fillRect(0, 0, sprite.width, sprite.height);
+  ctx.globalCompositeOperation = 'source-over';
+  return { canvas, width: sprite.width, height: sprite.height };
+}
+
+/**
+ * Baked art for a unit kind. Bodies carry no gear: the kit is drawn live on top
+ * so it can follow the unit's aim and its rank colour, which also keeps the
+ * cache to one entry per kind rather than one per kind and rank.
+ */
 export function unitSprites(kind: UnitKindId): UnitSprites {
   const cached = unitCache.get(kind);
   if (cached) return cached;
 
   const def = defFor(kind);
-  const grid = SILHOUETTES[def.silhouette];
   const ramp = def.colors as Ramp;
+  const still = buildBody(def.silhouette, def.radius, ramp, 0);
+  const bobbed = buildBody(def.silhouette, def.radius, ramp, 1);
   const sprites: UnitSprites = {
-    frames: [bake(grid, ramp), bake(bobbed(grid), ramp)],
-    flash: bakeFlat(grid, PALETTE.flash),
-    grid,
+    frames: [still.sprite, bobbed.sprite],
+    flash: flatten(still.sprite, PALETTE.flash),
+    originX: still.originX,
+    originY: still.originY,
   };
   unitCache.set(kind, sprites);
   return sprites;
@@ -173,43 +108,51 @@ export interface UnitIconArt {
   readonly height: number;
 }
 
-const iconCache = new Map<UnitKindId, UnitIconArt>();
+const iconCache = new Map<string, UnitIconArt>();
 
 /**
- * A button-sized portrait of a unit kind: the very sprite that walks out of the
- * gate, weapon mark and all, facing up. Buttons made from the game's own art
- * cannot drift from the battlefield the way a separate icon set would — and
- * nothing here is anti-aliased, so it sits under the field without looking
- * imported from another game.
- *
- * Baked at 1:1 and reported with its pixel size, so the caller can scale it by
- * a whole number and keep every pixel square.
+ * A button-sized portrait: the kind's body wearing the kit for a given rank,
+ * facing up the field the way it leaves the gate. Because it is drawn from the
+ * same builder and the same gear ladder as the battlefield, a button shows
+ * exactly what you are about to deploy, rank colour included.
  */
-export function unitIcon(kind: UnitKindId): UnitIconArt {
-  const cached = iconCache.get(kind);
+export function unitIcon(kind: UnitKindId, rank: Rank): UnitIconArt {
+  const key = `${kind}@${rank.gear}:${rank.color}`;
+  const cached = iconCache.get(key);
   if (cached) return cached;
 
   const def = defFor(kind);
   const body = unitSprites(kind).frames[0];
-  // Just enough room: a little to the sides for a shield, more above for the
-  // barrel or blade the mark extends upward.
-  const width = body.width + 4;
-  const height = body.height + 8;
-  const centreX = width / 2;
-  const centreY = height - body.height / 2 - 1;
-
+  const pad = Math.ceil(def.radius * 0.9);
+  const width = body.width + pad * 2;
+  const height = body.height + pad * 2;
   const { canvas, ctx } = createLayer(width, height);
-  drawMark(ctx, {
-    x: centreX,
-    y: centreY,
-    aim: -Math.PI / 2, // facing up the field, the way it leaves the gate
+  const cx = width / 2;
+  const cy = height / 2;
+
+  drawGear(ctx, {
+    x: cx,
+    y: cy,
+    aim: -Math.PI / 2,
     mark: def.mark,
+    rank,
     ramp: def.colors as Ramp,
     radius: def.radius,
   });
-  ctx.drawImage(body.canvas, Math.round(centreX - body.width / 2), Math.round(centreY - body.height / 2));
+  ctx.drawImage(body.canvas, Math.round(cx - body.width / 2), Math.round(cy - body.height / 2));
+  // Gear in front of the body (a shield, a barrel tip) is drawn twice so it is
+  // not hidden by the torso: once behind for depth, once in front.
+  drawGear(ctx, {
+    x: cx,
+    y: cy,
+    aim: -Math.PI / 2,
+    mark: def.mark,
+    rank,
+    ramp: def.colors as Ramp,
+    radius: def.radius,
+  });
 
   const art: UnitIconArt = { url: canvas.toDataURL(), width, height };
-  iconCache.set(kind, art);
+  iconCache.set(key, art);
   return art;
 }

@@ -20,6 +20,12 @@ export interface GameConfig {
 
   /** The 8-bit field, in the single coordinate space sim and renderer share. */
   readonly field: {
+    /**
+     * The virtual resolution, doubled from the original 192x240: at 384 wide a
+     * phone renders it near 1:1, and the extra pixels are what let a soldier
+     * show the gear it has earned. Every distance below is in these units, so
+     * doubling them all leaves the game playing exactly as it did.
+     */
     readonly width: number;
     readonly height: number;
     /** Top edge of the wall band; the wall's damage line. */
@@ -190,18 +196,18 @@ export const defaultConfig: GameConfig = {
   seed: 1,
 
   field: {
-    width: 192,
-    height: 240,
-    wallTop: 206,
-    wallThickness: 11,
-    gateX: 96,
-    gateHalfWidth: 15,
-    spawnTop: 4,
-    spawnBottom: 18,
-    sideMargin: 10,
-    musterY: 128,
-    towerX: [20, 56, 136, 172],
-    towerY: 211,
+    width: 384,
+    height: 480,
+    wallTop: 412,
+    wallThickness: 22,
+    gateX: 192,
+    gateHalfWidth: 30,
+    spawnTop: 8,
+    spawnBottom: 36,
+    sideMargin: 20,
+    musterY: 256,
+    towerX: [40, 112, 272, 344],
+    towerY: 422,
   },
 
   towers: {
@@ -210,9 +216,9 @@ export const defaultConfig: GameConfig = {
     basePeriodSec: 0.9,
     periodPerLevel: 0.02,
     minPeriodSec: 0.4,
-    baseRange: 62,
-    rangePerLevel: 1.5,
-    projectileSpeed: 230,
+    baseRange: 124,
+    rangePerLevel: 3,
+    projectileSpeed: 460,
     baseCost: 50,
     costGrowth: 1.17,
   },
@@ -269,7 +275,7 @@ export const defaultConfig: GameConfig = {
       blurb: 'A single heavy shell. Tap the ground to call it in.',
       baseDamage: 130,
       damageGrowth: 1.3,
-      radius: 26,
+      radius: 52,
       baseCooldownSec: 24,
       cooldownPerLevel: 0.8,
       minCooldownSec: 10,
@@ -286,7 +292,7 @@ export const defaultConfig: GameConfig = {
       blurb: 'Six shells walked across a wide area over several seconds.',
       baseDamage: 70,
       damageGrowth: 1.3,
-      radius: 16,
+      radius: 32,
       baseCooldownSec: 50,
       cooldownPerLevel: 1.5,
       minCooldownSec: 22,
@@ -295,7 +301,7 @@ export const defaultConfig: GameConfig = {
       shells: 6,
       delaySec: 0.9,
       shellSpacingSec: 0.45,
-      scatter: 34,
+      scatter: 68,
       burnSec: 0,
     },
     napalm: {
@@ -303,7 +309,7 @@ export const defaultConfig: GameConfig = {
       blurb: 'Sets the ground alight, burning everything that walks through.',
       baseDamage: 50,
       damageGrowth: 1.3,
-      radius: 24,
+      radius: 48,
       baseCooldownSec: 60,
       cooldownPerLevel: 2,
       minCooldownSec: 28,
@@ -330,8 +336,8 @@ export const defaultConfig: GameConfig = {
     minDamageFraction: 0.3,
     retargetSec: 0.4,
     separationPush: 9,
-    wallStandoff: 3,
-    gateSpawnOffset: 6,
+    wallStandoff: 6,
+    gateSpawnOffset: 12,
     flashSec: 0.12,
     maxUnits: 260,
   },
