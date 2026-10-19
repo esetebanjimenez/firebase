@@ -129,6 +129,11 @@ function hurtUnit(cfg: GameConfig, unit: Unit, amount: number, events: SimEvent[
   const dealt = applyArmor(cfg, amount, unit.armor);
   unit.hp -= dealt;
   unit.flash = cfg.sim.flashSec;
+  // Soldiers being shot at by something they are ignoring return fire rather
+  // than stand and take it.
+  if (unit.team === 'player') {
+    unit.advancePressure = Math.max(unit.advancePressure, cfg.support.pushOutSec * 0.65);
+  }
   events.push({ type: 'hit', x: unit.x, y: unit.y, team: unit.team });
 }
 
@@ -280,34 +285,98 @@ function musterPoint(cfg: GameConfig, state: SimState, unit: Unit): { x: number;
 }
 
 /**
- * The leash. Soldiers fight wherever the enemy is, but will not *pursue* past
- * the ground their towers can cover: chasing a straggler into the open is how a
- * firing line dies. They stop advancing, never stop shooting.
+ * Is this enemy holding position rather than closing? True when it is already
+ * in range of the wall or of one of your soldiers — which is what an archer
+ * shooting your line, or a catapult shelling the wall, looks like.
  *
- * With one release valve, and it is not optional. An enemy that outranges the
- * line can otherwise stand just beyond it and shoot with impunity — an archer
- * does this by eight pixels, a catapult by a hundred — and neither side can
- * ever resolve the wave. So a soldier pinned at the line with a target it
- * cannot reach eventually pushes out anyway.
+ * The distinction matters: soldiers should wait for an enemy that is walking
+ * toward them, and only go out to one that has stopped where they cannot reach
+ * it. Without it, strong towers thin the approach, nothing comes close enough
+ * to engage, and the whole line wanders up the field looking for a fight.
  */
-function holdTheLine(
-  cfg: GameConfig,
-  state: SimState,
-  unit: Unit,
-  x: number,
-  y: number,
-  dt: number,
-): number {
-  if (unit.team !== 'player') return y;
-  // Posture moves a kind's own line: a shield bearer is allowed in front of
-  // the riflemen it is screening.
-  const line = coverLineY(cfg, state.upgrades.towers, x) + unit.posture;
-  if (y >= line) {
-    unit.heldAtLine = 0;
-    return y;
+function enemyIsPinned(cfg: GameConfig, state: SimState, enemy: Unit): boolean {
+  const reach = enemy.style === 'melee' ? enemy.range + enemy.radius : enemy.range;
+  if (cfg.field.wallTop - enemy.y <= reach) return true;
+  for (const other of state.units) {
+    if (other.team !== 'player' || other.hp <= 0) continue;
+    const bite = enemy.style === 'melee' ? reach + other.radius : reach;
+    if (distSq(enemy.x, enemy.y, other.x, other.y) <= bite * bite) return true;
   }
-  unit.heldAtLine += dt;
-  return unit.heldAtLine >= cfg.support.pushOutSec ? y : line;
+  return false;
+}
+
+/** The row this kind holds at a given x. Posture puts shields in front. */
+function lineFor(cfg: GameConfig, state: SimState, unit: Unit, x: number): number {
+  return coverLineY(cfg, state.upgrades.towers, x) + unit.posture;
+}
+
+/**
+ * What one of your soldiers will go and fight.
+ *
+ * The leash used to be a clamp on movement, which looked exactly as bad as it
+ * sounds: a soldier walking into an invisible wall and sliding along it, and —
+ * because the clamp released on a timer that only reset on contact — the line
+ * crept forward every time something died. So the rule moved from movement to
+ * choice: a soldier picks a target it can engage *from its line*, and when
+ * there is none it simply falls back and holds. Nothing is ever clamped, so
+ * nothing ever looks stuck.
+ *
+ * Pressure is the release valve. It builds while enemies exist that the unit
+ * will not leave the line for, and jumps when the unit is taking fire; past the
+ * limit the soldier advances on the nearest enemy regardless. That answers
+ * archers, catapults and stragglers without a special case for any of them.
+ */
+interface PlayerOrders {
+  readonly target: Unit | null;
+  /** True when the unit should fight from its post rather than close on it. */
+  readonly holdPost: boolean;
+  readonly line: number;
+}
+
+function playerTarget(state: SimState, cfg: GameConfig, unit: Unit, dt: number): PlayerOrders {
+  const line = lineFor(cfg, state, unit, unit.x);
+  // Could this unit hit that enemy from the post it is meant to hold? Measured
+  // as a real distance from (x, line), not a comparison of rows: an enemy far
+  // off to the side is not reachable just because it shares a row. The margin
+  // keeps a target sitting exactly on the boundary from flickering in and out,
+  // which would otherwise reset the pressure timer every other tick and
+  // quietly disable the release valve.
+  const reachSq = (unit.range * 0.95) ** 2;
+  let nearest: Unit | null = null;
+  let nearestD2 = Infinity;
+  let engageable: Unit | null = null;
+  let engageableD2 = Infinity;
+
+  for (const other of state.units) {
+    if (other.team !== 'enemy' || other.hp <= 0) continue;
+    const d2 = distSq(unit.x, unit.y, other.x, other.y);
+    if (d2 < nearestD2) {
+      nearestD2 = d2;
+      nearest = other;
+    }
+    const fromPost = distSq(unit.x, line, other.x, other.y);
+    if (fromPost <= reachSq && d2 < engageableD2) {
+      engageableD2 = d2;
+      engageable = other;
+    }
+  }
+
+  if (!nearest) {
+    unit.advancePressure = 0;
+    return { target: null, holdPost: true, line };
+  }
+  if (engageable) {
+    // Decay rather than reset, so a target drifting across the boundary cannot
+    // keep wiping the timer.
+    unit.advancePressure = Math.max(0, unit.advancePressure - dt * 2);
+    return { target: engageable, holdPost: true, line };
+  }
+  // Only an enemy that has stopped out of reach earns an advance. One still
+  // walking toward the line is simply awaited.
+  if (enemyIsPinned(cfg, state, nearest)) unit.advancePressure += dt;
+  else unit.advancePressure = Math.max(0, unit.advancePressure - dt);
+  const pushing = unit.advancePressure >= cfg.support.pushOutSec;
+  return { target: pushing ? nearest : null, holdPost: !pushing, line };
 }
 
 function clampToField(cfg: GameConfig, unit: Unit): void {
@@ -462,6 +531,56 @@ export function step(state: SimState, dt: number, cfg: GameConfig): SimEvent[] {
       }
     }
 
+    const orders = u.team === 'player' && !u.wallFocused ? playerTarget(state, cfg, u, dt) : null;
+
+    if (orders) {
+      // --- Your soldiers.
+      const { target, holdPost, line } = orders;
+      if (target) u.aim = angleTo(u.x, u.y, target.x, target.y);
+      const reach = target ? (u.style === 'melee' ? u.range + target.radius : u.range) : 0;
+      const d = target ? dist(u.x, u.y, target.x, target.y) : Infinity;
+
+      if (!target && state.units.every((other) => other.team !== 'enemy' || other.hp <= 0)) {
+        // Nothing on the field at all: fall back into formation.
+        const park = musterPoint(cfg, state, u);
+        if (dist(u.x, u.y, park.x, park.y) > 2) {
+          const toward = stepToward(u.x, u.y, park.x, park.y, u.speed * dt);
+          u.x = toward.x;
+          u.y = toward.y;
+          u.anim += u.speed * dt;
+          u.aim = angleTo(u.x, u.y, park.x, park.y);
+        } else {
+          u.aim = -Math.PI / 2;
+        }
+      } else if (holdPost) {
+        // Stand on the line and work from there. Walking to the post covers
+        // both directions: a soldier that advanced to deal with something
+        // comes back afterwards, which is what stops the front creeping up
+        // the field over a wave. Firing is not exclusive with that — they
+        // shoot while they reposition.
+        if (Math.abs(u.y - line) > 1) {
+          const toward = stepToward(u.x, u.y, u.x, line, u.speed * dt);
+          u.y = toward.y;
+          u.anim += u.speed * dt;
+        }
+        if (target && d <= reach && u.cooldown <= 0) attackUnit(state, cfg, u, target, events);
+      } else if (target) {
+        // Committed advance on something that will not come to us.
+        if (d > reach) {
+          const stop = Math.max(1, reach * 0.9);
+          const toward = stepToward(u.x, u.y, target.x, target.y, Math.min(u.speed * dt, d - stop));
+          u.x = toward.x;
+          u.y = toward.y;
+          u.anim += u.speed * dt;
+        } else if (u.cooldown <= 0) {
+          attackUnit(state, cfg, u, target, events);
+        }
+      }
+
+      clampToField(cfg, u);
+      continue;
+    }
+
     const target = u.wallFocused ? null : resolveTarget(state, cfg, u, byId, dt);
 
     if (target) {
@@ -472,11 +591,10 @@ export function step(state: SimState, dt: number, cfg: GameConfig): SimEvent[] {
         const stop = Math.max(1, reach * 0.9);
         const toward = stepToward(u.x, u.y, target.x, target.y, Math.min(u.speed * dt, d - stop));
         u.x = toward.x;
-        u.y = holdTheLine(cfg, state, u, toward.x, toward.y, dt);
+        u.y = toward.y;
         u.anim += u.speed * dt;
         u.aim = angleTo(u.x, u.y, target.x, target.y);
       } else {
-        u.heldAtLine = 0;
         if (u.cooldown <= 0) attackUnit(state, cfg, u, target, events);
         else u.aim = angleTo(u.x, u.y, target.x, target.y);
       }
@@ -501,8 +619,7 @@ export function step(state: SimState, dt: number, cfg: GameConfig): SimEvent[] {
       continue;
     }
 
-    // Field is clear: your soldiers fall back to the line and hold.
-    u.heldAtLine = 0;
+    // Nothing worth leaving the line for: fall back and hold.
     const park = musterPoint(cfg, state, u);
     const d = dist(u.x, u.y, park.x, park.y);
     if (d > 2) {

@@ -229,7 +229,7 @@ function makeUnit(args: MakeUnitArgs, stats: typeof PLAYER_UNITS[PlayerUnitId] |
     anim: 0,
     flash: 0,
     recoil: 0,
-    heldAtLine: 0,
+    advancePressure: 0,
   };
 }
 

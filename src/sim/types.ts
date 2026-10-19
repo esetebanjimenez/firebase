@@ -120,10 +120,10 @@ export interface Unit {
   /** Seconds of firing recoil left: the kick after an attack. Render-only. */
   recoil: number;
   /**
-   * Seconds this unit has been held at the support line with a target it
-   * cannot reach. Past the configured limit it pushes out regardless.
+   * Builds while there are enemies this unit will not leave its line to reach,
+   * and when it is taking fire. Past the configured limit it advances anyway.
    */
-  heldAtLine: number;
+  advancePressure: number;
 }
 
 export interface Projectile {

@@ -143,6 +143,57 @@ describe('unit behaviour', () => {
     expect(soldier.y).toBeGreaterThanOrEqual(coverLineY(cfg, state.upgrades.towers, soldier.x) - 1);
   });
 
+  it('does not let the front creep up the field over a wave', () => {
+    // The first version of the leash released on a timer that only reset on
+    // contact, so every kill nudged the line forward and a wave ended with the
+    // soldiers far from their guns.
+    const state = freshState();
+    state.wave = 9;
+    state.credits = 5000;
+    for (let i = 0; i < 3; i++) buyUpgrade(state, cfg, 'charges');
+    startBattle(state, cfg);
+
+    const fronts: number[] = [];
+    for (let i = 0; i < 90 / DT && state.phase === 'battle'; i++) {
+      while (deployUnit(state, cfg, 'rifleman')) {
+        /* keep the line manned */
+      }
+      step(state, DT, cfg);
+      const soldiers = state.units.filter((u) => u.team === 'player');
+      if (i % 30 === 0 && soldiers.length > 0) fronts.push(Math.min(...soldiers.map((u) => u.y)));
+    }
+
+    expect(fronts.length).toBeGreaterThan(5);
+    const early = fronts.slice(0, Math.floor(fronts.length / 3));
+    const late = fronts.slice(-Math.floor(fronts.length / 3));
+    const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+    // Lower y is further up the field: the late front must not be meaningfully
+    // more advanced than the early one.
+    expect(mean(late)).toBeGreaterThan(mean(early) - cfg.field.height * 0.05);
+  });
+
+  it('fights at the line rather than out in the open', () => {
+    const state = freshState();
+    state.wave = 9;
+    state.credits = 5000;
+    for (let i = 0; i < 3; i++) buyUpgrade(state, cfg, 'charges');
+    startBattle(state, cfg);
+    for (let i = 0; i < 40 / DT && state.phase === 'battle'; i++) {
+      while (deployUnit(state, cfg, 'rifleman')) {
+        /* keep the line manned */
+      }
+      step(state, DT, cfg);
+    }
+    const soldiers = state.units.filter((u) => u.team === 'player');
+    if (soldiers.length > 0) {
+      for (const soldier of soldiers) {
+        const line = coverLineY(cfg, state.upgrades.towers, soldier.x);
+        // Within a body's length of the post, on either side of it.
+        expect(soldier.y).toBeGreaterThan(line - 40);
+      }
+    }
+  });
+
   it('pushes out rather than stalling when the enemy refuses to close', () => {
     // An archer outranges a rifleman by a few pixels. Pinned at the line for
     // good, the two would plink at each other until the heat death of the

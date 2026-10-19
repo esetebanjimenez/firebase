@@ -65,15 +65,48 @@ has a shape, and its thinnest part is the middle of the road the enemy walks
 down. Upgrading the towers pushes the line, and the whole front, up the field,
 which turns a tower purchase into territory you can see.
 
-It is a pursuit leash rather than a stop line: soldiers fight wherever the enemy
-is and never stop shooting, they just will not chase past their cover. And it is
-drawn on the field, because a rule you cannot see reads as a bug.
+The rule lives in **what a soldier chooses to fight**, not in a clamp on its
+movement. The first version clamped position, and it showed: soldiers walked
+into an invisible wall and slid along it, and because the clamp released on a
+timer that only reset on contact, the line crept forward with every kill until a
+wave ended far from the guns. Now a soldier picks a target it can engage *from
+its post*, walks to the post — forward or back — and fires from there. Nothing
+is clamped, so nothing looks stuck, and a soldier that advanced to deal with
+something returns afterwards.
 
-One release valve is mandatory, not optional. With a hard leash, an enemy that
+Two details make it work:
+
+- **Reachability is measured from the post, as a distance.** Comparing rows
+  instead counted an enemy far off to the side as reachable, and a target
+  sitting exactly on the boundary flickered in and out, resetting the release
+  timer every other tick and silently disabling it.
+- **Only an enemy that has stopped earns an advance.** Pressure builds when the
+  nearest enemy is already in range of the wall or of your soldiers — an archer
+  shooting the line, a catapult shelling the wall — and not merely because
+  something is still walking toward you. Without that, strong towers thin the
+  approach, nothing gets close, and the whole line wanders up the field looking
+  for a fight.
+
+The release valve is mandatory, not optional. With a hard leash, an enemy that
 outranges the line can stand beyond it with impunity — an archer does this by
-eight pixels, a catapult by a hundred — and the wave never resolves. (Wave 3 hung
-for the full time limit the first time this shipped.) A soldier pinned at the
-line with a target it cannot reach pushes out after two seconds.
+eight pixels, a catapult by a hundred — and the wave never resolves. (Wave 3
+hung for the full time limit the first time this shipped.)
+
+### Why the line sits inside tower range
+
+The obvious placement — the line at the edge of tower reach — is wrong, and
+measurement is what showed it. An enemy stops at *its own* firing range from
+your line, so a line at maximum tower range puts everything shooting at it
+comfortably outside the guns' envelope: only about 30% of the enemies actually
+in the fight were under tower cover. The umbrella was protecting the troops and
+not the people shooting them.
+
+The line is therefore pulled a margin inside tower reach, roughly the longest
+common enemy firing range. With that, and with soldiers holding their post
+rather than drifting forward, essentially everything engaging the line is under
+the guns — and tower reach was raised so that this does not mean fighting with
+your back against the wall. The band of ground in front of the wall widens as
+the towers level.
 
 Each kind holds a different part of the line. Shield bearers stand in front, so
 they are the nearest target and soak first; riflemen hold the line itself;

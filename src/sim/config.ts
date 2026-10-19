@@ -66,18 +66,26 @@ export interface GameConfig {
    * upgrading the towers visibly pushes your front forward.
    */
   readonly support: {
-    /** Share of tower range treated as safely covered ground. */
-    readonly coverFraction: number;
+    /**
+     * The line is pulled this far back inside tower range, because what
+     * matters is covering the ENEMY, not covering your own soldiers. An enemy
+     * stops at its own firing range from your line, so a line placed at the
+     * edge of tower reach leaves everything shooting at it comfortably outside
+     * that reach — which was exactly the bug this number fixes.
+     */
+    readonly engagementMargin: number;
+    /** The line never collapses closer to the wall than this. */
+    readonly minStandoff: number;
     /** The umbrella never reaches past this row, however good the towers. */
     readonly minY: number;
     /** How far inside the line idle soldiers form up. */
     readonly musterInset: number;
     /**
-     * How long a soldier will stand pinned at the line, unable to reach its
-     * target, before pushing out anyway. Without this the leash is a trap:
-     * anything that outranges your soldiers — an archer by eight pixels, a
-     * catapult by a hundred — can sit beyond the line and plink forever, and
-     * the wave never ends.
+     * How long soldiers will hold with nothing they can reach before advancing
+     * on an enemy that refuses to close. Without it, anything that outranges
+     * the line — an archer by eight pixels, a catapult by a hundred — stands
+     * beyond it and plinks forever, and the wave never ends. Taking fire
+     * shortens this sharply: troops shot at return fire rather than stand.
      */
     readonly pushOutSec: number;
   };
@@ -235,15 +243,16 @@ export const defaultConfig: GameConfig = {
     basePeriodSec: 0.9,
     periodPerLevel: 0.02,
     minPeriodSec: 0.4,
-    baseRange: 124,
-    rangePerLevel: 3,
+    baseRange: 170,
+    rangePerLevel: 4,
     projectileSpeed: 460,
     baseCost: 50,
     costGrowth: 1.17,
   },
 
   support: {
-    coverFraction: 0.85,
+    engagementMargin: 76,
+    minStandoff: 56,
     minY: 72,
     musterInset: 14,
     pushOutSec: 2,

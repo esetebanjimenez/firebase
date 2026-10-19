@@ -24,10 +24,11 @@ export const SCRIPTED_WAVES: Readonly<Record<number, ScriptedWave>> = {
   6: {
     label: 'THE CHARGE',
     hint: 'Skirmishers are fast enough to cross your riflemen’s field of fire and hit hard once they arrive. A Shield Bearer steps in front and soaks the charge while the rifles keep firing.',
-    // Ten is the number the sweep found: twelve overruns a shield bearer as
-    // surely as it overruns riflemen, which teaches nothing.
+    // Swept, not guessed — and re-swept after the towers gained reach, which
+    // had quietly made the wave winnable with rifles alone and killed the
+    // lesson. Fourteen is where rifles lose and a shield holds.
     entries: [
-      { kind: 'skirmisher', count: 10 },
+      { kind: 'skirmisher', count: 14 },
       { kind: 'militia', count: 4 },
     ],
   },

@@ -48,9 +48,17 @@ export function towerRange(cfg: GameConfig, level: number): number {
  * can safely hold has a shape, and the thinnest part of it is the middle of the
  * road the enemy walks down. With no emplacements at all it collapses to the
  * wall, which is exactly where troops should stand without covering fire.
+ *
+ * It sits a margin *inside* tower reach rather than at its edge. An enemy halts
+ * at its own firing range from your line, so a line drawn at maximum tower
+ * range puts every shooter attacking it outside the guns' envelope — the
+ * umbrella covered the troops and not the people shooting them.
  */
 export function coverLineY(cfg: GameConfig, towerLevel: number, x: number): number {
-  const range = towerRange(cfg, towerLevel) * cfg.support.coverFraction;
+  const range = Math.max(
+    cfg.support.minStandoff,
+    towerRange(cfg, towerLevel) - cfg.support.engagementMargin,
+  );
   let line = cfg.field.towerY;
   for (const tx of cfg.field.towerX) {
     const dx = Math.abs(x - tx);
