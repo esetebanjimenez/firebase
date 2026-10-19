@@ -56,6 +56,49 @@ muster point.
 Ranged units stop at their range and fire; melee close to contact. Bodies push
 each other apart, which turns a column into a firing line without pathfinding.
 
+### The support line
+
+Soldiers hold the ground their towers can cover, not a fixed row. The line is
+derived from tower range and is *scalloped* — strongest directly ahead of an
+emplacement, weakest between two of them and over the gate — so the safe ground
+has a shape, and its thinnest part is the middle of the road the enemy walks
+down. Upgrading the towers pushes the line, and the whole front, up the field,
+which turns a tower purchase into territory you can see.
+
+It is a pursuit leash rather than a stop line: soldiers fight wherever the enemy
+is and never stop shooting, they just will not chase past their cover. And it is
+drawn on the field, because a rule you cannot see reads as a bug.
+
+One release valve is mandatory, not optional. With a hard leash, an enemy that
+outranges the line can stand beyond it with impunity — an archer does this by
+eight pixels, a catapult by a hundred — and the wave never resolves. (Wave 3 hung
+for the full time limit the first time this shipped.) A soldier pinned at the
+line with a target it cannot reach pushes out after two seconds.
+
+Each kind holds a different part of the line. Shield bearers stand in front, so
+they are the nearest target and soak first; riflemen hold the line itself;
+rocketeers hang back. Without that, every kind stands on the same row and a
+shield screens nothing.
+
+### Written waves
+
+Most waves come from the budget planner, which makes good generic fights but
+cannot teach. A lesson needs a specific wave at a specific moment, with a name
+on the launch button and a sentence waiting if you lose it.
+
+**Wave 6, "The Charge"**, is the first: ten skirmishers — fast, fragile, and
+hard-hitting — behind four militia. Riflemen alone lose it; they cannot kill
+enough of the charge before it crosses their field of fire, and a rifleman dies
+in three hits. The same credits spent on a Shield Bearer win it, because the
+shield stands in front and absorbs while the rifles keep working.
+
+Both halves of that claim are tested in `lesson.test.ts`. The counts were not
+guessed: a parameter sweep over skirmisher numbers, hit points and damage
+against shield hit points and armour found which combinations actually teach the
+lesson. Twelve skirmishers overrun a shield bearer as surely as they overrun
+riflemen, which teaches nothing; ten is the number that makes the shield the
+answer. The shield's own stats are untouched, so nothing else in the curve moved.
+
 ### Deployment charges
 
 A global pool (3 at the start, upgradeable) that refills one charge at a time.

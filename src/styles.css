@@ -654,6 +654,20 @@ body {
   color: #220703;
 }
 
+.modal__lesson {
+  margin: 0 0 14px;
+  padding: 9px 10px;
+  background: #241a16;
+  border-left: 3px solid var(--support-light);
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--ink);
+}
+
+.btn--named .btn__title {
+  letter-spacing: 0.06em;
+}
+
 .modal__note {
   margin: 10px 0 0;
   font-size: 10px;

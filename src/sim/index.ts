@@ -90,6 +90,8 @@ export {
 export type { AutomationId, UpgradeTrack } from './actions';
 
 export { availableFactions, factionsForWave, planWave } from './waves';
+export { SCRIPTED_WAVES, scriptedWave } from './scripted';
+export type { ScriptedWave } from './scripted';
 export type { WaveComposition, WavePlan } from './waves';
 
 export { deserialize, serialize, toSaveState } from './persistence';

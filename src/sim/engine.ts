@@ -276,7 +276,7 @@ function musterPoint(cfg: GameConfig, state: SimState, unit: Unit): { x: number;
   const column = ((unit.id * 37) % 7) - 3;
   const row = ((unit.id * 17) % 3) - 1;
   const x = cfg.field.gateX + column * 32;
-  return { x, y: musterLineY(cfg, state.upgrades.towers, x) + row * 22 };
+  return { x, y: musterLineY(cfg, state.upgrades.towers, x) + unit.posture + row * 22 };
 }
 
 /**
@@ -299,7 +299,9 @@ function holdTheLine(
   dt: number,
 ): number {
   if (unit.team !== 'player') return y;
-  const line = coverLineY(cfg, state.upgrades.towers, x);
+  // Posture moves a kind's own line: a shield bearer is allowed in front of
+  // the riflemen it is screening.
+  const line = coverLineY(cfg, state.upgrades.towers, x) + unit.posture;
   if (y >= line) {
     unit.heldAtLine = 0;
     return y;

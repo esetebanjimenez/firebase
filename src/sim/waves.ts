@@ -12,6 +12,7 @@ import { playerUnitStats, waveBountyScale, waveDamageScale, waveHpScale, waveBud
 import { rankOfLevel, rankOfScale, type Rank } from './ranks';
 import { RngStream, deriveSeed } from './rng';
 import { ENEMY_UNITS, FACTIONS, FACTION_ORDER, PLAYER_UNITS, bossFor, rosterFor } from './roster';
+import { scriptedWave } from './scripted';
 import type { EnemyUnitDef } from './roster';
 import type { EnemyUnitId, FactionId, PlayerUnitId, QueuedSpawn, SimState, Unit } from './types';
 
@@ -22,6 +23,9 @@ export interface WaveComposition {
 
 export interface WavePlan {
   readonly wave: number;
+  /** Set for hand-written waves: a name, and what it is teaching. */
+  readonly label: string | null;
+  readonly hint: string | null;
   readonly factions: readonly FactionId[];
   readonly spawns: readonly QueuedSpawn[];
   readonly composition: readonly WaveComposition[];
@@ -90,20 +94,30 @@ function pickUnits(roster: EnemyUnitDef[], budget: number, maxUnits: number, rng
 
 export function planWave(cfg: GameConfig, wave: number): WavePlan {
   const rng = new RngStream(deriveSeed(cfg.seed, wave));
-  const factions = factionsForWave(cfg, wave);
-  const isBossWave = wave % cfg.waves.bossEvery === 0;
+  const scripted = scriptedWave(wave);
+  const factions = scripted
+    ? [...new Set(scripted.entries.map((e) => ENEMY_UNITS[e.kind].faction))]
+    : factionsForWave(cfg, wave);
+  const isBossWave = wave % cfg.waves.bossEvery === 0 && !scriptedWave(wave);
   const budget = waveBudget(cfg, wave) * (isBossWave ? cfg.waves.bossBudgetFactor : 1);
   const hpScale = waveHpScale(cfg, wave);
   const damageScale = waveDamageScale(cfg, wave);
   const bountyScale = waveBountyScale(cfg, wave);
 
-  // Split the budget when two armies attack together.
-  const shares = factions.length === 2 ? [0.65, 0.35] : [1];
   const defs: EnemyUnitDef[] = [];
-  for (let i = 0; i < factions.length; i++) {
-    const roster = rosterFor(factions[i], wave);
-    const slots = Math.max(1, Math.floor(cfg.waves.maxUnits / factions.length));
-    defs.push(...pickUnits(roster, budget * shares[i], slots, rng));
+  if (scripted) {
+    // A written wave is its own composition; the budget does not apply.
+    for (const entry of scripted.entries) {
+      for (let i = 0; i < entry.count; i++) defs.push(ENEMY_UNITS[entry.kind]);
+    }
+  } else {
+    // Split the budget when two armies attack together.
+    const shares = factions.length === 2 ? [0.65, 0.35] : [1];
+    for (let i = 0; i < factions.length; i++) {
+      const roster = rosterFor(factions[i], wave);
+      const slots = Math.max(1, Math.floor(cfg.waves.maxUnits / factions.length));
+      defs.push(...pickUnits(roster, budget * shares[i], slots, rng));
+    }
   }
 
   let boss = false;
@@ -148,7 +162,17 @@ export function planWave(cfg: GameConfig, wave: number): WavePlan {
     .map(([kind, count]) => ({ kind, count }))
     .sort((a, b) => ENEMY_UNITS[a.kind].cost - ENEMY_UNITS[b.kind].cost);
 
-  return { wave, factions, spawns, composition, boss, totalHp, totalBounty };
+  return {
+    wave,
+    label: scripted?.label ?? null,
+    hint: scripted?.hint ?? null,
+    factions,
+    spawns,
+    composition,
+    boss,
+    totalHp,
+    totalBounty,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -194,6 +218,7 @@ function makeUnit(args: MakeUnitArgs, stats: typeof PLAYER_UNITS[PlayerUnitId] |
     radius: stats.radius,
     bounty: args.bounty,
     rank: args.rank,
+    posture: 'posture' in stats ? stats.posture : 0,
     wallFocused: 'wallFocused' in stats ? stats.wallFocused === true : false,
     spawnPeriod: args.spawnPeriod,
     spawnIn: args.spawnPeriod,
