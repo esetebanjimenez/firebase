@@ -33,9 +33,10 @@ describe('battle lifecycle', () => {
     expect(state.spawnQueue.length).toBe(0);
   });
 
-  it('clears wave 1 with towers alone and advances the wave', () => {
+  it('clears wave 1 by sending soldiers out, and advances the wave', () => {
+    // The parapet starts empty, so wave 1 is the gate's job, not the guns'.
     const state = freshState();
-    const { result } = runWave(state, { deploy: null });
+    const { result } = runWave(state, { deploy: 'rifleman' });
     expect(result.won).toBe(true);
     expect(result.wave).toBe(1);
     expect(state.wave).toBe(2);
@@ -47,7 +48,7 @@ describe('battle lifecycle', () => {
   it('pays credits per kill and keeps them after the wave', () => {
     const state = freshState();
     const before = state.credits;
-    const { result } = runWave(state, { deploy: null });
+    const { result } = runWave(state, { deploy: 'rifleman' });
     expect(result.credits).toBeGreaterThan(0);
     expect(state.credits).toBeGreaterThan(before);
   });

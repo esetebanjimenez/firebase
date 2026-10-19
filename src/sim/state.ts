@@ -1,15 +1,15 @@
 /** state.ts — build a fresh run from config. */
 
 import type { GameConfig } from './config';
-import { chargeMax, rechargeSec, wallMaxHp } from './derive';
+import { chargeMax, rechargeSec, towerPositions, wallMaxHp } from './derive';
 import { PLAYER_UNITS, PLAYER_UNIT_ORDER } from './roster';
 import { seedState } from './rng';
 import type { AbilityId, PlayerUnitId, SimState, Tower } from './types';
 
 const ABILITY_IDS: AbilityId[] = ['artillery', 'barrage', 'napalm'];
 
-function initialTowers(cfg: GameConfig): Tower[] {
-  return cfg.field.towerX.map((x, i) => ({ id: i + 1, x, y: cfg.field.towerY, cooldown: 0 }));
+function initialTowers(cfg: GameConfig, level: number): Tower[] {
+  return towerPositions(cfg, level).map((x, i) => ({ id: i + 1, x, y: cfg.field.towerY, cooldown: 0 }));
 }
 
 export function createInitialState(cfg: GameConfig, seed: number = cfg.seed): SimState {
@@ -38,10 +38,10 @@ export function createInitialState(cfg: GameConfig, seed: number = cfg.seed): Si
     phase: 'prep',
 
     wall: { level: 1, hp: wallHp, maxHp: wallHp },
-    towers: initialTowers(cfg),
+    towers: initialTowers(cfg, 0),
     upgrades: {
       wall: 1,
-      towers: 1,
+      towers: 0,
       charges: 1,
       recharge: 1,
     },

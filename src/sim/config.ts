@@ -40,6 +40,7 @@ export interface GameConfig {
     readonly sideMargin: number;
     /** Tower emplacements along the wall. */
     readonly towerX: readonly number[];
+    readonly towerBuildOrder: readonly number[];
     readonly towerY: number;
   };
 
@@ -50,6 +51,12 @@ export interface GameConfig {
    * by construction, and no amount of tower investment reaches it.
    */
   readonly towers: {
+    /**
+     * The parapet starts empty. Four guns from wave 1 answered the early waves
+     * on their own, which made deploying soldiers optional exactly where the
+     * game is meant to teach you to do it.
+     */
+    readonly emplacementEvery: number;
     readonly baseDamage: number;
     /** Damage is multiplied by this per level: power has to compound, or the
      *  geometric upgrade prices outrun it within a dozen waves. */
@@ -241,11 +248,14 @@ export const defaultConfig: GameConfig = {
     spawnBottom: 36,
     sideMargin: 20,
     towerX: [40, 112, 272, 344],
+    /** Which emplacement each tower level buys: the gate pair, then the flanks. */
+    towerBuildOrder: [1, 2, 0, 3],
     towerY: 422,
   },
 
   towers: {
-    baseDamage: 9,
+    emplacementEvery: 2,
+    baseDamage: 7,
     damageGrowth: 1.17,
     basePeriodSec: 0.9,
     periodPerLevel: 0.02,
@@ -254,8 +264,8 @@ export const defaultConfig: GameConfig = {
     stripPerLevel: 2,
     minStrip: 40,
     projectileSpeed: 460,
-    baseCost: 50,
-    costGrowth: 1.17,
+    baseCost: 40,
+    costGrowth: 1.13,
   },
 
   support: {

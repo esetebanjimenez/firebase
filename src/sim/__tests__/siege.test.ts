@@ -20,12 +20,13 @@ import type { EnemyUnitId, SimState } from '../types';
 const SIEGE = (Object.keys(ENEMY_UNITS) as EnemyUnitId[]).filter((k) => (ENEMY_UNITS[k].wallFraction ?? 0) > 0);
 
 /** A player who has upgraded steadily to the given wave. */
-function readyAt(wave: number, wallLevels: number, towerLevels: number): SimState {
+function readyAt(wave: number, wallLevels: number, towerLevels: number, chargeLevels = 0): SimState {
   const state = freshState();
   state.wave = wave;
   state.credits = 10_000_000;
   for (let i = 0; i < wallLevels; i++) buyUpgrade(state, cfg, 'wall');
   for (let i = 0; i < towerLevels; i++) buyUpgrade(state, cfg, 'towers');
+  for (let i = 0; i < chargeLevels; i++) buyUpgrade(state, cfg, 'charges');
   state.credits = 10_000_000;
   return state;
 }
@@ -85,7 +86,10 @@ describe('siege', () => {
   });
 
   it('is answered by walking out to it, since the guns never will', () => {
-    const state = readyAt(13, 8, 6);
+    // A wave-13 build: the full parapet and a deep enough charge pool to put
+    // a firing line out. Under-invest and the wave is simply lost, which is a
+    // statement about the curve rather than about siege.
+    const state = readyAt(13, 8, 10, 4);
     startBattle(state, cfg);
     const strip = uncoveredStrip(cfg, state.upgrades.towers);
     const hold = holdLineY(cfg);

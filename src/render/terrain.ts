@@ -34,7 +34,7 @@ export interface TerrainLayer {
 }
 
 export function bakeTerrain(cfg: GameConfig): TerrainLayer {
-  const { width, height, wallTop, wallThickness, gateX, gateHalfWidth, towerX, towerY } = cfg.field;
+  const { width, height, wallTop, wallThickness, gateX, gateHalfWidth, towerX } = cfg.field;
   const { canvas, ctx } = createLayer(width, height);
   const rand = rng(cfg.seed * 7919 + 13);
 
@@ -121,21 +121,18 @@ export function bakeTerrain(cfg: GameConfig): TerrainLayer {
     }
   }
 
-  // --- Tower emplacements, dug into the wall line.
+  // --- Gun pads, dug into the wall line: the stonework for all four, empty.
+  // The guns themselves are drawn per frame from the ones actually bought, so
+  // a new player looks at four bare emplacements and sees what the Towers
+  // upgrade is for.
   for (const tx of towerX) {
     const left = Math.floor(tx) - 10;
     ctx.fillStyle = PALETTE.wallStoneDark;
     ctx.fillRect(left - 2, wallTop - 10, 24, 10);
-    ctx.fillStyle = PALETTE.towerBody;
-    ctx.fillRect(left, wallTop - 8, 20, 20);
     ctx.fillStyle = PALETTE.wallStoneLight;
     ctx.fillRect(left, wallTop - 8, 20, 2);
     ctx.fillStyle = PALETTE.sandbag;
     for (let x = left; x < left + 20; x += 6) ctx.fillRect(x, wallTop - 10, 4, 2);
-    // A dark emplacement mouth the barrel sits in (the barrel itself rotates,
-    // so the renderer draws that each frame).
-    ctx.fillStyle = PALETTE.towerBarrel;
-    ctx.fillRect(Math.floor(tx) - 4, Math.floor(towerY) - Math.floor(wallTop) + wallTop - 8, 8, 8);
   }
 
   // --- Your compound, behind the wall: dirt, sandbag rows, crates, tents.
