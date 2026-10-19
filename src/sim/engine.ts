@@ -37,12 +37,24 @@ import type {
 } from './types';
 import { createEnemyUnit, createPlayerUnit, createRaisedUnit, planWave } from './waves';
 
-/** Re-apply level-derived caps after an upgrade. Safe to call any time. */
+/** Re-apply config- and level-derived values. Safe to call any time. */
 export function syncDerived(state: SimState, cfg: GameConfig): void {
   state.wall.maxHp = wallMaxHp(cfg, state.wall.level);
   if (state.wall.hp > state.wall.maxHp) state.wall.hp = state.wall.maxHp;
   state.charges.max = chargeMax(cfg, state.upgrades.charges);
   if (state.charges.current > state.charges.max) state.charges.current = state.charges.max;
+
+  // Emplacements are field geometry, not player progress, so they are rebuilt
+  // from config rather than trusted from a save. A save written against a
+  // different field would otherwise restore its own coordinates and leave the
+  // guns standing in the middle of the map — shooting from there, too, since
+  // the engine measures tower range from these same positions.
+  state.towers = cfg.field.towerX.map((x, i) => ({
+    id: i + 1,
+    x,
+    y: cfg.field.towerY,
+    cooldown: state.towers[i]?.cooldown ?? 0,
+  }));
 }
 
 /** Wipe the battlefield and hand the player back a full wall and full charges. */

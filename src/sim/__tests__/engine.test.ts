@@ -5,6 +5,13 @@ import { buyUpgrade, deployUnit } from '../actions';
 import { planWave } from '../waves';
 import { DT, freshState, pin, runWave } from './helpers';
 
+/**
+ * A field with no emplacements. Tower positions are rebuilt from config on
+ * every sync, so a wall with no guns is a config variant — emptying
+ * `state.towers` would just be undone.
+ */
+const noTowers = { ...cfg, field: { ...cfg.field, towerX: [] } };
+
 describe('battle lifecycle', () => {
   it('queues the planned wave when launched, and refuses to launch twice', () => {
     const state = freshState();
@@ -55,10 +62,9 @@ describe('battle lifecycle', () => {
   });
 
   it('loses the wave when the wall falls, without losing the wave number or credits', () => {
-    const state = freshState();
-    // Strip the towers and deploy nobody: the militia get to the wall unopposed.
-    state.towers = [];
-    const { result } = runWave(state, { deploy: null });
+    // No emplacements and nobody deployed: the militia reach the wall unopposed.
+    const state = freshState(noTowers);
+    const { result } = runWave(state, { deploy: null, cfg: noTowers });
     expect(result.won).toBe(false);
     expect(state.wave).toBe(1);
     expect(state.bestWave).toBe(0);
@@ -68,10 +74,9 @@ describe('battle lifecycle', () => {
   });
 
   it('re-fights the identical wave after a loss', () => {
-    const state = freshState();
-    state.towers = [];
-    runWave(state, { deploy: null });
-    syncDerived(state, cfg);
+    const state = freshState(noTowers);
+    runWave(state, { deploy: null, cfg: noTowers });
+    syncDerived(state, noTowers);
     expect(state.wave).toBe(1);
     expect(planWave(cfg, state.wave).composition).toEqual(planWave(cfg, 1).composition);
   });
@@ -123,11 +128,10 @@ describe('unit behaviour', () => {
   });
 
   it('lets enemies chew through an undefended wall', () => {
-    const state = freshState();
-    state.towers = [];
+    const state = freshState(noTowers);
     const start = state.wall.hp;
-    startBattle(state, cfg);
-    for (let i = 0; i < 40 * 30 && state.phase === 'battle'; i++) step(state, DT, cfg);
+    startBattle(state, noTowers);
+    for (let i = 0; i < 40 * 30 && state.phase === 'battle'; i++) step(state, DT, noTowers);
     expect(state.lastResult?.won).toBe(false);
     expect(start).toBeGreaterThan(0);
   });

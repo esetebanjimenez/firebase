@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { defaultConfig as cfg } from '../config';
 import { buyAbility, buyUpgrade, deployUnit, launchWave, unlockUnit } from '../actions';
 import { deserialize, serialize, toSaveState } from '../persistence';
-import { step } from '../engine';
+import { step, syncDerived } from '../engine';
 import { DT, freshState } from './helpers';
 
 function progressedState() {
@@ -91,5 +91,34 @@ describe('rejecting bad saves', () => {
     const noTimestamp = JSON.parse(serialize(state, 1));
     delete noTimestamp.savedAt;
     expect(deserialize(JSON.stringify(noTimestamp), cfg)).toBeNull();
+  });
+});
+
+describe('saves written against different field geometry', () => {
+  it('rebuilds tower emplacements from config instead of trusting the save', () => {
+    const state = progressedState();
+    // Coordinates from the old 192x240 field, as a save from before the
+    // resolution change would carry.
+    state.towers = [20, 56, 136, 172].map((x, i) => ({ id: i + 1, x, y: 211, cooldown: 0 }));
+
+    const loaded = deserialize(serialize(state, 1), cfg)!.state;
+    syncDerived(loaded, cfg);
+
+    expect(loaded.towers.map((t) => t.x)).toEqual([...cfg.field.towerX]);
+    for (const tower of loaded.towers) {
+      expect(tower.y).toBe(cfg.field.towerY);
+      // On the wall, not out in the field where the enemy walks.
+      expect(tower.y).toBeGreaterThan(cfg.field.musterY);
+    }
+  });
+
+  it('keeps towers on the wall through a battle started from such a save', () => {
+    const state = progressedState();
+    state.towers = [20, 56, 136, 172].map((x, i) => ({ id: i + 1, x, y: 211, cooldown: 0 }));
+    launchWave(state, cfg);
+    for (let i = 0; i < 30; i++) step(state, DT, cfg);
+    for (const tower of state.towers) {
+      expect(tower.y).toBe(cfg.field.towerY);
+    }
   });
 });
