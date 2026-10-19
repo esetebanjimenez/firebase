@@ -9,8 +9,10 @@
 
 import type { GameConfig } from './config';
 import {
+  INTEL_MAX,
   abilityCost,
   chargeMaxCost,
+  intelUpgradeCost,
   rechargeCost,
   towerUpgradeCost,
   unitUpgradeCost,
@@ -31,7 +33,7 @@ import type {
 } from './types';
 
 /** The command-level credit sinks. Soldiers level per kind, not here. */
-export type UpgradeTrack = 'wall' | 'towers' | 'charges' | 'recharge';
+export type UpgradeTrack = 'wall' | 'towers' | 'charges' | 'recharge' | 'intel';
 
 export type AutomationId = keyof AutomationState;
 
@@ -47,6 +49,9 @@ export function trackCost(cfg: GameConfig, state: SimState, track: UpgradeTrack)
       return chargeMaxCost(cfg, level);
     case 'recharge':
       return rechargeCost(cfg, level);
+    case 'intel':
+      // A finite ladder: once everything is revealed there is nothing to sell.
+      return level >= INTEL_MAX ? Number.POSITIVE_INFINITY : intelUpgradeCost(cfg, level);
   }
 }
 
@@ -85,7 +90,7 @@ export function buyWeaponLevel(state: SimState, weapon: TowerWeaponId): boolean 
 
 export function buyUpgrade(state: SimState, cfg: GameConfig, track: UpgradeTrack): boolean {
   const cost = trackCost(cfg, state, track);
-  if (state.credits < cost) return false;
+  if (!Number.isFinite(cost) || state.credits < cost) return false;
   state.credits -= cost;
 
   if (track === 'wall') {

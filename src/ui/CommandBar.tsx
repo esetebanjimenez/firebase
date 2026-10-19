@@ -6,6 +6,7 @@
 
 import type { GameActions, UiSnapshot } from '../game/useGameLoop';
 import { UnitIcon } from './UnitIcon';
+import { compact } from './TopBar';
 
 interface Props {
   snapshot: UiSnapshot;
@@ -60,7 +61,10 @@ export function CommandBar({ snapshot, actions }: Props) {
             {preview.label ? `WAVE ${preview.wave}: ${preview.label}` : `LAUNCH WAVE ${preview.wave}`}
           </span>
           <span className="btn__sub">
-            {preview.count} enemies · {preview.armies.join(' + ')}
+            {preview.count !== null
+              ? `${preview.count} enemies`
+              : preview.shape ?? `${compact(preview.threat)} hp of trouble`}{' '}
+            · {preview.armies.join(' + ')}
             {preview.boss ? ' · BOSS' : ''}
           </span>
         </button>

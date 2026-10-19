@@ -15,7 +15,7 @@ import {
   upgradeUnit,
 } from '../actions';
 import { castAbility } from '../abilities';
-import { planWave } from '../waves';
+import { shapeFor } from '../waves';
 import {
   abilityCost,
   weaponUpgradeCost,
@@ -112,24 +112,30 @@ export function pin(unit: Unit): void {
 // — so what it reaches is a floor on what a thinking player can reach.
 // ---------------------------------------------------------------------------
 
-const TRACKS: UpgradeTrack[] = ['wall', 'towers', 'charges', 'recharge'];
+const TRACKS: UpgradeTrack[] = ['wall', 'towers', 'charges', 'recharge', 'intel'];
 const ABILITIES: AbilityId[] = ['artillery', 'barrage', 'napalm'];
 
 /**
  * Unlock what is comfortably affordable, then buy the cheapest thing on offer —
  * a command track, or a level for one of the soldier kinds.
  */
-/** Bolt the counter to the coming wave into every pad that can take it. */
+/**
+ * Bolt the counter to the coming wave into every pad that can take it.
+ *
+ * Gated on intel, like a player's would be: without the first rung there is
+ * nothing to fit *against*, so the parapet stays on the gun it has. Reading
+ * the plan directly would measure a player who can see through walls.
+ */
 export function fitParapet(state: SimState, cfg: GameConfig = defaultConfig): void {
-  const plan = planWave(cfg, state.wave, state.seed);
-  const mix = plan.classMix;
-  const worst = (Object.keys(mix) as BodyClass[]).reduce((a, b) => (mix[b] > mix[a] ? b : a));
-  const wanted: Record<BodyClass, TowerWeaponId> = {
-    armored: 'rocket',
-    swarm: 'mg',
-    elusive: 'grenade',
+  if (state.upgrades.intel < 1) return;
+  const shape = shapeFor(cfg, state.wave, state.seed);
+  const wanted: Record<string, TowerWeaponId> = {
+    column: 'rocket',
+    horde: 'mg',
+    skirmish: 'grenade',
+    mixed: 'mg',
   };
-  const pick = state.upgrades.weapons[wanted[worst]] > 0 ? wanted[worst] : 'mg';
+  const pick = state.upgrades.weapons[wanted[shape]] > 0 ? wanted[shape] : 'mg';
   for (let i = 0; i < state.towers.length; i++) fitTowerWeapon(state, i, pick);
 }
 

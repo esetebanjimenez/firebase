@@ -11,6 +11,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ENEMY_UNITS,
   FACTIONS,
+  INTEL_MAX,
   PLAYER_UNITS,
   PLAYER_UNIT_ORDER,
   SHAPES,
@@ -39,6 +40,7 @@ import {
   playerUnitStats,
   randomSeed,
   rechargeSec,
+  revealWave,
   selectAbility,
   selectUnit,
   step,
@@ -141,20 +143,35 @@ export interface AbilityView {
   radius: number;
 }
 
+/**
+ * What the player can see of the coming wave. Everything optional here is sold
+ * by the intel track; what stays is the army and the strength, because the
+ * budget is the constant half of a wave and hiding it would leave nothing to
+ * judge.
+ *
+ * Null means "not known yet", not "none" — the UI has to say which.
+ */
 export interface WavePreview {
   wave: number;
   /** Set for hand-written waves: a name to put on the launch button. */
   label: string | null;
   armies: string[];
-  /** The wave's character, and what answers it. */
-  shape: string;
-  counter: string;
   accent: string;
   boss: boolean;
-  count: number;
   threat: number;
   payout: number;
-  composition: { name: string; count: number }[];
+  /** L1: the wave's character, and what answers it. */
+  shape: string | null;
+  counter: string | null;
+  /** L2: which kinds are coming, without numbers. */
+  kinds: string[] | null;
+  /** L3: how many bodies in total. */
+  count: number | null;
+  /** L4: the exact order of battle. */
+  composition: { name: string; count: number }[] | null;
+  intel: number;
+  /** What the next level of intel would add, for the UI to dangle. */
+  nextReveal: string | null;
 }
 
 export interface UiSnapshot {
@@ -166,7 +183,7 @@ export interface UiSnapshot {
   wall: { level: number; hp: number; maxHp: number; pct: number };
   towers: { level: number; count: number; dps: number; uncoveredRows: number };
   /** Each pad and what is bolted into it, in build order. */
-  pads: { id: number; weapon: TowerWeaponId; short: string }[];
+  pads: { id: number; weapon: TowerWeaponId; short: string; x: number; y: number }[];
   /** The three gun tracks: what they do, what the next level costs. */
   guns: GunView[];
   charges: { current: number; max: number; rechargeProgress: number; rechargeSec: number };
@@ -206,6 +223,14 @@ export interface GameActions {
 }
 
 /** What each class of gun is for, in the player's words. */
+/** What each rung of the intel ladder adds, in the player's words. */
+const INTEL_REVEALS = [
+  'the shape of the wave, and what answers it',
+  'which kinds are coming',
+  'how many are coming',
+  'exactly how many of each',
+];
+
 const GUN_COUNTERS: Record<string, string> = {
   sustained: 'vs Hordes',
   kinetic: 'vs Skirmishers',
@@ -217,10 +242,11 @@ const TRACK_LABELS: Record<UpgradeTrack, string> = {
   towers: 'Towers',
   charges: 'Charge Pool',
   recharge: 'Recharge',
+  intel: 'Intel',
 };
 
 function buildUpgrades(state: SimState, cfg: GameConfig): UpgradeView[] {
-  const tracks: UpgradeTrack[] = ['wall', 'towers', 'charges', 'recharge'];
+  const tracks: UpgradeTrack[] = ['wall', 'towers', 'charges', 'recharge', 'intel'];
   return tracks.map((track) => {
     const level = state.upgrades[track];
     const cost = trackCost(cfg, state, track);
@@ -245,6 +271,12 @@ function buildUpgrades(state: SimState, cfg: GameConfig): UpgradeView[] {
         break;
       case 'recharge':
         detail = `${rechargeSec(cfg, level).toFixed(1)}s → ${rechargeSec(cfg, level + 1).toFixed(1)}s`;
+        break;
+      case 'intel':
+        detail =
+          level >= INTEL_MAX
+            ? 'the whole order of battle, before you commit'
+            : `reveals ${INTEL_REVEALS[level]}`;
         break;
     }
     return {
@@ -311,18 +343,24 @@ function buildAbilities(state: SimState, cfg: GameConfig): AbilityView[] {
 
 function buildPreview(state: SimState, cfg: GameConfig): WavePreview {
   const plan = planWave(cfg, state.wave, state.seed);
+  const intel = state.upgrades.intel;
+  const known = revealWave(plan, intel);
   return {
     wave: state.wave,
     label: plan.label,
     armies: plan.factions.map((f) => FACTIONS[f].name),
-    shape: SHAPES[plan.shape].label,
-    counter: SHAPES[plan.shape].counter,
     accent: FACTIONS[plan.factions[0]].accent,
     boss: plan.boss,
-    count: plan.spawns.length,
     threat: Math.round(plan.totalHp),
     payout: Math.round(plan.totalBounty),
-    composition: plan.composition.map((c) => ({ name: ENEMY_UNITS[c.kind].name, count: c.count })),
+    shape: known.shape ? SHAPES[known.shape].label : null,
+    counter: known.shape ? SHAPES[known.shape].counter : null,
+    kinds: known.kinds ? known.kinds.map((k) => ENEMY_UNITS[k].name) : null,
+    count: known.count,
+    composition:
+      known.composition?.map((c) => ({ name: ENEMY_UNITS[c.kind].name, count: c.count })) ?? null,
+    intel,
+    nextReveal: intel < INTEL_MAX ? INTEL_REVEALS[intel] : null,
   };
 }
 
@@ -344,6 +382,8 @@ function buildSnapshot(state: SimState, cfg: GameConfig): UiSnapshot {
       id: t.id,
       weapon: t.weapon,
       short: TOWER_WEAPONS[t.weapon].short,
+      x: t.x,
+      y: t.y,
     })),
     guns: TOWER_WEAPON_ORDER.map((id) => {
       const def = TOWER_WEAPONS[id];

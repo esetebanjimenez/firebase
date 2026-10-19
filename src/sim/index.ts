@@ -5,6 +5,8 @@
 
 export * from './types';
 export { randomSeed } from './rng';
+export { revealWave } from './intel';
+export type { WaveIntel } from './intel';
 export { SHAPES, shapeFor } from './waves';
 
 export { defaultConfig } from './config';
@@ -52,7 +54,9 @@ export {
   holdLineY,
   musterLineY,
   uncoveredStrip,
+  INTEL_MAX,
   incomePerSec,
+  intelUpgradeCost,
   playerUnitStats,
   rechargeCost,
   rechargeSec,

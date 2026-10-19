@@ -789,3 +789,48 @@ body {
   opacity: 0.45;
   cursor: default;
 }
+
+/* --- Fitting a gun by pointing at its pad on the wall. ------------------- */
+.picker__catch {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+}
+
+.picker {
+  position: absolute;
+  z-index: 3;
+  display: grid;
+  grid-auto-flow: column;
+  gap: 4px;
+  padding: 4px;
+  /* Sit above the pad that was tapped, centred on it. */
+  transform: translate(-50%, calc(-100% - 14px));
+  background: var(--panel);
+  border: 1px solid var(--edge-light);
+  border-radius: 4px;
+  box-shadow: 0 6px 16px rgb(0 0 0 / 45%);
+}
+
+.picker__gun {
+  min-width: 44px;
+  padding: 6px 8px;
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--ink-dim);
+  background: var(--panel-2);
+  border: 1px solid var(--edge);
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.picker__gun--on {
+  color: var(--ink);
+  background: linear-gradient(180deg, var(--deploy-light), var(--deploy));
+}
+
+.picker__gun:disabled {
+  opacity: 0.45;
+  cursor: default;
+}

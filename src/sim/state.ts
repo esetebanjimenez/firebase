@@ -52,6 +52,7 @@ export function createInitialState(cfg: GameConfig, seed: number = cfg.seed): Si
       recharge: 1,
       // The MG is the gun you start able to build; the other two are bought.
       weapons: { mg: 1, grenade: 0, rocket: 0 },
+      intel: 0,
     },
     unlocked,
     unitLevels,
