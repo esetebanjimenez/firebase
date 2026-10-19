@@ -70,9 +70,20 @@ movement. The first version clamped position, and it showed: soldiers walked
 into an invisible wall and slid along it, and because the clamp released on a
 timer that only reset on contact, the line crept forward with every kill until a
 wave ended far from the guns. Now a soldier picks a target it can engage *from
-its post*, walks to the post — forward or back — and fires from there. Nothing
-is clamped, so nothing looks stuck, and a soldier that advanced to deal with
-something returns afterwards.
+its post* and marches until something is actually inside its weapon's reach,
+then plants and fires. Nothing is clamped, so nothing looks stuck, and a
+soldier that advanced to deal with something walks back to the line once the
+shooting stops.
+
+**Range ends the walk, not the line.** Firing used to run while a soldier was
+still closing on its post, so troops strolled across the field with rifles
+going off and the halt looked arbitrary — it happened at a bookkeeping row
+rather than at the moment of contact. Movement and shooting are now exclusive:
+a target inside reach means stand and work. The line is where soldiers go when
+nothing is in reach, not a place they must be standing to fight. Measured over
+a wave, that took firing-while-walking from 23% of attacks to none, and moved
+where the fighting happens by five pixels — the halt looks deliberate without
+the front sitting anywhere different.
 
 Two details make it work:
 

@@ -3,6 +3,7 @@ import { defaultConfig as cfg } from '../config';
 import { startBattle, step, syncDerived } from '../engine';
 import { buyUpgrade, deployUnit } from '../actions';
 import { holdLineY, towerRange } from '../derive';
+import { PLAYER_UNITS } from '../roster';
 import { createEnemyUnit, planWave } from '../waves';
 import { DT, freshState, pin, runWave } from './helpers';
 
@@ -314,5 +315,49 @@ describe('determinism', () => {
     const a = runWave(freshState(), { deploy: 'rifleman' });
     const b = runWave(freshState(), { deploy: 'rifleman' });
     expect(b.result).toEqual(a.result);
+  });
+});
+
+describe('soldiers plant to shoot', () => {
+  /**
+   * Firing used to run while a soldier was still closing on its post, so
+   * troops strolled across the field with rifles going off. Movement and
+   * shooting are exclusive now: a target inside reach means stand and work.
+   * Neighbours still shove each other apart, so the claim is about walking,
+   * not about being perfectly motionless.
+   */
+  it('never walks on a tick it attacks', () => {
+    const state = freshState();
+    state.wave = 9;
+    state.credits = 100_000;
+    for (let i = 0; i < 5; i++) buyUpgrade(state, cfg, 'wall');
+    for (let i = 0; i < 6; i++) buyUpgrade(state, cfg, 'towers');
+    for (let i = 0; i < 4; i++) buyUpgrade(state, cfg, 'charges');
+    startBattle(state, cfg);
+
+    const stride = PLAYER_UNITS.rifleman.speed * DT;
+    let attacks = 0;
+    let walkedWhileFiring = 0;
+    for (let i = 0; i < 90 / DT && state.phase === 'battle'; i++) {
+      while (deployUnit(state, cfg, 'rifleman')) continue;
+      const before = new Map(
+        state.units
+          .filter((u) => u.team === 'player')
+          .map((u) => [u.id, { x: u.x, y: u.y, cooldown: u.cooldown }]),
+      );
+      step(state, DT, cfg);
+      for (const unit of state.units) {
+        if (unit.team !== 'player') continue;
+        const was = before.get(unit.id);
+        // Cooldown jumping up is this unit attacking on this tick.
+        if (!was || unit.cooldown <= was.cooldown) continue;
+        attacks += 1;
+        const moved = Math.hypot(unit.x - was.x, unit.y - was.y);
+        if (moved > stride * 0.5) walkedWhileFiring += 1;
+      }
+    }
+
+    expect(attacks).toBeGreaterThan(20);
+    expect(walkedWhileFiring).toBe(0);
   });
 });
