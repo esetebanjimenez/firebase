@@ -17,7 +17,7 @@ import type { GameConfig } from './config';
 import {
   applyArmor,
   chargeMax,
-  holdLineY,
+  coverEdgeY,
   incomePerSec,
   musterLineY,
   rechargeSec,
@@ -317,48 +317,38 @@ function enemyIsPinned(cfg: GameConfig, state: SimState, enemy: Unit): boolean {
   return false;
 }
 
-/** The row this kind holds. Posture puts shields in front, rocketeers behind. */
-function lineFor(cfg: GameConfig, unit: Unit): number {
-  return holdLineY(cfg) + unit.posture;
-}
-
 /**
  * What one of your soldiers will go and fight.
  *
- * The leash used to be a clamp on movement, which looked exactly as bad as it
- * sounds: a soldier walking into an invisible wall and sliding along it, and —
- * because the clamp released on a timer that only reset on contact — the line
- * crept forward every time something died. So the rule moved from movement to
- * choice: a soldier picks a target it can engage *from its line*, and when
- * there is none it simply falls back and holds. Nothing is ever clamped, so
- * nothing ever looks stuck.
+ * **Anything on the field gets charged.** This is the rule from the original
+ * brief, and getting clever about it was a mistake: an earlier version only
+ * advanced on an enemy that had already stopped, so a soldier would stand at
+ * its line watching a freshly spawned enemy stroll down the map, and only
+ * react once it arrived. From the outside that looks like the soldiers are
+ * asleep, which is exactly what it was reported as.
  *
- * Pressure is the release valve. It builds while enemies exist that the unit
- * will not leave the line for, and jumps when the unit is taking fire; past the
- * limit the soldier advances on the nearest enemy regardless. That answers
- * archers, catapults and stragglers without a special case for any of them.
+ * The only cap is the edge of the ground the guns cover. Soldiers will march
+ * to meet anything below that edge and will not walk into the strip above it
+ * unprompted, which keeps a charge from turning into a jog to the top of the
+ * map and leaves the siege problem intact.
+ *
+ * Pressure is the release valve for the one case the cap gets wrong: an enemy
+ * that parks in the strip and shells from there. It builds while such an enemy
+ * cannot be answered from the covered ground, and jumps when the unit is
+ * taking fire; past the limit the soldier goes in after it anyway. That
+ * answers siege, archers and stragglers without a special case for any of them.
  */
 interface PlayerOrders {
   readonly target: Unit | null;
-  /** True when the unit should fight from its post rather than close on it. */
-  readonly holdPost: boolean;
-  readonly line: number;
+  /** The furthest forward row this unit may advance to, this tick. */
+  readonly limit: number;
 }
 
 function playerTarget(state: SimState, cfg: GameConfig, unit: Unit, dt: number): PlayerOrders {
-  const line = lineFor(cfg, unit);
-  // Could this unit hit that enemy from the post it is meant to hold? Measured
-  // as a real distance from (x, line), not a comparison of rows: an enemy far
-  // off to the side is not reachable just because it shares a row. The margin
-  // keeps a target sitting exactly on the boundary from flickering in and out,
-  // which would otherwise reset the pressure timer every other tick and
-  // quietly disable the release valve.
-  const reachSq = (unit.range * 0.95) ** 2;
+  const coverEdge = coverEdgeY(cfg, state.upgrades.towers);
+
   let nearest: Unit | null = null;
   let nearestD2 = Infinity;
-  let engageable: Unit | null = null;
-  let engageableD2 = Infinity;
-
   for (const other of state.units) {
     if (other.team !== 'enemy' || other.hp <= 0) continue;
     const d2 = distSq(unit.x, unit.y, other.x, other.y);
@@ -366,29 +356,30 @@ function playerTarget(state: SimState, cfg: GameConfig, unit: Unit, dt: number):
       nearestD2 = d2;
       nearest = other;
     }
-    const fromPost = distSq(unit.x, line, other.x, other.y);
-    if (fromPost <= reachSq && d2 < engageableD2) {
-      engageableD2 = d2;
-      engageable = other;
-    }
   }
 
   if (!nearest) {
     unit.advancePressure = 0;
-    return { target: null, holdPost: true, line };
+    return { target: null, limit: coverEdge };
   }
-  if (engageable) {
-    // Decay rather than reset, so a target drifting across the boundary cannot
-    // keep wiping the timer.
-    unit.advancePressure = Math.max(0, unit.advancePressure - dt * 2);
-    return { target: engageable, holdPost: true, line };
-  }
-  // Only an enemy that has stopped out of reach earns an advance. One still
-  // walking toward the line is simply awaited.
-  if (enemyIsPinned(cfg, state, nearest)) unit.advancePressure += dt;
-  else unit.advancePressure = Math.max(0, unit.advancePressure - dt);
+
+  // Is this something we can answer without leaving the guns' cover? Measured
+  // as a real distance from the edge of cover, not a comparison of rows: an
+  // enemy far off to the side is not reachable just because it shares one. The
+  // margin keeps a target sitting exactly on the boundary from flickering in
+  // and out, which would otherwise reset the pressure timer every other tick
+  // and quietly disable the release valve.
+  const reachSq = (unit.range * 0.95) ** 2;
+  const beyondCover =
+    nearest.y < coverEdge && distSq(unit.x, coverEdge, nearest.x, nearest.y) > reachSq;
+
+  // Only an enemy that has stopped out there earns a trip into the strip. One
+  // still walking down is met at the edge of cover.
+  if (beyondCover && enemyIsPinned(cfg, state, nearest)) unit.advancePressure += dt;
+  else unit.advancePressure = Math.max(0, unit.advancePressure - dt * 2);
+
   const pushing = unit.advancePressure >= cfg.support.pushOutSec;
-  return { target: pushing ? nearest : null, holdPost: !pushing, line };
+  return { target: nearest, limit: pushing ? 0 : coverEdge };
 }
 
 function clampToField(cfg: GameConfig, unit: Unit): void {
@@ -547,13 +538,13 @@ export function step(state: SimState, dt: number, cfg: GameConfig): SimEvent[] {
 
     if (orders) {
       // --- Your soldiers.
-      const { target, holdPost, line } = orders;
+      const { target, limit } = orders;
       if (target) u.aim = angleTo(u.x, u.y, target.x, target.y);
       const reach = target ? (u.style === 'melee' ? u.range + target.radius : u.range) : 0;
       const d = target ? dist(u.x, u.y, target.x, target.y) : Infinity;
 
-      if (!target && state.units.every((other) => other.team !== 'enemy' || other.hp <= 0)) {
-        // Nothing on the field at all: fall back into formation.
+      if (!target) {
+        // Nothing on the field: fall back into formation.
         const park = musterPoint(cfg, u);
         if (dist(u.x, u.y, park.x, park.y) > 2) {
           const toward = stepToward(u.x, u.y, park.x, park.y, u.speed * dt);
@@ -564,34 +555,29 @@ export function step(state: SimState, dt: number, cfg: GameConfig): SimEvent[] {
         } else {
           u.aim = -Math.PI / 2;
         }
-      } else if (holdPost) {
-        // Range ends the walk. A soldier marches until something is actually
-        // within its weapon's reach, then plants and fires — it does not keep
-        // strolling to a bookkeeping row with a rifle going off, which is what
-        // this used to look like.
-        //
-        // Walking covers both directions, so once the shooting stops a soldier
-        // that advanced on something returns to the line instead of leaving
-        // the front creeping up the field over a wave. The line is where they
-        // go when nothing is in reach, not a place they have to stand.
-        if (target && d <= reach) {
-          if (u.cooldown <= 0) attackUnit(state, cfg, u, target, events);
-        } else if (Math.abs(u.y - line) > 1) {
-          const toward = stepToward(u.x, u.y, u.x, line, u.speed * dt);
-          u.y = toward.y;
-          u.anim += u.speed * dt;
-        }
-      } else if (target) {
-        // Committed advance on something that will not come to us.
-        if (d > reach) {
-          const stop = Math.max(1, reach * 0.9);
-          const toward = stepToward(u.x, u.y, target.x, target.y, Math.min(u.speed * dt, d - stop));
-          u.x = toward.x;
-          u.y = toward.y;
-          u.anim += u.speed * dt;
-        } else if (u.cooldown <= 0) {
-          attackUnit(state, cfg, u, target, events);
-        }
+      } else if (d <= reach) {
+        // Range ends the walk: plant and work. A soldier does not keep
+        // strolling with a rifle going off, which is what this used to look
+        // like.
+        if (u.cooldown <= 0) attackUnit(state, cfg, u, target, events);
+      } else if (target.y >= limit) {
+        // Charge it. The step stops just inside reach so the firing line forms
+        // at weapons range rather than piling onto the target.
+        const stop = Math.max(1, reach * 0.9);
+        const toward = stepToward(u.x, u.y, target.x, target.y, Math.min(u.speed * dt, d - stop));
+        u.x = toward.x;
+        u.y = Math.max(toward.y, limit);
+        u.anim += u.speed * dt;
+      } else if (Math.abs(u.y - limit) > 1) {
+        // It is up in the strip, where the guns cannot help. Hold the edge of
+        // cover and let pressure decide whether to go in after it. This walks
+        // both ways on purpose: a soldier that pushed into the strip and has
+        // nothing left to show for it steps back under cover, rather than
+        // standing out there. Holding the edge — rather than retreating to the
+        // line — is also what stops it oscillating between the two.
+        const toward = stepToward(u.x, u.y, u.x, limit, u.speed * dt);
+        u.y = toward.y;
+        u.anim += u.speed * dt;
       }
 
       clampToField(cfg, u);

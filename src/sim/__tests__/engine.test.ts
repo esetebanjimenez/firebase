@@ -2,8 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { defaultConfig as cfg } from '../config';
 import { startBattle, step, syncDerived } from '../engine';
 import { buyUpgrade, deployUnit } from '../actions';
-import { holdLineY, towerRange } from '../derive';
-import { PLAYER_UNITS } from '../roster';
+import { coverEdgeY, holdLineY, towerRange } from '../derive';
 import { createEnemyUnit, planWave } from '../waves';
 import { DT, freshState, pin, runWave } from './helpers';
 
@@ -323,10 +322,15 @@ describe('soldiers plant to shoot', () => {
    * Firing used to run while a soldier was still closing on its post, so
    * troops strolled across the field with rifles going off. Movement and
    * shooting are exclusive now: a target inside reach means stand and work.
-   * Neighbours still shove each other apart, so the claim is about walking,
-   * not about being perfectly motionless.
+   *
+   * Displacement cannot make this claim, which two earlier versions of this
+   * test got wrong: units shove each other apart, a hard shove moves a body
+   * further in a tick than its own stride does, and a shove from behind even
+   * carries a soldier toward what it is shooting at. So the measurement is the
+   * walk cycle, which the engine advances only when a unit moves under its own
+   * power. A firing soldier may be jostled; it may not take a step.
    */
-  it('never walks on a tick it attacks', () => {
+  it('never takes a step on a tick it attacks', () => {
     const state = freshState();
     state.wave = 9;
     state.credits = 100_000;
@@ -335,15 +339,14 @@ describe('soldiers plant to shoot', () => {
     for (let i = 0; i < 4; i++) buyUpgrade(state, cfg, 'charges');
     startBattle(state, cfg);
 
-    const stride = PLAYER_UNITS.rifleman.speed * DT;
     let attacks = 0;
-    let walkedWhileFiring = 0;
+    let steppedWhileFiring = 0;
     for (let i = 0; i < 90 / DT && state.phase === 'battle'; i++) {
       while (deployUnit(state, cfg, 'rifleman')) continue;
       const before = new Map(
         state.units
           .filter((u) => u.team === 'player')
-          .map((u) => [u.id, { x: u.x, y: u.y, cooldown: u.cooldown }]),
+          .map((u) => [u.id, { anim: u.anim, cooldown: u.cooldown }]),
       );
       step(state, DT, cfg);
       for (const unit of state.units) {
@@ -352,12 +355,76 @@ describe('soldiers plant to shoot', () => {
         // Cooldown jumping up is this unit attacking on this tick.
         if (!was || unit.cooldown <= was.cooldown) continue;
         attacks += 1;
-        const moved = Math.hypot(unit.x - was.x, unit.y - was.y);
-        if (moved > stride * 0.5) walkedWhileFiring += 1;
+        if (unit.anim !== was.anim) steppedWhileFiring += 1;
       }
     }
 
     expect(attacks).toBeGreaterThan(20);
-    expect(walkedWhileFiring).toBe(0);
+    expect(steppedWhileFiring).toBe(0);
+  });
+});
+
+describe('soldiers charge what is on the field', () => {
+  /**
+   * The bug this pins: with the field cleared and the squad mustered, a late
+   * spawn was simply *awaited*. An earlier rule only advanced on an enemy that
+   * had already stopped, so soldiers stood watching one walk the length of the
+   * map. From the outside they looked asleep.
+   */
+  it('goes to meet an enemy that spawns after the field has cleared', () => {
+    const state = freshState();
+    state.wave = 3;
+    startBattle(state, cfg);
+    const plan = planWave(cfg, 3);
+    // Clear the field but keep the wave alive with a spawn far in the future,
+    // so the squad musters instead of the battle resolving under us.
+    state.spawnQueue = [{ ...plan.spawns[0], at: 999 }];
+    state.units = state.units.filter((u) => u.team === 'player');
+    while (deployUnit(state, cfg, 'rifleman')) continue;
+    for (let i = 0; i < 6 / DT; i++) step(state, DT, cfg);
+
+    const mustered = state.units.filter((u) => u.team === 'player');
+    expect(mustered.length).toBeGreaterThan(0);
+    const startY = Math.min(...mustered.map((u) => u.y));
+
+    // One enemy walks on at the top, far from the wall and out of everyone's
+    // reach — and crucially, not yet shooting at anything.
+    const enemy = createEnemyUnit(state, cfg, { ...plan.spawns[0], at: 0, x: cfg.field.gateX });
+    enemy.y = cfg.field.spawnTop;
+    state.units.push(enemy);
+
+    for (let i = 0; i < 2 / DT; i++) step(state, DT, cfg);
+
+    const advanced = Math.min(...state.units.filter((u) => u.team === 'player').map((u) => u.y));
+    // Up the field, toward it — not standing where they were.
+    expect(advanced).toBeLessThan(startY - 20);
+  });
+
+  it('will not wander into the strip the guns cannot cover, unprompted', () => {
+    const state = freshState();
+    state.wave = 3;
+    state.credits = 100_000;
+    for (let i = 0; i < 6; i++) buyUpgrade(state, cfg, 'towers');
+    startBattle(state, cfg);
+    state.spawnQueue = [];
+    state.units = state.units.filter((u) => u.team === 'player');
+    while (deployUnit(state, cfg, 'rifleman')) continue;
+
+    // An enemy parked in the strip, doing nothing: out of reach and unpinned,
+    // so nothing releases the soldiers to go in after it. It is pinned back to
+    // the top of the strip every tick, since its own AI would walk it down.
+    const plan = planWave(cfg, 3);
+    const enemy = createEnemyUnit(state, cfg, { ...plan.spawns[0], at: 0, x: cfg.field.gateX });
+    enemy.y = 4;
+    state.units.push(enemy);
+
+    const edge = coverEdgeY(cfg, state.upgrades.towers);
+    for (let i = 0; i < 20 / DT; i++) {
+      step(state, DT, cfg);
+      enemy.y = 4;
+      for (const unit of state.units) {
+        if (unit.team === 'player') expect(unit.y).toBeGreaterThan(edge - 2);
+      }
+    }
   });
 });
