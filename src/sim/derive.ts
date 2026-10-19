@@ -7,8 +7,15 @@
  */
 
 import type { AbilityConfig, GameConfig } from './config';
-import { PLAYER_UNITS } from './roster';
-import type { AbilityId, BodyClass, DamageClass, PlayerUnitId, SimState } from './types';
+import { PLAYER_UNITS, TOWER_WEAPONS } from './roster';
+import type {
+  AbilityId,
+  BodyClass,
+  DamageClass,
+  PlayerUnitId,
+  SimState,
+  TowerWeaponId,
+} from './types';
 
 /** The standard idle-game price curve: base * growth^(level-1). */
 export function geometricCost(base: number, growth: number, level: number): number {
@@ -40,6 +47,22 @@ export function towerCount(cfg: GameConfig, level: number): number {
 /** Where the guns bought so far stand, in the order they are built. */
 export function towerPositions(cfg: GameConfig, level: number): number[] {
   return cfg.field.towerBuildOrder.slice(0, towerCount(cfg, level)).map((i) => cfg.field.towerX[i]);
+}
+
+/** What one shot from this gun does, at its own track's level. */
+export function weaponDamage(weapon: TowerWeaponId, level: number): number {
+  const def = TOWER_WEAPONS[weapon];
+  return def.baseDamage * Math.pow(def.damageGrowth, Math.max(0, level - 1));
+}
+
+export function weaponDps(weapon: TowerWeaponId, level: number): number {
+  return weaponDamage(weapon, level) / TOWER_WEAPONS[weapon].periodSec;
+}
+
+/** Credits for this gun's next level. Level 0 means it is not researched yet. */
+export function weaponUpgradeCost(weapon: TowerWeaponId, level: number): number {
+  const def = TOWER_WEAPONS[weapon];
+  return geometricCost(def.baseCost, def.costGrowth, level + 1);
 }
 
 export function towerDamage(cfg: GameConfig, level: number): number {
@@ -266,6 +289,9 @@ export function unitUnlockCost(id: PlayerUnitId): number {
 }
 
 /** Total DPS of the static defense line, for the UI. */
-export function totalTowerDps(cfg: GameConfig, state: SimState): number {
-  return towerDps(cfg, state.upgrades.towers) * state.towers.length;
+export function totalTowerDps(state: SimState): number {
+  return state.towers.reduce(
+    (sum, tower) => sum + weaponDps(tower.weapon, state.upgrades.weapons[tower.weapon]),
+    0,
+  );
 }

@@ -9,10 +9,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ENEMY_UNITS,
+  FACTIONS,
   PLAYER_UNITS,
   PLAYER_UNIT_ORDER,
-  FACTIONS,
-  ENEMY_UNITS,
+  SHAPES,
+  TOWER_WEAPONS,
+  TOWER_WEAPON_ORDER,
   abilityCooldown,
   abilityCost,
   abilityTotalDamage,
@@ -20,6 +23,7 @@ import {
   automationCost,
   buyAbility,
   buyUpgrade,
+  buyWeaponLevel,
   canCast,
   canDeploy,
   castAbility,
@@ -28,8 +32,9 @@ import {
   createInitialState,
   defaultConfig,
   deployUnit,
+  fitTowerWeapon,
+  incomePerSec,
   launchWave,
-  SHAPES,
   planWave,
   playerUnitStats,
   randomSeed,
@@ -39,16 +44,17 @@ import {
   step,
   syncDerived,
   toggleAutomation,
+  totalTowerDps,
   towerCount,
-  towerDps,
-  uncoveredStrip,
   trackCost,
+  uncoveredStrip,
   unitLevelCost,
   unlockAutomation,
   unlockUnit,
   upgradeUnit,
   wallMaxHp,
-  incomePerSec,
+  weaponDps,
+  weaponUpgradeCost,
 } from '../sim';
 import type {
   AbilityId,
@@ -58,6 +64,7 @@ import type {
   PlayerUnitId,
   SimEvent,
   SimState,
+  TowerWeaponId,
   UpgradeTrack,
   WaveResult,
 } from '../sim';
@@ -75,6 +82,24 @@ export interface UpgradeView {
   level: number;
   cost: number;
   affordable: boolean;
+}
+
+export interface GunView {
+  id: TowerWeaponId;
+  name: string;
+  short: string;
+  blurb: string;
+  /** What it counters, in the player's words. */
+  counters: string;
+  level: number;
+  dps: number;
+  nextDps: number;
+  cost: number;
+  affordable: boolean;
+  /** Level 0 means it has not been researched, so the first buy unlocks it. */
+  researched: boolean;
+  fitted: number;
+  colors: readonly [string, string];
 }
 
 export interface UnitView {
@@ -140,6 +165,10 @@ export interface UiSnapshot {
   phase: 'prep' | 'battle';
   wall: { level: number; hp: number; maxHp: number; pct: number };
   towers: { level: number; count: number; dps: number; uncoveredRows: number };
+  /** Each pad and what is bolted into it, in build order. */
+  pads: { id: number; weapon: TowerWeaponId; short: string }[];
+  /** The three gun tracks: what they do, what the next level costs. */
+  guns: GunView[];
   charges: { current: number; max: number; rechargeProgress: number; rechargeSec: number };
   upgrades: UpgradeView[];
   units: UnitView[];
@@ -158,6 +187,10 @@ export interface UiSnapshot {
 
 export interface GameActions {
   buy: (track: UpgradeTrack) => void;
+  /** Level a gun type, lifting every pad fitted with it. */
+  buyGun: (id: TowerWeaponId) => void;
+  /** Bolt a gun into a pad. Free, and only between waves. */
+  fitGun: (pad: number, id: TowerWeaponId) => void;
   unlock: (id: PlayerUnitId) => void;
   levelUp: (id: PlayerUnitId) => void;
   select: (id: PlayerUnitId) => void;
@@ -171,6 +204,13 @@ export interface GameActions {
   dismissResult: () => void;
   hardReset: () => void;
 }
+
+/** What each class of gun is for, in the player's words. */
+const GUN_COUNTERS: Record<string, string> = {
+  sustained: 'vs Hordes',
+  kinetic: 'vs Skirmishers',
+  explosive: 'vs Armour',
+};
 
 const TRACK_LABELS: Record<UpgradeTrack, string> = {
   wall: 'Wall',
@@ -190,14 +230,14 @@ function buildUpgrades(state: SimState, cfg: GameConfig): UpgradeView[] {
         detail = `${Math.round(wallMaxHp(cfg, level))} → ${Math.round(wallMaxHp(cfg, level + 1))} hp`;
         break;
       case 'towers': {
+        // This track buys pads and cover, not firepower: the gun bolted into
+        // a pad carries that, on its own track.
         const built = towerCount(cfg, level);
         const next = towerCount(cfg, level + 1);
         detail =
           next > built
-            ? `builds gun ${next} of ${cfg.field.towerX.length}` +
-              ` · ${towerDps(cfg, level + 1).toFixed(1)} dps each`
-            : `${towerDps(cfg, level).toFixed(1)} → ${towerDps(cfg, level + 1).toFixed(1)} dps each` +
-              ` · strip ${Math.round(uncoveredStrip(cfg, level))} → ${Math.round(uncoveredStrip(cfg, level + 1))}`;
+            ? `builds pad ${next} of ${cfg.field.towerX.length} · fit it below`
+            : `strip ${Math.round(uncoveredStrip(cfg, level))} → ${Math.round(uncoveredStrip(cfg, level + 1))} rows`;
         break;
       }
       case 'charges':
@@ -300,10 +340,35 @@ function buildSnapshot(state: SimState, cfg: GameConfig): UiSnapshot {
       maxHp: Math.round(state.wall.maxHp),
       pct: state.wall.maxHp > 0 ? Math.max(0, state.wall.hp / state.wall.maxHp) : 0,
     },
+    pads: state.towers.map((t) => ({
+      id: t.id,
+      weapon: t.weapon,
+      short: TOWER_WEAPONS[t.weapon].short,
+    })),
+    guns: TOWER_WEAPON_ORDER.map((id) => {
+      const def = TOWER_WEAPONS[id];
+      const level = state.upgrades.weapons[id];
+      const cost = weaponUpgradeCost(id, level);
+      return {
+        id,
+        name: def.name,
+        short: def.short,
+        blurb: def.blurb,
+        counters: GUN_COUNTERS[def.damageClass],
+        level,
+        dps: level > 0 ? weaponDps(id, level) : 0,
+        nextDps: weaponDps(id, level + 1),
+        cost,
+        affordable: state.credits >= cost,
+        researched: level > 0,
+        fitted: state.towers.filter((t) => t.weapon === id).length,
+        colors: def.colors,
+      };
+    }),
     towers: {
       level: state.upgrades.towers,
       count: state.towers.length,
-      dps: towerDps(cfg, state.upgrades.towers) * state.towers.length,
+      dps: totalTowerDps(state),
       uncoveredRows: Math.round(uncoveredStrip(cfg, state.upgrades.towers)),
     },
     charges: {
@@ -425,6 +490,12 @@ export function useGameLoop(cfg: GameConfig = defaultConfig): UseGameLoop {
     () => ({
       buy: (track) => {
         if (buyUpgrade(stateRef.current, cfg, track)) publish();
+      },
+      buyGun: (id) => {
+        if (buyWeaponLevel(stateRef.current, id)) publish();
+      },
+      fitGun: (pad, id) => {
+        if (fitTowerWeapon(stateRef.current, pad, id)) publish();
       },
       unlock: (id) => {
         if (unlockUnit(stateRef.current, cfg, id)) publish();

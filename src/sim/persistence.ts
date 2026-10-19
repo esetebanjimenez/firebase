@@ -8,6 +8,7 @@
  */
 
 import type { GameConfig } from './config';
+import { TOWER_WEAPON_ORDER } from './roster';
 import type { SimState } from './types';
 
 export interface SaveEnvelope {
@@ -80,6 +81,14 @@ export function deserialize(raw: string, cfg: GameConfig): SaveEnvelope | null {
     if (!isRecord(candidate[key])) return null;
   }
   if (!Array.isArray(candidate.towers)) return null;
+
+  // Saves written before the guns were typed carry no weapon levels and no
+  // weapon on their pads. Rather than guess a fit-out, treat them as foreign.
+  const upgrades = candidate.upgrades as Record<string, unknown>;
+  if (!isRecord(upgrades.weapons)) return null;
+  for (const id of TOWER_WEAPON_ORDER) {
+    if (typeof (upgrades.weapons as Record<string, unknown>)[id] !== 'number') return null;
+  }
 
   return { savedAt, state: candidate as unknown as SimState };
 }

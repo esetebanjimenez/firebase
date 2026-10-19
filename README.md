@@ -41,6 +41,12 @@ horde, a skirmish line — and the preview tells you which, so you can bring the
 right soldiers through the gate. Every soldier costs one charge, so the choice
 is tactical rather than a question of price.
 
+**The guns are a decision too.** Each pad on the wall takes an MG emplacement
+(hordes), a grenade launcher (skirmish lines) or a rocket launcher (armour).
+Re-fitting is free between waves, so you answer the wave you can see — but
+levels are per gun type, so the answer is only as good as the track you have
+been feeding.
+
 **The parapet starts empty.** There are four gun pads on the wall and nothing
 standing in them; each Towers level builds the next gun, then makes the ones
 you have hit harder. Wave 1 is the gate's job, not the guns'.

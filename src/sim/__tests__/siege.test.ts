@@ -9,10 +9,10 @@
 
 import { describe, expect, it } from 'vitest';
 import { defaultConfig as cfg } from '../config';
-import { buyUpgrade, deployUnit } from '../actions';
+import { buyUpgrade, buyWeaponLevel, deployUnit } from '../actions';
 import { holdLineY, uncoveredStrip } from '../derive';
 import { startBattle, step } from '../engine';
-import { ENEMY_UNITS, PLAYER_UNITS } from '../roster';
+import { ENEMY_UNITS, PLAYER_UNITS, TOWER_WEAPON_ORDER } from '../roster';
 import { planWave, siegeAllowance } from '../waves';
 import { DT, SEED, freshState } from './helpers';
 import type { EnemyUnitId, SimState } from '../types';
@@ -27,6 +27,11 @@ function readyAt(wave: number, wallLevels: number, towerLevels: number, chargeLe
   for (let i = 0; i < wallLevels; i++) buyUpgrade(state, cfg, 'wall');
   for (let i = 0; i < towerLevels; i++) buyUpgrade(state, cfg, 'towers');
   for (let i = 0; i < chargeLevels; i++) buyUpgrade(state, cfg, 'charges');
+  // The `towers` track buys pads, not firepower — the guns bolted into them
+  // carry that now, so a build without gun levels is an empty parapet.
+  for (let i = 0; i < towerLevels; i++) {
+    for (const weapon of TOWER_WEAPON_ORDER) buyWeaponLevel(state, weapon);
+  }
   state.credits = 10_000_000;
   return state;
 }

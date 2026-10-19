@@ -103,7 +103,7 @@ describe('saves written against different field geometry', () => {
     const state = progressedState();
     // Coordinates from the old 192x240 field, as a save from before the
     // resolution change would carry.
-    state.towers = [20, 56, 136, 172].map((x, i) => ({ id: i + 1, x, y: 211, cooldown: 0 }));
+    state.towers = [20, 56, 136, 172].map((x, i) => ({ id: i + 1, x, y: 211, cooldown: 0, weapon: 'mg' as const }));
 
     const loaded = deserialize(serialize(state, 1), cfg)!.state;
     syncDerived(loaded, cfg);
@@ -118,7 +118,7 @@ describe('saves written against different field geometry', () => {
 
   it('keeps towers on the wall through a battle started from such a save', () => {
     const state = progressedState();
-    state.towers = [20, 56, 136, 172].map((x, i) => ({ id: i + 1, x, y: 211, cooldown: 0 }));
+    state.towers = [20, 56, 136, 172].map((x, i) => ({ id: i + 1, x, y: 211, cooldown: 0, weapon: 'mg' as const }));
     launchWave(state, cfg);
     for (let i = 0; i < 30; i++) step(state, DT, cfg);
     for (const tower of state.towers) {

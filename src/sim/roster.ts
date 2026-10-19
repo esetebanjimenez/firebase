@@ -16,6 +16,7 @@ import type {
   PlayerUnitId,
   ProjectileKind,
   Silhouette,
+  TowerWeaponId,
   UnitMark,
 } from './types';
 
@@ -47,6 +48,86 @@ export interface UnitStats {
   readonly mark: UnitMark;
   readonly colors: readonly [string, string, string, string, string];
 }
+
+/**
+ * The guns that can be bolted into a pad — one per damage class, so a parapet
+ * can be fitted to answer any wave shape.
+ *
+ * Range is deliberately shared: how far the guns reach is a property of the
+ * wall, and the strip they cannot cover is where siege lives. Differentiating
+ * by range would hand one of these the siege problem, which is meant to be
+ * answered by going out there.
+ */
+export interface TowerWeaponDef {
+  readonly id: TowerWeaponId;
+  readonly name: string;
+  readonly short: string;
+  readonly blurb: string;
+  readonly damageClass: DamageClass;
+  readonly baseDamage: number;
+  readonly periodSec: number;
+  readonly splashRadius: number;
+  readonly projectile: ProjectileKind;
+  /** Damage multiplier per level of this gun's own track. */
+  readonly damageGrowth: number;
+  readonly baseCost: number;
+  readonly costGrowth: number;
+  /** [main, light] for the UI chip. */
+  readonly colors: readonly [string, string];
+}
+
+export const TOWER_WEAPONS: Readonly<Record<TowerWeaponId, TowerWeaponDef>> = {
+  mg: {
+    id: 'mg',
+    name: 'MG Emplacement',
+    short: 'MG',
+    blurb: 'Belt-fed and relentless. Cuts down a horde; wasted on armour.',
+    damageClass: 'sustained',
+    baseDamage: 2.2,
+    periodSec: 0.25,
+    splashRadius: 0,
+    projectile: 'bullet',
+    damageGrowth: 1.2,
+    baseCost: 36,
+    costGrowth: 1.12,
+    colors: ['#cbbf6a', '#f2e9a8'],
+  },
+  grenade: {
+    id: 'grenade',
+    name: 'Grenade Launcher',
+    short: 'GL',
+    blurb: 'Lobbed airbursts. Scatters a skirmish line; shrugged off by plate.',
+    damageClass: 'kinetic',
+    baseDamage: 9,
+    periodSec: 1,
+    // Modest on purpose. Splash is what made the Rocketeer the best answer to
+    // every shape it was supposed to lose to, and a kinetic gun with a wide
+    // blast would take the MG's job the same way.
+    splashRadius: 14,
+    projectile: 'boulder',
+    damageGrowth: 1.2,
+    baseCost: 42,
+    costGrowth: 1.12,
+    colors: ['#7fae5e', '#c2e39b'],
+  },
+  rocket: {
+    id: 'rocket',
+    name: 'Rocket Launcher',
+    short: 'RKT',
+    blurb: 'One heavy warhead at a time. Opens armour; squandered on a crowd.',
+    damageClass: 'explosive',
+    baseDamage: 20,
+    periodSec: 2,
+    splashRadius: 0,
+    projectile: 'rocket',
+    damageGrowth: 1.2,
+    baseCost: 54,
+    costGrowth: 1.12,
+    colors: ['#c87d4e', '#f0b388'],
+  },
+};
+
+export const TOWER_WEAPON_ORDER: TowerWeaponId[] = ['mg', 'grenade', 'rocket'];
 
 export interface PlayerUnitDef extends UnitStats {
   readonly id: PlayerUnitId;

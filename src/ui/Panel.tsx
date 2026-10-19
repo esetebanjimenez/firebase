@@ -61,7 +61,8 @@ function Row({
 
 export function Panel({ snapshot, actions, onRestart }: Props) {
   const [tab, setTab] = useState<Tab>('defense');
-  const { upgrades, units, abilities, automation, wall, towers, charges, preview, phase } = snapshot;
+  const { upgrades, units, abilities, automation, wall, towers, charges, preview, phase, pads, guns } =
+    snapshot;
 
   const defenseTracks = upgrades.filter((u) => u.track === 'wall' || u.track === 'towers');
   const chargeTracks = upgrades.filter((u) => u.track === 'charges' || u.track === 'recharge');
@@ -93,6 +94,48 @@ export function Panel({ snapshot, actions, onRestart }: Props) {
                 cost={u.cost}
                 affordable={u.affordable}
                 onClick={() => actions.buy(u.track)}
+              />
+            ))}
+            {pads.length > 0 && (
+              <div className="pads">
+                <p className="panel__note panel__note--dim">
+                  {phase === 'prep'
+                    ? 'Fit the pads to the wave coming — free, between waves.'
+                    : 'Emplacements are fitted between waves.'}
+                </p>
+                {pads.map((pad, i) => (
+                  <div className="pad" key={pad.id}>
+                    <span className="pad__label">Pad {i + 1}</span>
+                    <div className="pad__guns">
+                      {guns.map((gun) => (
+                        <button
+                          key={gun.id}
+                          className={`pad__gun${pad.weapon === gun.id ? ' pad__gun--on' : ''}`}
+                          disabled={phase !== 'prep' || !gun.researched}
+                          title={gun.researched ? `${gun.name} — ${gun.blurb}` : `${gun.name} — not researched`}
+                          onClick={() => actions.fitGun(i, gun.id)}
+                          style={pad.weapon === gun.id ? { borderColor: gun.colors[1] } : undefined}
+                        >
+                          {gun.short}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {guns.map((gun) => (
+              <Row
+                key={gun.id}
+                title={gun.researched ? `${gun.name} L${gun.level}` : `${gun.name} — research`}
+                detail={
+                  gun.researched
+                    ? `${gun.counters} · ${gun.dps.toFixed(0)} → ${gun.nextDps.toFixed(0)} dps each · ${gun.fitted} fitted`
+                    : `${gun.counters} · ${gun.blurb}`
+                }
+                cost={gun.cost}
+                affordable={gun.affordable}
+                onClick={() => actions.buyGun(gun.id)}
               />
             ))}
             {phase === 'prep' && (

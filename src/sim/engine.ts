@@ -22,14 +22,13 @@ import {
   incomePerSec,
   musterLineY,
   rechargeSec,
-  towerDamage,
-  towerPeriod,
+  weaponDamage,
   towerPositions,
   towerRange,
   wallMaxHp,
 } from './derive';
 import { angleTo, dist, distSq, stepToward } from './math';
-import { PLAYER_UNITS } from './roster';
+import { PLAYER_UNITS, TOWER_WEAPONS } from './roster';
 import type {
   DamageClass,
   Hazard,
@@ -59,6 +58,8 @@ export function syncDerived(state: SimState, cfg: GameConfig): void {
     x,
     y: cfg.field.towerY,
     cooldown: state.towers[i]?.cooldown ?? 0,
+    // A pad keeps whatever is bolted into it; a new one arrives with the MG.
+    weapon: state.towers[i]?.weapon ?? 'mg',
   }));
 }
 
@@ -670,38 +671,63 @@ export function step(state: SimState, dt: number, cfg: GameConfig): SimEvent[] {
   if (raised.length > 0) state.units.push(...raised);
 
   // --- Towers: the static line shoots whatever comes into range.
-  const tDamage = towerDamage(cfg, state.upgrades.towers);
-  const tPeriod = towerPeriod(cfg, state.upgrades.towers);
   const tRange = towerRange(cfg, state.upgrades.towers);
   for (const tower of state.towers) {
     if (tower.cooldown > 0) {
       tower.cooldown = Math.max(0, tower.cooldown - dt);
       continue;
     }
+    // Each gun picks its target its own way, which is what makes fitting one
+    // a decision rather than a coefficient. Measured, a coefficient was not
+    // enough: a quarter-second gun has near-perfect uptime and wastes almost
+    // nothing, while a two-second rocket pours most of a warhead into a
+    // skeleton. Rate of fire beat the counter multiplier every time, so the
+    // slow guns needed a reason to exist that is not a bigger number.
+    const gunDef = TOWER_WEAPONS[tower.weapon];
+    const reach = tRange * tRange;
     let best: Unit | null = null;
-    let bestD2 = tRange * tRange;
+    let bestScore = -Infinity;
     for (const u of state.units) {
       if (u.team !== 'enemy' || u.hp <= 0) continue;
       const d2 = distSq(tower.x, tower.y, u.x, u.y);
-      if (d2 <= bestD2) {
-        bestD2 = d2;
+      if (d2 > reach) continue;
+      let score: number;
+      if (gunDef.id === 'rocket') {
+        // The heaviest thing it can see: a warhead should not be spent on a
+        // body that a rifle would have killed anyway.
+        score = u.maxHp;
+      } else if (gunDef.id === 'grenade') {
+        // The best-packed target, so the airburst catches a cluster.
+        let packed = 0;
+        for (const other of state.units) {
+          if (other.team !== 'enemy' || other.hp <= 0) continue;
+          if (distSq(u.x, u.y, other.x, other.y) <= gunDef.splashRadius * gunDef.splashRadius) packed += 1;
+        }
+        score = packed;
+      } else {
+        // Belt-fed: whatever is closest to the wall.
+        score = -d2;
+      }
+      if (score > bestScore) {
+        bestScore = score;
         best = u;
       }
     }
     if (!best) continue;
-    tower.cooldown = tPeriod;
+    // Each pad shoots whatever is bolted into it, at its own track's level.
+    const gun = TOWER_WEAPONS[tower.weapon];
+    tower.cooldown = gun.periodSec;
     state.projectiles.push({
       id: state.nextId++,
       team: 'player',
-      kind: 'bullet',
+      kind: gun.projectile,
       x: tower.x,
       y: tower.y,
       speed: cfg.towers.projectileSpeed,
-      damage: tDamage,
-      splashRadius: 0,
+      damage: weaponDamage(tower.weapon, state.upgrades.weapons[tower.weapon]),
+      splashRadius: gun.splashRadius,
       siegeBonus: 1,
-      // Tower guns are small arms: they answer skirmishers, not armour.
-      damageClass: 'kinetic',
+      damageClass: gun.damageClass,
       wallFraction: 0,
       targetId: best.id,
       tx: best.x,

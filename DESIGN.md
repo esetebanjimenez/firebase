@@ -285,7 +285,45 @@ loss, so every failed attempt still funds the upgrade that eventually breaks
 through. What a streak must not do is last forever, which is what cutting
 bounty caused.
 
-### Why tactics stay a margin, not a decision
+### The parapet is part of the triangle
+
+The guns used to be fixed kinetic, and they do most of a wave's killing —
+turning them off drops a wave's margin from 45-71% to 0-32%. So the largest
+share of the player's output answered every wave equally, and diluted every
+decision they made. Typing the guns turns that dominance into the thing the
+decision moves.
+
+Three can be bolted into a pad, one per damage class:
+
+| Emplacement | Class | Answers | Character |
+| --- | --- | --- | --- |
+| MG Emplacement | Sustained | Hordes | Quarter-second cadence, single target |
+| Grenade Launcher | Kinetic | Skirmish lines | Lobbed airburst, modest splash |
+| Rocket Launcher | Explosive | Armoured columns | One heavy warhead every two seconds |
+
+Range is deliberately shared. How far the guns reach is a property of the wall,
+and the strip they cannot cover is where siege lives; giving one gun more reach
+would hand it the siege problem, which is meant to be answered by going out
+there.
+
+**Levels are per gun type, placement is per pad.** Upgrading the MG lifts every
+MG on the wall. Re-fitting is free and only between waves, so the parapet is
+chosen against the wave you can see while what limits you is how far each gun's
+own track has been levelled — you can always answer a column, but your rocket
+level may be a long way behind your MG.
+
+**Cadence beat the coefficient, so the guns needed targeting rules.** With the
+counter multiplier alone, fitting the shape's counter *lost* to leaving every
+pad on the MG: a quarter-second gun has near-perfect uptime and wastes almost
+nothing, while a two-second rocket pours most of a warhead into a skeleton.
+Rate of fire beat the matchup every time. So each gun aims its own way — the MG
+takes whatever is closest to the wall, the grenade launcher the best-packed
+cluster, the rocket the heaviest thing it can see. That is a mechanic rather
+than a bigger number, which is what the measurements had been pointing at all
+along: refitting went from 2.6 points *worse* than never refitting to 2.4
+points better.
+
+### Why tactics are still a margin more than a decision
 
 The counter triangle was built to make deployment a choice. Measured at the
 frontier a player actually lives on — upgrade, fight the wave you are stuck

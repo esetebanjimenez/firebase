@@ -739,3 +739,53 @@ body {
     overflow: visible;
   }
 }
+
+/* --- Emplacement fitting: one row per gun pad, one chip per gun. --------- */
+.pads {
+  display: grid;
+  gap: 4px;
+  margin: 6px 0 10px;
+}
+
+.pad {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.pad__label {
+  font-size: 11px;
+  color: var(--ink-dim);
+  letter-spacing: 0.04em;
+}
+
+.pad__guns {
+  display: grid;
+  grid-auto-flow: column;
+  gap: 4px;
+  justify-content: start;
+}
+
+.pad__gun {
+  min-width: 46px;
+  padding: 4px 8px;
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--ink-dim);
+  background: var(--panel-2);
+  border: 1px solid var(--edge);
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.pad__gun--on {
+  color: var(--ink);
+  background: linear-gradient(180deg, var(--deploy-light), var(--deploy));
+}
+
+.pad__gun:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
