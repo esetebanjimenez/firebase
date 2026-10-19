@@ -67,6 +67,23 @@ describe('progression', () => {
     expect(attempts).toBeLessThan(state.bestWave * 4);
   }, 60000);
 
+  /**
+   * The curve has to cost the player something. It did not: measured, a
+   * scripted player cleared eighty waves at 1.00 attempts per wave — never a
+   * single loss — because eleven upgrade tracks each carry their own cost
+   * curve, so one wave's bounty funds eight to twenty-seven power steps while
+   * the enemy gets one wave of scaling.
+   *
+   * This asserts the fix rather than the numbers behind it: deep into a run
+   * the player must be losing waves sometimes. A future change that flattens
+   * the curve again should fail here rather than quietly ship.
+   */
+  it('makes the player lose waves, not just walk through them', () => {
+    const { attempts, state } = autoRun(40, undefined, 240);
+    expect(state.bestWave).toBeGreaterThanOrEqual(40);
+    expect(attempts).toBeGreaterThan(state.bestWave * 1.15);
+  }, 120000);
+
   it('still takes real time to clear a wave deep into a run', () => {
     const { state } = autoRun(30);
     // Losing the first attempt at a fresh wave is the curve working, not a
