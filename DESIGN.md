@@ -285,6 +285,43 @@ loss, so every failed attempt still funds the upgrade that eventually breaks
 through. What a streak must not do is last forever, which is what cutting
 bounty caused.
 
+### Intel: what you know before you commit
+
+| Rung | Adds | Reads as |
+| --- | --- | --- |
+| L0 | Army, total strength, payout | "Kingdom Army · 554k hp of trouble" |
+| L1 | Shape, and what answers it | "Armoured column — wants explosives" |
+| L2 | Which kinds are coming | "Knights, Rams, Archers — numbers unknown" |
+| L3 | How many in total | "65 enemies" |
+| L4 | The exact order of battle | "9x Knight, 3x Battering Ram, …" |
+
+**Strength is never for sale.** The budget is the constant half of a wave —
+fixed and knowable — and what varies is how it is spent, so the composition is
+what intel sells. A player who could not see how big a wave was would have
+nothing to judge at all.
+
+What is actually being sold is *advance notice*. Without a scrap of intel you
+still learn what a wave is made of when it walks on; what you cannot do is fit
+the parapet and pick your soldiers for it beforehand, and that is the only
+moment the choice is worth anything. It is also why re-fitting a gun is free:
+charging for it would punish acting on the thing you just bought.
+
+The first rung is priced to land around wave 3-4, because the gun pads arrive
+early and fitting them is guesswork without the shape. The ladder is finite —
+four rungs and the track stops selling — and the order is deliberate: shape
+first, because it is the rung that names a counter and therefore the one that
+changes what the player does. Kinds tell you what to bring, the count tells you
+how much, and the exact order of battle tells you how to split the charges.
+
+The reveal rule lives in `src/sim/intel.ts` rather than in the snapshot
+builder. What a player knows before they commit decides what they can do, which
+makes it a game rule and not a rendering concern.
+
+Measured: a scripted player that buys intel reaches wave 40 in 54 attempts
+against 58 for one that never does, having paid for the ladder on the way. The
+instrument's parapet fitting is gated on the first rung for the same reason —
+reading the plan directly would measure a player who can see through walls.
+
 ### The parapet is part of the triangle
 
 The guns used to be fixed kinetic, and they do most of a wave's killing —

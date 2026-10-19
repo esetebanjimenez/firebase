@@ -202,6 +202,20 @@ export interface GameConfig {
     readonly napalm: AbilityConfig;
   };
 
+  /**
+   * Intel: what you know about the wave before you commit to it.
+   *
+   * Strength is never hidden — the budget is the constant half of a wave, and
+   * a player who cannot see how big one is has no way to judge anything. What
+   * is sold is the *composition*, and specifically advance notice of it:
+   * without a scrap of intel you still learn what a wave is made of when it
+   * walks on, which is too late to have fitted the parapet for it.
+   */
+  readonly intel: {
+    readonly baseCost: number;
+    readonly costGrowth: number;
+  };
+
   /** Idle layer: passive credits, scaled by the furthest wave you've cleared. */
   readonly idle: {
     readonly baseCreditsPerSec: number;
@@ -415,6 +429,12 @@ export const defaultConfig: GameConfig = {
     },
   },
 
+  intel: {
+    // Priced so the first level lands around wave 3-4: the gun pads arrive
+    // early and fitting them is guesswork without knowing the shape.
+    baseCost: 50,
+    costGrowth: 3,
+  },
   idle: {
     baseCreditsPerSec: 0.25,
     incomeGrowth: 1.12,

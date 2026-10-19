@@ -41,6 +41,13 @@ horde, a skirmish line — and the preview tells you which, so you can bring the
 right soldiers through the gate. Every soldier costs one charge, so the choice
 is tactical rather than a question of price.
 
+**You only know what you pay to know.** Every wave shows its army and its
+total strength for free — that part is fixed. What it is *made of* is sold by
+the Intel track, a rung at a time: the shape of the wave and what answers it,
+then which kinds are coming, then how many, then exactly how many of each.
+Without intel you still find out when they walk on — too late to have fitted
+the wall for them.
+
 **The guns are a decision too.** Each pad on the wall takes an MG emplacement
 (hordes), a grenade launcher (skirmish lines) or a rocket launcher (armour).
 Re-fitting is free between waves, so you answer the wave you can see — but

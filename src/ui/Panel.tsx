@@ -65,6 +65,8 @@ export function Panel({ snapshot, actions, onRestart }: Props) {
     snapshot;
 
   const defenseTracks = upgrades.filter((u) => u.track === 'wall' || u.track === 'towers');
+  // Intel sits with the wave it describes, under the preview.
+  const intelTrack = upgrades.find((u) => u.track === 'intel');
   const chargeTracks = upgrades.filter((u) => u.track === 'charges' || u.track === 'recharge');
 
   return (
@@ -140,15 +142,45 @@ export function Panel({ snapshot, actions, onRestart }: Props) {
             ))}
             {phase === 'prep' && (
               <p className="panel__note panel__note--dim">
-                Wave {preview.wave} · {preview.shape} — wants {preview.counter} · threat{' '}
-                {compact(preview.threat)} hp · pays {compact(preview.payout)} credits
-                {preview.composition.length > 0 && (
+                Wave {preview.wave} · threat {compact(preview.threat)} hp · pays{' '}
+                {compact(preview.payout)} credits
+                {preview.shape && (
+                  <>
+                    <br />
+                    {preview.shape} — wants {preview.counter}
+                  </>
+                )}
+                {preview.count !== null && (
+                  <>
+                    <br />
+                    {preview.count} enemies
+                  </>
+                )}
+                {preview.composition ? (
                   <>
                     <br />
                     {preview.composition.map((c) => `${c.count}× ${c.name}`).join(', ')}
                   </>
+                ) : (
+                  preview.kinds && (
+                    <>
+                      <br />
+                      {preview.kinds.join(', ')}
+                      {/* Named, but not counted: that is the next rung up. */}
+                      {preview.intel < 4 && ' — numbers unknown'}
+                    </>
+                  )
                 )}
               </p>
+            )}
+            {intelTrack && Number.isFinite(intelTrack.cost) && (
+              <Row
+                title={`Intel L${intelTrack.level}`}
+                detail={intelTrack.detail}
+                cost={intelTrack.cost}
+                affordable={intelTrack.affordable}
+                onClick={() => actions.buy('intel')}
+              />
             )}
           </>
         )}

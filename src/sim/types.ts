@@ -258,6 +258,8 @@ export interface UpgradeState {
   towers: number;
   /** Level per gun type, shared by every pad fitted with it. */
   weapons: Record<TowerWeaponId, number>;
+  /** How much of the coming wave you can see. 0 = army and strength only. */
+  intel: number;
   /** Size of the deployment charge pool. */
   charges: number;
   /** Charge recharge rate. */

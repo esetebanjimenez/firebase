@@ -158,6 +158,19 @@ export function playerUnitStats(
   return { hp, damage, speed, dps: damage / def.attackPeriod, level };
 }
 
+// --- Intel ------------------------------------------------------------------
+
+/**
+ * The reveal ladder, in the order that makes each step actionable: what the
+ * wave *is*, then what is in it, then how much of it, then exactly how much of
+ * each.
+ */
+export const INTEL_MAX = 4;
+
+export function intelUpgradeCost(cfg: GameConfig, level: number): number {
+  return geometricCost(cfg.intel.baseCost, cfg.intel.costGrowth, level + 1);
+}
+
 // --- Deployment charges ----------------------------------------------------
 
 export function chargeMax(cfg: GameConfig, level: number): number {
