@@ -16,6 +16,7 @@ import { ENEMY_UNITS, PLAYER_UNITS, towerPeriod } from '../sim';
 import type { GameConfig, Hazard, SimEvent, SimState, Unit, UnitKindId, UnitMark } from '../sim';
 import { PALETTE } from './palette';
 import { drawGear } from './gear';
+import { fieldLayout } from './layout';
 import { createLayer, type Ramp } from './pixel';
 import { unitSprites } from './sprites';
 import { bakeTerrain, type TerrainLayer } from './terrain';
@@ -50,8 +51,6 @@ export class Renderer {
   private particles: Particle[] = [];
   private shake = 0;
   private clock = 0;
-  private cssWidth = 0;
-  private cssHeight = 0;
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -68,8 +67,6 @@ export class Renderer {
 
   /** Size the visible canvas to its box. Call on mount and on resize. */
   resize(cssWidth: number, cssHeight: number, dpr = window.devicePixelRatio || 1): void {
-    this.cssWidth = cssWidth;
-    this.cssHeight = cssHeight;
     this.canvas.width = Math.max(1, Math.floor(cssWidth * dpr));
     this.canvas.height = Math.max(1, Math.floor(cssHeight * dpr));
     this.canvas.style.width = `${cssWidth}px`;
@@ -77,18 +74,18 @@ export class Renderer {
     this.display.imageSmoothingEnabled = false;
   }
 
-  /** Map a pointer position on the visible canvas to field coordinates. */
+  /**
+   * Map a pointer position on the visible canvas to field coordinates, through
+   * the same layout the blit uses — so a tap lands where the reticle is drawn.
+   */
   toFieldCoords(clientX: number, clientY: number): { x: number; y: number } {
     const rect = this.canvas.getBoundingClientRect();
+    const dpr = this.canvas.width / Math.max(1, rect.width);
     const { width, height } = this.cfg.field;
-    const scale = Math.min(rect.width / width, rect.height / height) || 1;
-    const drawnW = width * scale;
-    const drawnH = height * scale;
-    const offsetX = (rect.width - drawnW) / 2;
-    const offsetY = (rect.height - drawnH) / 2;
+    const layout = fieldLayout(this.canvas.width, this.canvas.height, width, height);
     return {
-      x: (clientX - rect.left - offsetX) / scale,
-      y: (clientY - rect.top - offsetY) / scale,
+      x: ((clientX - rect.left) * dpr - layout.offsetX) / layout.scale,
+      y: ((clientY - rect.top) * dpr - layout.offsetY) / layout.scale,
     };
   }
 
@@ -119,24 +116,23 @@ export class Renderer {
   private blit(): void {
     const ctx = this.display;
     const { width, height } = this.cfg.field;
-    const dpr = this.canvas.width / Math.max(1, this.cssWidth);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = '#05070a';
     ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-    const scale = Math.min(this.cssWidth / width, this.cssHeight / height) || 1;
-    const drawnW = width * scale;
-    const drawnH = height * scale;
-    const jitterX = this.shake > 0 ? (Math.random() - 0.5) * this.shake * 1.5 : 0;
-    const jitterY = this.shake > 0 ? (Math.random() - 0.5) * this.shake * 1.5 : 0;
+    const layout = fieldLayout(this.canvas.width, this.canvas.height, width, height);
+    // Shake in whole device pixels: a fractional offset would undo the snap.
+    const shake = this.shake * layout.scale;
+    const jitterX = this.shake > 0 ? Math.round((Math.random() - 0.5) * shake) : 0;
+    const jitterY = this.shake > 0 ? Math.round((Math.random() - 0.5) * shake) : 0;
 
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(
       this.fieldCanvas,
-      Math.round(((this.cssWidth - drawnW) / 2 + jitterX) * dpr),
-      Math.round(((this.cssHeight - drawnH) / 2 + jitterY) * dpr),
-      Math.round(drawnW * dpr),
-      Math.round(drawnH * dpr),
+      layout.offsetX + jitterX,
+      layout.offsetY + jitterY,
+      layout.width,
+      layout.height,
     );
   }
 
