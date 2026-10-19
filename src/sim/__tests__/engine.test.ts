@@ -95,12 +95,15 @@ describe('unit behaviour', () => {
     startBattle(state, cfg);
     // Nothing on the field, but reinforcements still owed, so the wave runs on.
     state.units = [];
-    state.spawnQueue = [{ kind: 'militia', x: 96, at: 999, hpScale: 1, damageScale: 1, bountyScale: 1 }];
+    state.spawnQueue = [
+      { kind: 'militia', x: cfg.field.gateX, at: 999, hpScale: 1, damageScale: 1, bountyScale: 1 },
+    ];
     deployUnit(state, cfg, 'rifleman');
     const soldier = state.units.find((u) => u.team === 'player')!;
     for (let i = 0; i < 20 * 30; i++) step(state, DT, cfg);
     expect(state.phase).toBe('battle');
-    expect(Math.abs(soldier.y - cfg.field.musterY)).toBeLessThan(20);
+    // The muster is a loose block, so allow for the formation's row offsets.
+    expect(Math.abs(soldier.y - cfg.field.musterY)).toBeLessThan(cfg.field.height * 0.1);
   });
 
   it('keeps enemies on the attacking side of the wall', () => {

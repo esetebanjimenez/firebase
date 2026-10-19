@@ -8,17 +8,19 @@
 
 import { useMemo } from 'react';
 import { unitIcon } from '../render/sprites';
-import type { PlayerUnitId } from '../sim';
+import { rankOfLevel, type PlayerUnitId } from '../sim';
 
 interface Props {
   kind: PlayerUnitId;
+  /** The kind's current level; the icon wears the matching kit and colour. */
+  level: number;
   /** Whole-number scale factor applied to the sprite. */
   scale?: number;
   className?: string;
 }
 
-export function UnitIcon({ kind, scale = 3, className }: Props) {
-  const art = useMemo(() => unitIcon(kind), [kind]);
+export function UnitIcon({ kind, level, scale = 3, className }: Props) {
+  const art = useMemo(() => unitIcon(kind, rankOfLevel(level)), [kind, level]);
   return (
     <img
       className={className ?? 'uniticon'}

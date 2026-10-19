@@ -9,13 +9,13 @@
  * Character slots are shared by every silhouette, so one grid can be recoloured
  * per unit kind from the four-colour ramp in its roster entry:
  *   '1' body      '2' highlight      '3' accent (skin, glow, trim)
- *   '4' outline   '.' or ' ' transparent
+ *   '4' outline   '5' shade          '.' or ' ' transparent
  */
 
 export type PixelGrid = readonly string[];
 
-/** The four-colour ramp a unit kind supplies: [body, highlight, accent, outline]. */
-export type Ramp = readonly [string, string, string, string];
+/** A kind's ramp: [body, lit, accent, outline, shade]. */
+export type Ramp = readonly [string, string, string, string, string];
 
 export interface Sprite {
   readonly canvas: HTMLCanvasElement;
@@ -41,6 +41,7 @@ export function bake(grid: PixelGrid, ramp: Ramp): Sprite {
     '2': ramp[1],
     '3': ramp[2],
     '4': ramp[3],
+    '5': ramp[4],
   };
 
   for (let y = 0; y < height; y++) {
@@ -66,7 +67,7 @@ export function bobbed(grid: PixelGrid): PixelGrid {
 
 /** A flat silhouette of a grid in one colour, for hit flashes. */
 export function bakeFlat(grid: PixelGrid, color: string): Sprite {
-  return bake(grid, [color, color, color, color]);
+  return bake(grid, [color, color, color, color, color]);
 }
 
 /** A standalone canvas the caller draws into (backgrounds, baked terrain). */

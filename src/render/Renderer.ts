@@ -15,10 +15,19 @@
 import { ENEMY_UNITS, PLAYER_UNITS, towerPeriod } from '../sim';
 import type { GameConfig, Hazard, SimEvent, SimState, Unit, UnitKindId, UnitMark } from '../sim';
 import { PALETTE } from './palette';
-import { drawMark } from './marks';
+import { drawGear } from './gear';
+import { fieldLayout } from './layout';
 import { createLayer, type Ramp } from './pixel';
 import { unitSprites } from './sprites';
 import { bakeTerrain, type TerrainLayer } from './terrain';
+
+interface Corpse {
+  readonly kind: UnitKindId;
+  readonly x: number;
+  readonly y: number;
+  life: number;
+  readonly maxLife: number;
+}
 
 interface Particle {
   kind: 'spark' | 'puff' | 'ring' | 'coin' | 'flash' | 'smoke';
@@ -48,10 +57,9 @@ export class Renderer {
   private readonly fieldCanvas: HTMLCanvasElement;
   private terrain: TerrainLayer;
   private particles: Particle[] = [];
+  private corpses: Corpse[] = [];
   private shake = 0;
   private clock = 0;
-  private cssWidth = 0;
-  private cssHeight = 0;
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -68,8 +76,6 @@ export class Renderer {
 
   /** Size the visible canvas to its box. Call on mount and on resize. */
   resize(cssWidth: number, cssHeight: number, dpr = window.devicePixelRatio || 1): void {
-    this.cssWidth = cssWidth;
-    this.cssHeight = cssHeight;
     this.canvas.width = Math.max(1, Math.floor(cssWidth * dpr));
     this.canvas.height = Math.max(1, Math.floor(cssHeight * dpr));
     this.canvas.style.width = `${cssWidth}px`;
@@ -77,18 +83,18 @@ export class Renderer {
     this.display.imageSmoothingEnabled = false;
   }
 
-  /** Map a pointer position on the visible canvas to field coordinates. */
+  /**
+   * Map a pointer position on the visible canvas to field coordinates, through
+   * the same layout the blit uses — so a tap lands where the reticle is drawn.
+   */
   toFieldCoords(clientX: number, clientY: number): { x: number; y: number } {
     const rect = this.canvas.getBoundingClientRect();
+    const dpr = this.canvas.width / Math.max(1, rect.width);
     const { width, height } = this.cfg.field;
-    const scale = Math.min(rect.width / width, rect.height / height) || 1;
-    const drawnW = width * scale;
-    const drawnH = height * scale;
-    const offsetX = (rect.width - drawnW) / 2;
-    const offsetY = (rect.height - drawnH) / 2;
+    const layout = fieldLayout(this.canvas.width, this.canvas.height, width, height);
     return {
-      x: (clientX - rect.left - offsetX) / scale,
-      y: (clientY - rect.top - offsetY) / scale,
+      x: ((clientX - rect.left) * dpr - layout.offsetX) / layout.scale,
+      y: ((clientY - rect.top) * dpr - layout.offsetY) / layout.scale,
     };
   }
 
@@ -98,6 +104,7 @@ export class Renderer {
     this.clock += dt;
     this.consume(fx);
     this.advanceParticles(dt);
+    this.advanceCorpses(dt);
     if (this.shake > 0) this.shake = Math.max(0, this.shake - dt * 14);
 
     const ctx = this.field;
@@ -106,6 +113,7 @@ export class Renderer {
 
     this.drawWallDamage(state);
     this.drawHazards(state);
+    this.drawCorpses();
     this.drawUnits(state);
     this.drawTowers(state);
     this.drawProjectiles(state);
@@ -119,24 +127,23 @@ export class Renderer {
   private blit(): void {
     const ctx = this.display;
     const { width, height } = this.cfg.field;
-    const dpr = this.canvas.width / Math.max(1, this.cssWidth);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = '#05070a';
     ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-    const scale = Math.min(this.cssWidth / width, this.cssHeight / height) || 1;
-    const drawnW = width * scale;
-    const drawnH = height * scale;
-    const jitterX = this.shake > 0 ? (Math.random() - 0.5) * this.shake * 1.5 : 0;
-    const jitterY = this.shake > 0 ? (Math.random() - 0.5) * this.shake * 1.5 : 0;
+    const layout = fieldLayout(this.canvas.width, this.canvas.height, width, height);
+    // Shake in whole device pixels: a fractional offset would undo the snap.
+    const shake = this.shake * layout.scale;
+    const jitterX = this.shake > 0 ? Math.round((Math.random() - 0.5) * shake) : 0;
+    const jitterY = this.shake > 0 ? Math.round((Math.random() - 0.5) * shake) : 0;
 
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(
       this.fieldCanvas,
-      Math.round(((this.cssWidth - drawnW) / 2 + jitterX) * dpr),
-      Math.round(((this.cssHeight - drawnH) / 2 + jitterY) * dpr),
-      Math.round(drawnW * dpr),
-      Math.round(drawnH * dpr),
+      layout.offsetX + jitterX,
+      layout.offsetY + jitterY,
+      layout.width,
+      layout.height,
     );
   }
 
@@ -165,6 +172,9 @@ export class Renderer {
           }
           break;
         case 'kill':
+          if (this.corpses.length < 60) {
+            this.corpses.push({ kind: event.kind, x: event.x, y: event.y, life: 1.6, maxLife: 1.6 });
+          }
           for (let i = 0; i < 7; i++) {
             const a = Math.random() * Math.PI * 2;
             this.push(
@@ -225,6 +235,33 @@ export class Renderer {
     this.particles.push({ kind, x, y, vx, vy, life, maxLife: life, color, size });
   }
 
+  private advanceCorpses(dt: number): void {
+    if (this.corpses.length === 0) return;
+    const live: Corpse[] = [];
+    for (const c of this.corpses) {
+      c.life -= dt;
+      if (c.life > 0) live.push(c);
+    }
+    this.corpses = live;
+  }
+
+  /** Fallen bodies, drawn under everything still standing. */
+  private drawCorpses(): void {
+    for (const c of this.corpses) {
+      const t = c.life / c.maxLife;
+      const sprites = unitSprites(c.kind);
+      // Settle into the ground over the first moments, then fade out.
+      const frame = sprites.frames[t > 0.75 ? 1 : 0];
+      this.field.globalAlpha = t < 0.35 ? t / 0.35 : 1;
+      this.field.drawImage(
+        frame.canvas,
+        Math.round(c.x - sprites.originX),
+        Math.round(c.y - sprites.originY + (1 - t) * 2),
+      );
+      this.field.globalAlpha = 1;
+    }
+  }
+
   private advanceParticles(dt: number): void {
     const live: Particle[] = [];
     for (const p of this.particles) {
@@ -257,7 +294,7 @@ export class Renderer {
 
     // Deterministic crack positions, revealed in the same order every time, so
     // damage looks like accumulating harm rather than noise.
-    const cracks = Math.floor(damage * 46);
+    const cracks = Math.floor(damage * 120);
     for (let i = 0; i < cracks; i++) {
       const seed = (i * 2654435761) >>> 0;
       const x = (seed % width + ((seed >> 7) % 3)) % width;
@@ -266,7 +303,7 @@ export class Renderer {
       if (i % 3 === 0) this.px(x + 1, y + 1, PALETTE.wallCrack);
     }
     if (damage > 0.6) {
-      for (let i = 0; i < 14; i++) {
+      for (let i = 0; i < 30; i++) {
         const seed = (i * 40503 + 7) >>> 0;
         this.px(seed % width, wallTop - 1 - (seed % 2), PALETTE.wallStoneDark);
       }
@@ -329,16 +366,20 @@ export class Renderer {
     const ctx = this.field;
     ctx.fillStyle = PALETTE.shadow;
     const w = unit.radius * 2;
-    ctx.fillRect(Math.round(unit.x - unit.radius), Math.round(unit.y + unit.radius - 2), w, 2);
+    ctx.fillRect(Math.round(unit.x - unit.radius), Math.round(unit.y + unit.radius - 3), w, 3);
   }
 
   private drawUnit(unit: Unit): void {
     const sprites = unitSprites(unit.kind);
-    const frame = sprites.frames[Math.floor(unit.anim / 7) % 2];
-    const x = Math.round(unit.x - frame.width / 2);
-    const y = Math.round(unit.y - frame.height / 2);
+    // The walk cycle advances with distance covered, so a slow golem plods and
+    // a ghoul scurries without either needing its own timing.
+    const frame = sprites.frames[Math.floor(unit.anim / 9) % sprites.frames.length];
+    // Firing kicks the shooter back along its aim for a moment.
+    const kick = unit.recoil > 0 ? Math.min(2, unit.recoil * 22) : 0;
+    const x = Math.round(unit.x - sprites.originX - Math.cos(unit.aim) * kick);
+    const y = Math.round(unit.y - sprites.originY - Math.sin(unit.aim) * kick);
 
-    this.drawMark(unit);
+    this.drawKit(unit);
     this.field.drawImage(frame.canvas, x, y);
     if (unit.flash > 0) {
       this.field.globalAlpha = Math.min(1, unit.flash * 7);
@@ -348,13 +389,14 @@ export class Renderer {
     this.drawUnitHp(unit);
   }
 
-  /** The weapon or trait that tells kinds apart, drawn along the unit's aim. */
-  private drawMark(unit: Unit): void {
-    drawMark(this.field, {
+  /** The kit a unit is wearing: its weapon plus whatever its rank has earned. */
+  private drawKit(unit: Unit): void {
+    drawGear(this.field, {
       x: unit.x,
       y: unit.y,
       aim: unit.aim,
       mark: markOf(unit.kind),
+      rank: unit.rank,
       ramp: rampOf(unit.kind),
       radius: unit.radius,
       roll: Math.floor(this.clock * 8) % 2,
@@ -364,13 +406,13 @@ export class Renderer {
   private drawUnitHp(unit: Unit): void {
     if (unit.hp >= unit.maxHp - 0.01) return;
     const ratio = Math.max(0, unit.hp / unit.maxHp);
-    const w = Math.max(4, unit.radius * 2);
+    const w = Math.max(8, unit.radius * 2);
     const x = Math.round(unit.x - w / 2);
-    const y = Math.round(unit.y - unit.radius - 4);
-    this.px(x, y, PALETTE.wallCrack, w, 1);
+    const y = Math.round(unit.y - unit.radius - 7);
+    this.px(x, y, PALETTE.wallCrack, w, 2);
     const color =
       unit.team === 'enemy' ? PALETTE.enemyHp : ratio > 0.5 ? PALETTE.hpGood : ratio > 0.25 ? PALETTE.hpMid : PALETTE.hpLow;
-    this.px(x, y, color, Math.max(1, Math.round(w * ratio)), 1);
+    this.px(x, y, color, Math.max(1, Math.round(w * ratio)), 2);
   }
 
   /** Tower barrels track their target, which is the only moving part up there. */
@@ -389,13 +431,13 @@ export class Renderer {
       }
       const cos = Math.cos(aim);
       const sin = Math.sin(aim);
-      for (let i = 0; i <= 6; i++) {
-        this.px(tower.x + cos * i, tower.y + sin * i, PALETTE.towerBarrel, 2, 2);
+      for (let i = 0; i <= 13; i += 0.5) {
+        this.px(tower.x + cos * i, tower.y + sin * i, PALETTE.towerBarrel, 3, 3);
       }
-      this.px(tower.x - 1, tower.y - 1, PALETTE.towerBody, 3, 3);
+      this.px(tower.x - 3, tower.y - 3, PALETTE.towerBody, 7, 7);
       // A muzzle glow right after firing: the flicker reads as rate of fire.
       if (tower.cooldown > period - 0.08) {
-        this.px(tower.x + cos * 7, tower.y + sin * 7, PALETTE.flash, 2, 2);
+        this.px(tower.x + cos * 15, tower.y + sin * 15, PALETTE.flash, 3, 3);
       }
     }
   }
@@ -407,25 +449,25 @@ export class Renderer {
       const sin = Math.sin(aim);
       switch (p.kind) {
         case 'bullet':
-          for (let i = 0; i < 3; i++) this.px(p.x - cos * i, p.y - sin * i, i === 0 ? PALETTE.tracerCore : PALETTE.tracer);
+          for (let i = 0; i < 6; i++) this.px(p.x - cos * i, p.y - sin * i, i < 2 ? PALETTE.tracerCore : PALETTE.tracer, 2, 2);
           break;
         case 'rocket':
-          this.px(p.x, p.y, PALETTE.rocket, 2, 2);
+          this.px(p.x - 1, p.y - 1, PALETTE.rocket, 4, 4);
           this.push('smoke', p.x - cos * 2, p.y - sin * 2, 0, 0, 0.35, PALETTE.smoke, 1);
           break;
         case 'arrow':
-          for (let i = 0; i < 4; i++) this.px(p.x - cos * i, p.y - sin * i, PALETTE.arrow);
+          for (let i = 0; i < 8; i++) this.px(p.x - cos * i, p.y - sin * i, PALETTE.arrow, 2, 2);
           break;
         case 'bolt':
-          this.px(p.x - 1, p.y - 1, PALETTE.bolt, 3, 3);
-          this.px(p.x, p.y, PALETTE.tracerCore);
+          this.px(p.x - 2, p.y - 2, PALETTE.bolt, 5, 5);
+          this.px(p.x - 1, p.y - 1, PALETTE.tracerCore, 2, 2);
           break;
         case 'boulder':
-          this.px(p.x - 1, p.y - 1, PALETTE.boulder, 3, 3);
-          this.px(p.x - 1, p.y - 1, PALETTE.dirtDark);
+          this.px(p.x - 2, p.y - 2, PALETTE.boulder, 5, 5);
+          this.px(p.x - 2, p.y - 2, PALETTE.dirtDark, 2, 2);
           break;
         case 'drain':
-          this.px(p.x - 1, p.y - 1, PALETTE.drain, 2, 2);
+          this.px(p.x - 2, p.y - 2, PALETTE.drain, 4, 4);
           break;
         default:
           this.px(p.x, p.y, PALETTE.tracer);
@@ -441,18 +483,18 @@ export class Renderer {
         case 'ring': {
           const r = p.size * (1 - t) + 2;
           const color = t > 0.66 ? PALETTE.explosionCore : t > 0.33 ? PALETTE.explosionMid : PALETTE.explosionEdge;
-          for (let a = 0; a < 28; a++) {
+          for (let a = 0; a < 56; a++) {
             const ang = (a / 28) * Math.PI * 2;
             this.px(p.x + Math.cos(ang) * r, p.y + Math.sin(ang) * r, color);
           }
-          if (t > 0.6) this.px(p.x - 1, p.y - 1, PALETTE.explosionCore, 3, 3);
+          if (t > 0.6) this.px(p.x - 2, p.y - 2, PALETTE.explosionCore, 5, 5);
           break;
         }
         case 'coin':
-          this.px(p.x, p.y, PALETTE.credit, 2, 2);
+          this.px(p.x, p.y, PALETTE.credit, 3, 3);
           break;
         case 'flash':
-          this.px(p.x - 1, p.y - 1, p.color, 3, 3);
+          this.px(p.x - 2, p.y - 2, p.color, 5, 5);
           break;
         default:
           this.px(p.x, p.y, p.color, p.size, p.size);
@@ -464,15 +506,15 @@ export class Renderer {
   private drawWallHp(state: SimState): void {
     const { width, wallTop, wallThickness } = this.cfg.field;
     const ratio = state.wall.maxHp > 0 ? Math.max(0, state.wall.hp / state.wall.maxHp) : 0;
-    const inset = 6;
+    const inset = 12;
     const barWidth = width - inset * 2;
-    const y = wallTop + wallThickness + 2;
+    const y = wallTop + wallThickness + 4;
     // A recessed gauge set into the parapet, not a stripe floating over it.
-    this.px(inset - 1, y - 1, PALETTE.wallGaugeFrame, barWidth + 2, 4);
-    this.px(inset, y, PALETTE.wallCrack, barWidth, 2);
+    this.px(inset - 2, y - 2, PALETTE.wallGaugeFrame, barWidth + 4, 8);
+    this.px(inset, y, PALETTE.wallCrack, barWidth, 4);
     const color =
       ratio > 0.5 ? PALETTE.wallGaugeGood : ratio > 0.25 ? PALETTE.hpMid : PALETTE.hpLow;
-    this.px(inset, y, color, Math.max(0, Math.round(barWidth * ratio)), 2);
+    this.px(inset, y, color, Math.max(0, Math.round(barWidth * ratio)), 4);
   }
 
   private drawReticle(x: number, y: number, radius: number, ready: boolean): void {
@@ -483,7 +525,7 @@ export class Renderer {
       const a = (i / steps) * Math.PI * 2;
       this.px(x + Math.cos(a) * radius, y + Math.sin(a) * radius, color);
     }
-    for (let i = -2; i <= 2; i++) {
+    for (let i = -4; i <= 4; i++) {
       this.px(x + i, y, color);
       this.px(x, y + i, color);
     }

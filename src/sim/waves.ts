@@ -9,6 +9,7 @@
 
 import type { GameConfig } from './config';
 import { playerUnitStats, waveBountyScale, waveDamageScale, waveHpScale, waveBudget } from './derive';
+import { rankOfLevel, rankOfScale, type Rank } from './ranks';
 import { RngStream, deriveSeed } from './rng';
 import { ENEMY_UNITS, FACTIONS, FACTION_ORDER, PLAYER_UNITS, bossFor, rosterFor } from './roster';
 import type { EnemyUnitDef } from './roster';
@@ -127,7 +128,7 @@ export function planWave(cfg: GameConfig, wave: number): WavePlan {
     for (const def of members) {
       const x = Math.min(
         field.width - field.sideMargin,
-        Math.max(field.sideMargin, anchorX + rng.spread(18)),
+        Math.max(field.sideMargin, anchorX + rng.spread(36)),
       );
       spawns.push({ kind: def.id, x, at: at + rng.float() * 0.4, hpScale, damageScale, bountyScale });
     }
@@ -167,6 +168,7 @@ interface MakeUnitArgs {
   readonly aim: number;
   readonly spawnPeriod: number;
   readonly spawnKind: EnemyUnitId | null;
+  readonly rank: Rank;
 }
 
 function makeUnit(args: MakeUnitArgs, stats: typeof PLAYER_UNITS[PlayerUnitId] | EnemyUnitDef): Unit {
@@ -191,6 +193,7 @@ function makeUnit(args: MakeUnitArgs, stats: typeof PLAYER_UNITS[PlayerUnitId] |
     siegeBonus: stats.siegeBonus,
     radius: stats.radius,
     bounty: args.bounty,
+    rank: args.rank,
     wallFocused: 'wallFocused' in stats ? stats.wallFocused === true : false,
     spawnPeriod: args.spawnPeriod,
     spawnIn: args.spawnPeriod,
@@ -200,6 +203,7 @@ function makeUnit(args: MakeUnitArgs, stats: typeof PLAYER_UNITS[PlayerUnitId] |
     aim: args.aim,
     anim: 0,
     flash: 0,
+    recoil: 0,
   };
 }
 
@@ -224,6 +228,7 @@ export function createPlayerUnit(state: SimState, cfg: GameConfig, kind: PlayerU
       aim: -Math.PI / 2,
       spawnPeriod: 0,
       spawnKind: null,
+      rank: rankOfLevel(stats.level),
     },
     def,
   );
@@ -249,6 +254,7 @@ export function createEnemyUnit(state: SimState, cfg: GameConfig, q: QueuedSpawn
       aim: Math.PI / 2,
       spawnPeriod: def.spawnPeriod ?? 0,
       spawnKind: def.spawnKind ?? null,
+      rank: rankOfScale(q.hpScale),
     },
     def,
   );
@@ -267,8 +273,8 @@ export function createRaisedUnit(
 ): Unit {
   const def = ENEMY_UNITS[kind];
   const rng = new RngStream(state.rngState);
-  const ox = x + rng.spread(8);
-  const oy = y + rng.spread(6);
+  const ox = x + rng.spread(16);
+  const oy = y + rng.spread(12);
   state.rngState = rng.state;
   return makeUnit(
     {
@@ -284,6 +290,7 @@ export function createRaisedUnit(
       aim: Math.PI / 2,
       spawnPeriod: def.spawnPeriod ?? 0,
       spawnKind: def.spawnKind ?? null,
+      rank: rankOfScale(waveHpScale(cfg, state.wave)),
     },
     def,
   );

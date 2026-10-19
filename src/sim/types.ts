@@ -12,6 +12,8 @@
  * `version` gates save migrations.
  */
 
+import type { Rank } from './ranks';
+
 export type Team = 'player' | 'enemy';
 
 /** The three invading armies. */
@@ -90,6 +92,12 @@ export interface Unit {
   readonly radius: number;
   /** Credits paid out when this unit dies (enemies only). */
   readonly bounty: number;
+  /**
+   * The visible rank: gear carried and the colour it is painted. Player units
+   * take it from the kind's level, enemies from how far they have scaled past
+   * their debut — the same ladder either way, so the colours mean one thing.
+   */
+  readonly rank: Rank;
   /** Siege engines push for the wall and ignore your soldiers entirely. */
   readonly wallFocused: boolean;
   /** Seconds between raising a minion; 0 for everything that can't. */
@@ -106,6 +114,8 @@ export interface Unit {
   anim: number;
   /** Seconds of hit-flash left. Render-only. */
   flash: number;
+  /** Seconds of firing recoil left: the kick after an attack. Render-only. */
+  recoil: number;
 }
 
 export interface Projectile {
@@ -279,7 +289,16 @@ export type SimEvent =
   | { type: 'spawn'; team: Team; kind: UnitKindId; x: number; y: number }
   | { type: 'shot'; kind: ProjectileKind; x: number; y: number; aim: number }
   | { type: 'hit'; x: number; y: number; team: Team }
-  | { type: 'kill'; team: Team; kind: UnitKindId; x: number; y: number; bounty: number }
+  | {
+      type: 'kill';
+      team: Team;
+      kind: UnitKindId;
+      x: number;
+      y: number;
+      bounty: number;
+      /** Facing at the moment of death, so the body falls the way it stood. */
+      aim: number;
+    }
   | { type: 'wallHit'; x: number; y: number; damage: number }
   | { type: 'explosion'; x: number; y: number; radius: number }
   | { type: 'burn'; x: number; y: number; radius: number }

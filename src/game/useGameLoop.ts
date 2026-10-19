@@ -92,7 +92,7 @@ export interface UnitView {
   hp: number;
   dps: number;
   range: number;
-  colors: readonly [string, string, string, string];
+  colors: readonly [string, string, string, string, string];
 }
 
 export interface AbilityView {

@@ -15,7 +15,10 @@ rams, golems, wraiths and the necromancers raising more of them.
    deployment pool gets deeper and recharges faster, and fire support unlocks
    and levels up. Soldiers improve **one kind at a time**: a Rifleman level
    buys riflemen more hit points, damage and a little speed — and nothing for
-   your rocketeers.
+   your rocketeers. Every level is **visible on the soldier**: ten rank colours
+   cycling across five pieces of earned kit, so the first fifty levels each
+   change what walks out of the gate. Enemies wear the same ladder, which is how
+   you tell a wave-30 skeleton from a wave-3 one.
 2. **Launch.** You decide when the wave comes — nothing starts without you.
    Enemies pour in from the top and head for the wall.
 3. **Fight.** Towers shoot what comes into range. Each soldier kind has its own

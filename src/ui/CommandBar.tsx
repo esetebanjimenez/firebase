@@ -75,7 +75,7 @@ export function CommandBar({ snapshot, actions }: Props) {
                 onClick={() => actions.deploy(unit.id)}
                 style={{ borderColor: unit.colors[1] }}
               >
-                <UnitIcon kind={unit.id} className="deploy__icon" scale={3} />
+                <UnitIcon kind={unit.id} level={unit.level} className="deploy__icon" scale={1} />
                 <span className="deploy__name">{unit.short}</span>
                 <span className="deploy__meta">
                   L{unit.level} · {unit.chargeCost}
