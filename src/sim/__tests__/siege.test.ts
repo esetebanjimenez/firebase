@@ -99,8 +99,9 @@ describe('siege', () => {
   it('is answered by walking out to it, since the guns never will', () => {
     // A wave-13 build: the full parapet and a deep enough charge pool to put
     // a firing line out. Under-invest and the wave is simply lost, which is a
-    // statement about the curve rather than about siege.
-    const state = readyAt(13, 8, 10, 4);
+    // statement about the curve rather than about siege — so this build is
+    // sized against the curve, and grew when the late scaling steepened.
+    const state = readyAt(13, 14, 14, 6);
     startBattle(state, cfg);
     const strip = uncoveredStrip(cfg, state.upgrades.towers);
     const hold = holdLineY(cfg);

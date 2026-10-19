@@ -256,6 +256,44 @@ wave is fixed and knowable; what varies is how it is spent. That split is what
 lets a wave be a tactical problem rather than a lottery — and it is what the
 intel and composition work builds on.
 
+### Difficulty: making the curve cost something
+
+Measured, a scripted player that brings the right counters cleared **eighty
+waves at 1.00 attempts per wave** — it never lost a single one — while holding
+eight to sixteen times the price of its cheapest upgrade in the bank.
+
+The cause is structural rather than a number being wrong. There are eleven
+upgrade tracks, each with its own geometric cost curve, and a curve only steepens
+for the track you spend on. So one wave's bounty buys eight to twenty-seven
+power steps spread across eleven curves, while the enemy gets exactly one wave
+of scaling. The player outruns the game by construction.
+
+Two levers were swept against attempts-per-wave. Cutting bounty produced walls —
+at 1.05 growth the run stalls dead at wave 25 — because a player who is behind
+and also poor can never catch up. Steepening enemy hit points produced friction
+without walls, so that is the lever: early growth 1.14 → 1.18, late growth
+1.23 → 1.30, and the late stage starting at wave 12 rather than 15.
+
+| | before | after |
+| --- | --- | --- |
+| Attempts per wave, to wave 20 | 1.05 | 1.30 |
+| Attempts per wave, to wave 40 | 1.05 | 1.27 |
+| Worst losing streak | 0 | 4 |
+
+A losing streak is the idle loop working, not a wall: credits are kept on a
+loss, so every failed attempt still funds the upgrade that eventually breaks
+through. What a streak must not do is last forever, which is what cutting
+bounty caused.
+
+**What this does not fix.** Outcomes are close to bimodal — a wave ends with
+roughly 60-75% of the wall standing, or with none of it. With exponential
+scaling the band where a fight is genuinely close is about one wave wide, so a
+counter worth 1.5x damage rarely flips a result; it decides how comfortably a
+wave is won, and buys perhaps a wave or two of progress. Measured on a
+flip-the-outcome metric, the deployment choice changes the result in only zero
+to two of every nine to thirteen shaped waves. Making tactics decide more than
+that needs the cliff softened, which is a deeper change than a scaling pass.
+
 ### Written waves
 
 Most waves come from the budget planner, which makes good generic fights but
