@@ -5,6 +5,9 @@ import { buyAbility, buyUpgrade, deployUnit, launchWave, unlockUnit } from '../a
 import { deserialize, serialize, toSaveState } from '../persistence';
 import { step, syncDerived } from '../engine';
 import { DT, freshState } from './helpers';
+import { createInitialState } from '../state';
+import { planWave } from '../waves';
+import { randomSeed } from '../rng';
 
 function progressedState() {
   const state = freshState();
@@ -121,5 +124,27 @@ describe('saves written against different field geometry', () => {
     for (const tower of state.towers) {
       expect(tower.y).toBe(cfg.field.towerY);
     }
+  });
+});
+
+describe('a save carries its run', () => {
+  it('round-trips the seed, so reloading continues the same campaign', () => {
+    const state = createInitialState(cfg, randomSeed());
+    state.wave = 9;
+    const loaded = deserialize(serialize(state, 1), cfg)!.state;
+
+    expect(loaded.seed).toBe(state.seed);
+    // The decisive part: the wave waiting after a reload is the one that was
+    // waiting before it.
+    expect(planWave(cfg, loaded.wave, loaded.seed).spawns).toEqual(
+      planWave(cfg, state.wave, state.seed).spawns,
+    );
+  });
+
+  it('rejects a save with no usable seed rather than planning from nothing', () => {
+    const state = createInitialState(cfg, randomSeed());
+    const raw = JSON.parse(serialize(state, 1));
+    delete raw.state.seed;
+    expect(deserialize(JSON.stringify(raw), cfg)).toBeNull();
   });
 });

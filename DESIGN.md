@@ -168,6 +168,27 @@ out of reach at *any* tower level, that the clock stays near a minute from wave
 13 to 35, that the engine cap holds to wave 60, and that soldiers sent out
 actually destroy it.
 
+### A run's own campaign
+
+Wave composition is random, but for a long time it was the *same* random: the
+planner seeded itself from a constant in config, so every player in every
+playthrough met the same waves in the same order, and starting over handed you
+the campaign you had just finished. The seed belongs to the run now — drawn
+when a run starts, carried in the save, and required rather than defaulted by
+`planWave`, because a default is exactly how the constant crept in and is how
+it would come back.
+
+What must not change is determinism *inside* a run. The preview is a promise:
+the wave you are shown is the wave you fight, and re-fighting a lost wave hands
+back the fight you lost rather than rerolling it, which is the only reason
+planning against the preview is worth doing. So the roll keys on (run seed,
+wave number) and never on the attempt.
+
+The budget is deliberately not part of the roll. Total strength for a given
+wave is fixed and knowable; what varies is how it is spent. That split is what
+lets a wave be a tactical problem rather than a lottery — and it is what the
+intel and composition work builds on.
+
 ### Written waves
 
 Most waves come from the budget planner, which makes good generic fights but

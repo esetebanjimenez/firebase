@@ -85,7 +85,7 @@ export function startBattle(state: SimState, cfg: GameConfig, events?: SimEvent[
   state.battleCredits = 0;
   state.battleKills = 0;
   state.battleUnitsLost = 0;
-  state.spawnQueue = [...planWave(cfg, state.wave).spawns];
+  state.spawnQueue = [...planWave(cfg, state.wave, state.seed).spawns];
   events?.push({ type: 'waveStarted', wave: state.wave });
   return true;
 }

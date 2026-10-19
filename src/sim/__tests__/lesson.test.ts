@@ -11,7 +11,7 @@ import { startBattle, step } from '../engine';
 import { PLAYER_UNITS } from '../roster';
 import { scriptedWave } from '../scripted';
 import { planWave } from '../waves';
-import { DT, freshState } from './helpers';
+import { DT, SEED, freshState } from './helpers';
 import type { PlayerUnitId, SimState } from '../types';
 
 const LESSON_WAVE = 6;
@@ -41,14 +41,14 @@ function fight(state: SimState, mix: readonly PlayerUnitId[], config: GameConfig
 
 describe('wave 6, the charge', () => {
   it('is a written wave with a name and a lesson', () => {
-    const plan = planWave(cfg, LESSON_WAVE);
+    const plan = planWave(cfg, LESSON_WAVE, SEED);
     expect(plan.label).toBe('THE CHARGE');
     expect(plan.hint).toContain('Shield Bearer');
     expect(plan.composition.some((c) => c.kind === 'skirmisher')).toBe(true);
   });
 
   it('fields the same charge every time, so a loss can be studied', () => {
-    expect(planWave(cfg, LESSON_WAVE).spawns).toEqual(planWave(cfg, LESSON_WAVE).spawns);
+    expect(planWave(cfg, LESSON_WAVE, SEED).spawns).toEqual(planWave(cfg, LESSON_WAVE, SEED).spawns);
   });
 
   it('overruns a rifles-only defence', () => {
@@ -88,7 +88,7 @@ describe('wave 6, the charge', () => {
 
   it('is affordable: the shield costs less than two waves of credits by then', () => {
     expect(PLAYER_UNITS.shield.unlockCost).toBeLessThanOrEqual(
-      Math.round(planWave(cfg, LESSON_WAVE - 1).totalBounty * 2),
+      Math.round(planWave(cfg, LESSON_WAVE - 1, SEED).totalBounty * 2),
     );
   });
 

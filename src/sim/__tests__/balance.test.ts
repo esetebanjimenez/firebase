@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 import { defaultConfig as cfg } from '../config';
 import { towerUpgradeCost } from '../derive';
 import { planWave } from '../waves';
-import { autoFight, autoRun, autoShop, freshState, runWave } from './helpers';
+import { SEED, autoFight, autoRun, autoShop, freshState, runWave } from './helpers';
 
 describe('the opening', () => {
   /**
@@ -99,7 +99,7 @@ describe('no wave can stall', () => {
 
   it('always plans at least one enemy per wave', () => {
     for (let wave = 1; wave <= 120; wave++) {
-      expect(planWave(cfg, wave).spawns.length).toBeGreaterThan(0);
+      expect(planWave(cfg, wave, SEED).spawns.length).toBeGreaterThan(0);
     }
   });
 });
@@ -107,11 +107,11 @@ describe('no wave can stall', () => {
 describe('threat curve', () => {
   it('grows every ten waves', () => {
     for (let wave = 1; wave + 10 <= 60; wave += 10) {
-      expect(planWave(cfg, wave + 10).totalHp).toBeGreaterThan(planWave(cfg, wave).totalHp);
+      expect(planWave(cfg, wave + 10, SEED).totalHp).toBeGreaterThan(planWave(cfg, wave, SEED).totalHp);
     }
   });
 
   it('pays out more as it gets harder', () => {
-    expect(planWave(cfg, 30).totalBounty).toBeGreaterThan(planWave(cfg, 10).totalBounty);
+    expect(planWave(cfg, 30, SEED).totalBounty).toBeGreaterThan(planWave(cfg, 10, SEED).totalBounty);
   });
 });

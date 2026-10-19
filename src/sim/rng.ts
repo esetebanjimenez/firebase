@@ -9,6 +9,20 @@
  * Pure by convention: pass a state in, get a value and the next state back.
  */
 
+/**
+ * A seed for a brand new run. Every run used to share one constant seed from
+ * config, which made each playthrough fight exactly the same waves in exactly
+ * the same order — the composition was random, but it was the *same* random
+ * for everybody, forever. This is what makes two runs differ.
+ */
+export function randomSeed(): number {
+  const crypto = globalThis.crypto;
+  if (crypto && typeof crypto.getRandomValues === 'function') {
+    return crypto.getRandomValues(new Uint32Array(1))[0] >>> 0;
+  }
+  return (Math.floor(Math.random() * 0xffffffff) ^ Date.now()) >>> 0;
+}
+
 /** Hash a seed into a well-mixed initial generator state. */
 export function seedState(seed: number): number {
   let h = seed >>> 0;

@@ -4,6 +4,7 @@
  */
 
 export * from './types';
+export { randomSeed } from './rng';
 
 export { defaultConfig } from './config';
 export type { AbilityConfig, GameConfig } from './config';

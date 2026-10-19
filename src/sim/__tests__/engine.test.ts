@@ -4,7 +4,7 @@ import { startBattle, step, syncDerived } from '../engine';
 import { buyUpgrade, deployUnit } from '../actions';
 import { coverEdgeY, holdLineY, towerRange } from '../derive';
 import { createEnemyUnit, planWave } from '../waves';
-import { DT, freshState, pin, runWave } from './helpers';
+import { DT, SEED, freshState, pin, runWave } from './helpers';
 
 /**
  * A field with no emplacements. Tower positions are rebuilt from config on
@@ -18,7 +18,7 @@ describe('battle lifecycle', () => {
     const state = freshState();
     expect(startBattle(state, cfg)).toBe(true);
     expect(state.phase).toBe('battle');
-    expect(state.spawnQueue.length).toBe(planWave(cfg, 1).spawns.length);
+    expect(state.spawnQueue.length).toBe(planWave(cfg, 1, SEED).spawns.length);
     expect(startBattle(state, cfg)).toBe(false);
   });
 
@@ -80,7 +80,7 @@ describe('battle lifecycle', () => {
     runWave(state, { deploy: null, cfg: noTowers });
     syncDerived(state, noTowers);
     expect(state.wave).toBe(1);
-    expect(planWave(cfg, state.wave).composition).toEqual(planWave(cfg, 1).composition);
+    expect(planWave(cfg, state.wave, SEED).composition).toEqual(planWave(cfg, 1, SEED).composition);
   });
 });
 
@@ -375,7 +375,7 @@ describe('soldiers charge what is on the field', () => {
     const state = freshState();
     state.wave = 3;
     startBattle(state, cfg);
-    const plan = planWave(cfg, 3);
+    const plan = planWave(cfg, 3, SEED);
     // Clear the field but keep the wave alive with a spawn far in the future,
     // so the squad musters instead of the battle resolving under us.
     state.spawnQueue = [{ ...plan.spawns[0], at: 999 }];
@@ -413,7 +413,7 @@ describe('soldiers charge what is on the field', () => {
     // An enemy parked in the strip, doing nothing: out of reach and unpinned,
     // so nothing releases the soldiers to go in after it. It is pinned back to
     // the top of the strip every tick, since its own AI would walk it down.
-    const plan = planWave(cfg, 3);
+    const plan = planWave(cfg, 3, SEED);
     const enemy = createEnemyUnit(state, cfg, { ...plan.spawns[0], at: 0, x: cfg.field.gateX });
     enemy.y = 4;
     state.units.push(enemy);

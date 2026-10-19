@@ -31,6 +31,7 @@ import {
   launchWave,
   planWave,
   playerUnitStats,
+  randomSeed,
   rechargeSec,
   selectAbility,
   selectUnit,
@@ -262,7 +263,7 @@ function buildAbilities(state: SimState, cfg: GameConfig): AbilityView[] {
 }
 
 function buildPreview(state: SimState, cfg: GameConfig): WavePreview {
-  const plan = planWave(cfg, state.wave);
+  const plan = planWave(cfg, state.wave, state.seed);
   return {
     wave: state.wave,
     label: plan.label,
@@ -329,7 +330,9 @@ function buildSnapshot(state: SimState, cfg: GameConfig): UiSnapshot {
     preview: buildPreview(state, cfg),
     result: state.lastResult,
     resultHint:
-      state.lastResult && !state.lastResult.won ? planWave(cfg, state.lastResult.wave).hint : null,
+      state.lastResult && !state.lastResult.won
+        ? planWave(cfg, state.lastResult.wave, state.seed).hint
+        : null,
     stats: {
       kills: state.stats.totalKills,
       wavesWon: state.stats.wavesWon,
@@ -351,7 +354,11 @@ export interface UseGameLoop {
 export function useGameLoop(cfg: GameConfig = defaultConfig): UseGameLoop {
   const init = useMemo(() => {
     const loaded = loadGame(cfg);
-    if (!loaded) return { state: createInitialState(cfg), report: null as IdleReport | null };
+    // A brand new run gets its own seed, so two players — or the same player
+    // starting over — do not fight an identical campaign.
+    if (!loaded) {
+      return { state: createInitialState(cfg, randomSeed()), report: null as IdleReport | null };
+    }
     syncDerived(loaded.state, cfg);
     const report = applyOfflineProgress(loaded.state, cfg, Date.now() - loaded.savedAt);
     return { state: loaded.state, report: report.creditsEarned >= 1 ? report : null };
@@ -449,7 +456,7 @@ export function useGameLoop(cfg: GameConfig = defaultConfig): UseGameLoop {
       },
       hardReset: () => {
         clearSave();
-        stateRef.current = createInitialState(cfg);
+        stateRef.current = createInitialState(cfg, randomSeed());
         fxRef.current = [];
         setIdleReport(null);
         publish();
