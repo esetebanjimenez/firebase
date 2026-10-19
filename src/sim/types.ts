@@ -36,6 +36,7 @@ export type EnemyUnitId =
   | 'apprentice'
   | 'battlemage'
   | 'golem'
+  | 'obelisk'
   | 'archmage'
   // Undead — endless cheap bodies, raised faster than you can mow them down.
   | 'skeleton'
@@ -43,6 +44,7 @@ export type EnemyUnitId =
   | 'ghoul'
   | 'wraith'
   | 'necromancer'
+  | 'bonethrower'
   | 'boneGiant';
 
 export type UnitKindId = PlayerUnitId | EnemyUnitId;
@@ -89,6 +91,11 @@ export interface Unit {
   readonly splashRadius: number;
   /** Damage multiplier against the wall. */
   readonly siegeBonus: number;
+  /**
+   * Standoff siege only: the share of the wall's *maximum* hit points one hit
+   * takes off, in place of flat damage. See `EnemyUnitDef.wallFraction`.
+   */
+  readonly wallFraction: number;
   /** Body radius: used for spacing, melee reach, and splash hit tests. */
   readonly radius: number;
   /** Credits paid out when this unit dies (enemies only). */
@@ -120,10 +127,10 @@ export interface Unit {
   /** Seconds of firing recoil left: the kick after an attack. Render-only. */
   recoil: number;
   /**
-   * Seconds this unit has been held at the support line with a target it
-   * cannot reach. Past the configured limit it pushes out regardless.
+   * Builds while there are enemies this unit will not leave its line to reach,
+   * and when it is taking fire. Past the configured limit it advances anyway.
    */
-  heldAtLine: number;
+  advancePressure: number;
 }
 
 export interface Projectile {
@@ -136,6 +143,8 @@ export interface Projectile {
   readonly damage: number;
   readonly splashRadius: number;
   readonly siegeBonus: number;
+  /** Carried from the firer, for shots aimed at the wall. */
+  readonly wallFraction: number;
   /** Homing target; falls back to (tx, ty) once the target is gone. */
   targetId: number | null;
   /** Last known target position — also the aim point for wall shots. */

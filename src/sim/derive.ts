@@ -36,34 +36,38 @@ export function towerPeriod(cfg: GameConfig, level: number): number {
   return Math.max(cfg.towers.minPeriodSec, raw);
 }
 
-export function towerRange(cfg: GameConfig, level: number): number {
-  return cfg.towers.baseRange + cfg.towers.rangePerLevel * Math.max(0, level - 1);
+/**
+ * The rows at the top of the field the towers cannot reach. Siege parks here.
+ * Levels claw a little of it back, but never all: the strip is what makes
+ * siege a problem that tower investment cannot solve.
+ */
+export function uncoveredStrip(cfg: GameConfig, towerLevel: number): number {
+  const t = cfg.towers;
+  return Math.max(t.minStrip, t.baseUncoveredStrip - t.stripPerLevel * Math.max(0, towerLevel - 1));
+}
+
+/** The row below which the guns can reach: everything above it is the strip. */
+export function coverEdgeY(cfg: GameConfig, towerLevel: number): number {
+  return uncoveredStrip(cfg, towerLevel);
+}
+
+/** How far a tower shoots: far enough to cover the field down to the strip. */
+export function towerRange(cfg: GameConfig, towerLevel: number): number {
+  return cfg.field.towerY - uncoveredStrip(cfg, towerLevel);
 }
 
 /**
- * How far up the field the towers can support at a given x.
- *
- * The boundary is scalloped: strongest directly ahead of an emplacement,
- * weakest between two of them and over the gate. So the ground your soldiers
- * can safely hold has a shape, and the thinnest part of it is the middle of the
- * road the enemy walks down. With no emplacements at all it collapses to the
- * wall, which is exactly where troops should stand without covering fire.
+ * Where your soldiers hold. A line of their own, not a shadow of tower range —
+ * far enough out to meet the horde away from the wall, and fixed, so tuning the
+ * guns never drags the infantry with it.
  */
-export function coverLineY(cfg: GameConfig, towerLevel: number, x: number): number {
-  const range = towerRange(cfg, towerLevel) * cfg.support.coverFraction;
-  let line = cfg.field.towerY;
-  for (const tx of cfg.field.towerX) {
-    const dx = Math.abs(x - tx);
-    if (dx >= range) continue;
-    line = Math.min(line, cfg.field.towerY - Math.sqrt(range * range - dx * dx));
-  }
-  return Math.max(cfg.support.minY, line);
+export function holdLineY(cfg: GameConfig): number {
+  return cfg.field.wallTop - (cfg.field.wallTop - 0) * cfg.support.holdFraction;
 }
 
-/** Where an idle soldier forms up at a given x: just inside the umbrella. */
-export function musterLineY(cfg: GameConfig, towerLevel: number, x: number): number {
-  const line = coverLineY(cfg, towerLevel, x) + cfg.support.musterInset;
-  return Math.min(line, cfg.field.wallTop - cfg.sim.wallStandoff - 8);
+/** Where an idle soldier forms up: a little behind the hold line. */
+export function musterLineY(cfg: GameConfig): number {
+  return Math.min(holdLineY(cfg) + cfg.support.musterInset, cfg.field.wallTop - cfg.sim.wallStandoff - 8);
 }
 
 /** Damage per second of a single tower — the headline number for the UI. */

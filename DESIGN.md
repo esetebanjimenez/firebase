@@ -47,38 +47,97 @@ The brief, implemented literally:
 - Enemy units charge the nearest player unit; with none left they advance on the
   wall and attack it.
 
-With one deliberate addition: **siege engines (battering rams, catapults) ignore
-your soldiers entirely** and drive for the wall. Without them, a line of
-soldiers parked in mid-field would be a permanent plug — the siege units are
-what force you to actually defend the wall rather than win every fight at the
-muster point.
+With one deliberate addition: **siege engines ignore your soldiers entirely**
+and drive for the wall. Without them, a line of soldiers parked in mid-field
+would be a permanent plug — the siege units are what force you to actually
+defend the wall rather than win every fight at the muster point.
 
 Ranged units stop at their range and fire; melee close to contact. Bodies push
 each other apart, which turns a column into a firing line without pathfinding.
 
 ### The support line
 
-Soldiers hold the ground their towers can cover, not a fixed row. The line is
-derived from tower range and is *scalloped* — strongest directly ahead of an
-emplacement, weakest between two of them and over the gate — so the safe ground
-has a shape, and its thinnest part is the middle of the road the enemy walks
-down. Upgrading the towers pushes the line, and the whole front, up the field,
-which turns a tower purchase into territory you can see.
+Soldiers hold a line of their own, a fixed fraction up the field, and that line
+is deliberately *not* derived from tower reach. Tying the two together was the
+first design, and it created a problem with no good answer: the line had to sit
+far enough forward to be worth holding and far enough back to be under the
+guns, and those two pulls fought each other every time either number moved.
+Now the guns cover the field (see below) and the line is simply where the
+infantry fight is.
 
-It is a pursuit leash rather than a stop line: soldiers fight wherever the enemy
-is and never stop shooting, they just will not chase past their cover. And it is
-drawn on the field, because a rule you cannot see reads as a bug.
+The rule lives in **what a soldier chooses to fight**, not in a clamp on its
+movement. The first version clamped position, and it showed: soldiers walked
+into an invisible wall and slid along it, and because the clamp released on a
+timer that only reset on contact, the line crept forward with every kill until a
+wave ended far from the guns. Now a soldier picks a target it can engage *from
+its post*, walks to the post — forward or back — and fires from there. Nothing
+is clamped, so nothing looks stuck, and a soldier that advanced to deal with
+something returns afterwards.
 
-One release valve is mandatory, not optional. With a hard leash, an enemy that
+Two details make it work:
+
+- **Reachability is measured from the post, as a distance.** Comparing rows
+  instead counted an enemy far off to the side as reachable, and a target
+  sitting exactly on the boundary flickered in and out, resetting the release
+  timer every other tick and silently disabling it.
+- **Only an enemy that has stopped earns an advance.** Pressure builds when the
+  nearest enemy is already in range of the wall or of your soldiers — an archer
+  shooting the line, a trebuchet shelling the wall — and not merely because
+  something is still walking toward you. Without that, strong towers thin the
+  approach, nothing gets close, and the whole line wanders up the field looking
+  for a fight.
+
+The release valve is mandatory, not optional. With a hard leash, an enemy that
 outranges the line can stand beyond it with impunity — an archer does this by
-eight pixels, a catapult by a hundred — and the wave never resolves. (Wave 3 hung
-for the full time limit the first time this shipped.) A soldier pinned at the
-line with a target it cannot reach pushes out after two seconds.
+eight pixels — and the wave never resolves. (Wave 3 hung for the full time limit
+the first time this shipped.)
 
 Each kind holds a different part of the line. Shield bearers stand in front, so
 they are the nearest target and soak first; riflemen hold the line itself;
 rocketeers hang back. Without that, every kind stands on the same row and a
 shield screens nothing.
+
+### Towers, the strip, and siege
+
+The guns reach **almost the whole field, except a strip along the top**, and
+upgrading them shaves rows off that strip. This replaced a tower *range* that
+grew outward from the wall, and it is a better system for one reason: a radius
+made tower level and soldier placement the same decision, and every change to
+one broke the other. A strip makes tower level a question about territory
+instead — how much of the top of the map is still the enemy's.
+
+The strip is also what keeps towers from being a solved purchase. Enemies deploy
+**siege engines that outrange the guns and shell the wall from inside it**: the
+kingdom's *Trebuchet*, the arcane *Obelisk*, the undead *Bonethrower*. Each has
+a reach long enough that it stops inside the strip, so no amount of tower
+levelling brings it under fire. Siege has to be answered by going out to meet
+it — deployed units, or fire support dropped on it — which is the whole point:
+towers hold the ground you own, and the strip is the ground you have to
+contest.
+
+So the two purchases ask different questions. Towers: *how much of the map do I
+cover?* Soldiers and abilities: *what do I do about the part I don't?*
+
+**Siege threatens a share of the wall, not a number of hit points**, and a wave
+fields at most a handful of engines. Both rules exist because the first version
+did neither, and the result was measured rather than guessed: the time a full
+wall survived a bombardment *shrank* as the campaign went on — fourteen seconds
+at wave 13, four by wave 35 — because engine count grew with the wave budget
+and per-engine damage grew with the wave's damage scale, while wall hit points
+only grew with what the player bought. Siege had stopped being a problem to
+solve and become a timer that ran out before anything could be done about it.
+
+Each engine now takes a fixed percentage of the wall's maximum off per shell,
+and `siegeAllowance` caps engines per wave at four. Together they hold the
+clock near a minute at every wave measured, which is the number that matters:
+long enough to clear the escort and walk a firing line up the field, short
+enough that ignoring the bombardment loses the wall. Wall levels still answer
+everything else that reaches the parapet.
+
+`siege.test.ts` asserts all of it — that every army fields siege, that it parks
+out of reach at *any* tower level, that the clock stays near a minute from wave
+13 to 35, that the engine cap holds to wave 60, and that soldiers sent out
+actually destroy it.
 
 ### Written waves
 
@@ -86,18 +145,26 @@ Most waves come from the budget planner, which makes good generic fights but
 cannot teach. A lesson needs a specific wave at a specific moment, with a name
 on the launch button and a sentence waiting if you lose it.
 
-**Wave 6, "The Charge"**, is the first: ten skirmishers — fast, fragile, and
+**Wave 6, "The Charge"**, is the first: nine skirmishers — fast, durable and
 hard-hitting — behind four militia. Riflemen alone lose it; they cannot kill
-enough of the charge before it crosses their field of fire, and a rifleman dies
-in three hits. The same credits spent on a Shield Bearer win it, because the
-shield stands in front and absorbs while the rifles keep working.
+enough of the charge before it arrives, wherever they stand. The same credits
+spent on a Shield Bearer win it, because the shield stands in front and absorbs
+while the rifles keep working.
 
-Both halves of that claim are tested in `lesson.test.ts`. The counts were not
-guessed: a parameter sweep over skirmisher numbers, hit points and damage
-against shield hit points and armour found which combinations actually teach the
-lesson. Twelve skirmishers overrun a shield bearer as surely as they overrun
-riflemen, which teaches nothing; ten is the number that makes the shield the
-answer. The shield's own stats are untouched, so nothing else in the curve moved.
+Both halves of that claim are tested in `lesson.test.ts`. The numbers were not
+guessed: a sweep over skirmisher count, hit points and damage against shield hit
+points and charge cost found which combinations actually teach. The teaching
+band is narrow, because deployment charges are the real constraint at wave 6 —
+with more skirmishers nothing buyable saves the wall, and with fewer the rifles
+win on their own. Settling it took moving two numbers: the skirmishers became
+durable rather than merely fast (and cost the planner more), and the Shield
+Bearer became a genuine body rather than a slightly tougher rifleman.
+
+The lesson has been broken twice by tuning done elsewhere — both times by
+towers getting stronger, which quietly made the wave winnable with rifles alone
+— and once it survived only on the default seed. A wave that teaches on seed 1
+and not on seed 5 is luck, not design, so the test now makes the claim across
+eight seeds.
 
 ### Deployment charges
 
@@ -185,12 +252,15 @@ The telegraph is honest: enemies can and do walk out of a barrage.
 
 Each army is a different problem:
 
-- **Kingdom** — numbers and armour, and the only army with dedicated siege.
-  Teaches you that armour blunts small-calibre fire.
+- **Kingdom** — numbers and armour. Teaches you that armour blunts
+  small-calibre fire.
 - **Arcane** — ranged damage behind very tough constructs. Teaches you that
   reaching the back line matters.
 - **Undead** — individually trivial, endless, and self-replenishing while the
   necromancers live. Teaches you to kill the right thing, not the nearest thing.
+
+All three field siege, each in its own idiom, so no army can be answered with
+towers alone.
 
 Wave composition is budget-driven: a point budget grows with the wave, is spent
 first on a few heavies and then on numbers, drawn only from kinds that have

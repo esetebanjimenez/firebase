@@ -77,6 +77,21 @@ export interface EnemyUnitDef extends UnitStats {
   readonly bounty: number;
   /** Siege engines drive for the wall and ignore your soldiers. */
   readonly wallFocused?: boolean;
+  /**
+   * Standoff siege: the share of the wall's *maximum* hit points each hit takes
+   * off, instead of flat damage.
+   *
+   * Flat damage cannot work for an engine that shells from outside tower reach.
+   * Its damage scales with the wave while the wall scales with what you buy,
+   * and a wave can field more engines as its budget grows, so the time a wall
+   * survives a bombardment kept *shrinking* as the campaign went on — 14
+   * seconds at wave 13, four by wave 35. A share of the wall makes that clock
+   * constant: a given number of engines always takes about the same time to
+   * breach, whatever the wave, so siege stays a problem you have to go and
+   * solve rather than an instant loss. Wall levels still answer everything
+   * else on the field.
+   */
+  readonly wallFraction?: number;
   /** Seconds between raising a minion (necromancers). */
   readonly spawnPeriod?: number;
   readonly spawnKind?: EnemyUnitId;
@@ -99,7 +114,7 @@ export const PLAYER_UNITS: Readonly<Record<PlayerUnitId, PlayerUnitDef>> = {
     damage: 8,
     attackPeriod: 0.7,
     range: 68,
-    speed: 44,
+    speed: 28,
     armor: 0,
     style: 'ranged',
     projectile: 'bullet',
@@ -120,11 +135,11 @@ export const PLAYER_UNITS: Readonly<Record<PlayerUnitId, PlayerUnitDef>> = {
     posture: -20,
     short: 'Shield',
     blurb: 'Riot shield and armour. Steps in front and soaks the charge so the rifles keep firing.',
-    hp: 240,
+    hp: 400,
     damage: 8,
     attackPeriod: 1.1,
     range: 22,
-    speed: 34,
+    speed: 24,
     armor: 4,
     style: 'melee',
     projectile: 'bullet',
@@ -149,7 +164,7 @@ export const PLAYER_UNITS: Readonly<Record<PlayerUnitId, PlayerUnitDef>> = {
     damage: 4.5,
     attackPeriod: 0.2,
     range: 60,
-    speed: 26,
+    speed: 20,
     armor: 1,
     style: 'ranged',
     projectile: 'bullet',
@@ -174,7 +189,7 @@ export const PLAYER_UNITS: Readonly<Record<PlayerUnitId, PlayerUnitDef>> = {
     damage: 34,
     attackPeriod: 2.6,
     range: 100,
-    speed: 26,
+    speed: 20,
     armor: 0,
     style: 'ranged',
     projectile: 'rocket',
@@ -262,10 +277,10 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     id: 'skirmisher',
     faction: 'kingdom',
     name: 'Skirmisher',
-    cost: 2,
+    cost: 3,
     fromWave: 5,
-    bounty: 7,
-    hp: 26,
+    bounty: 11,
+    hp: 60,
     damage: 14,
     attackPeriod: 0.8,
     range: 18,
@@ -354,15 +369,15 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
   catapult: {
     id: 'catapult',
     faction: 'kingdom',
-    name: 'Catapult',
-    cost: 7,
-    fromWave: 12,
-    bounty: 40,
-    hp: 130,
+    name: 'Trebuchet',
+    cost: 8,
+    fromWave: 10,
+    bounty: 60,
+    hp: 150,
     damage: 46,
     attackPeriod: 3.6,
-    range: 190,
-    speed: 14,
+    range: 390,
+    speed: 16,
     armor: 1,
     style: 'ranged',
     projectile: 'boulder',
@@ -371,6 +386,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     siegeBonus: 2,
     radius: 10,
     wallFocused: true,
+    wallFraction: 0.022,
     silhouette: 'engine',
     mark: 'wheels',
     colors: ['#5d4428', '#8a6a38', '#9aa0a8', '#33230f', '#46321d'],
@@ -492,6 +508,31 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     silhouette: 'brute',
     mark: 'none',
     colors: ['#5a5f6b', '#868d9b', '#6fe0d0', '#31343c', '#454953'],
+  },
+  obelisk: {
+    id: 'obelisk',
+    faction: 'arcane',
+    name: 'Siege Obelisk',
+    cost: 8,
+    fromWave: 11,
+    bounty: 64,
+    hp: 170,
+    damage: 40,
+    attackPeriod: 3.2,
+    range: 390,
+    speed: 14,
+    armor: 2,
+    style: 'ranged',
+    projectile: 'bolt',
+    projectileSpeed: 150,
+    splashRadius: 24,
+    siegeBonus: 2,
+    radius: 11,
+    wallFocused: true,
+    wallFraction: 0.02,
+    silhouette: 'engine',
+    mark: 'staff',
+    colors: ['#4a3b8c', '#7a66d0', '#b9f0ff', '#241a52', '#352a68'],
   },
   archmage: {
     id: 'archmage',
@@ -635,6 +676,31 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     silhouette: 'caster',
     mark: 'staff',
     colors: ['#2a2a3a', '#4a4a6b', '#67d49b', '#16161f', '#20202c'],
+  },
+  bonethrower: {
+    id: 'bonethrower',
+    faction: 'undead',
+    name: 'Bonethrower',
+    cost: 7,
+    fromWave: 12,
+    bounty: 58,
+    hp: 140,
+    damage: 38,
+    attackPeriod: 3,
+    range: 390,
+    speed: 15,
+    armor: 1,
+    style: 'ranged',
+    projectile: 'boulder',
+    projectileSpeed: 120,
+    splashRadius: 20,
+    siegeBonus: 2,
+    radius: 10,
+    wallFocused: true,
+    wallFraction: 0.018,
+    silhouette: 'engine',
+    mark: 'wheels',
+    colors: ['#6b6a58', '#9a9880', '#d8dcc4', '#3a3a30', '#52513f'],
   },
   boneGiant: {
     id: 'boneGiant',

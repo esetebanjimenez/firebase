@@ -50,29 +50,48 @@ export function factionsForWave(cfg: GameConfig, wave: number): FactionId[] {
   return secondary === primary ? [primary] : [primary, secondary];
 }
 
-/** Spend a point budget on one army's roster: a few heavies, then a crowd. */
-function pickUnits(roster: EnemyUnitDef[], budget: number, maxUnits: number, rng: RngStream): EnemyUnitDef[] {
+/**
+ * Spend a point budget on one army's roster: a few heavies, then a crowd.
+ *
+ * `siegeSlots` is shared across the armies in a wave and is what keeps siege
+ * rare. Standoff engines are the costliest kinds in every roster, so the heavy
+ * pass bought almost nothing else once the budget grew: wave 35 fielded
+ * twenty-six of them. A handful of engines is a problem to go and solve; a
+ * field of them is just a loss.
+ */
+function pickUnits(
+  roster: EnemyUnitDef[],
+  budget: number,
+  maxUnits: number,
+  rng: RngStream,
+  siegeSlots: { left: number },
+): EnemyUnitDef[] {
   const picks: EnemyUnitDef[] = [];
   if (roster.length === 0) return picks;
   const cheapest = roster[0].cost;
   let left = budget;
+  const allowed = () => (siegeSlots.left > 0 ? roster : roster.filter((d) => !d.wallFraction));
+  const take = (def: EnemyUnitDef) => {
+    picks.push(def);
+    if (def.wallFraction) siegeSlots.left -= 1;
+  };
 
   // Heavies first, from the costliest two affordable kinds, up to a share of
   // the budget — this is what keeps late waves from being pure chaff.
   let heavyLeft = budget * 0.45;
   while (heavyLeft >= cheapest && picks.length < maxUnits) {
-    const affordable = roster.filter((d) => d.cost <= Math.min(heavyLeft, left));
+    const affordable = allowed().filter((d) => d.cost <= Math.min(heavyLeft, left));
     if (affordable.length === 0) break;
     const top = affordable.slice(-2);
     const def = rng.pick(top);
-    picks.push(def);
+    take(def);
     heavyLeft -= def.cost;
     left -= def.cost;
   }
 
   // The rest goes on numbers, weighted toward cheap kinds.
   while (left >= cheapest && picks.length < maxUnits) {
-    const affordable = roster.filter((d) => d.cost <= left);
+    const affordable = allowed().filter((d) => d.cost <= left);
     if (affordable.length === 0) break;
     const weights = affordable.map((d) => 1 / d.cost);
     const total = weights.reduce((a, b) => a + b, 0);
@@ -85,11 +104,17 @@ function pickUnits(roster: EnemyUnitDef[], budget: number, maxUnits: number, rng
         break;
       }
     }
-    picks.push(def);
+    take(def);
     left -= def.cost;
   }
 
   return picks;
+}
+
+/** How many standoff siege engines a wave may field. */
+export function siegeAllowance(cfg: GameConfig, wave: number): number {
+  const w = cfg.waves;
+  return Math.min(w.siegeMax, w.siegeBase + Math.floor(wave / w.siegePerWaves));
 }
 
 export function planWave(cfg: GameConfig, wave: number): WavePlan {
@@ -111,12 +136,14 @@ export function planWave(cfg: GameConfig, wave: number): WavePlan {
       for (let i = 0; i < entry.count; i++) defs.push(ENEMY_UNITS[entry.kind]);
     }
   } else {
-    // Split the budget when two armies attack together.
+    // Split the budget when two armies attack together. The siege allowance is
+    // shared between them: it is a property of the wave, not of each army.
     const shares = factions.length === 2 ? [0.65, 0.35] : [1];
+    const siegeSlots = { left: siegeAllowance(cfg, wave) };
     for (let i = 0; i < factions.length; i++) {
       const roster = rosterFor(factions[i], wave);
       const slots = Math.max(1, Math.floor(cfg.waves.maxUnits / factions.length));
-      defs.push(...pickUnits(roster, budget * shares[i], slots, rng));
+      defs.push(...pickUnits(roster, budget * shares[i], slots, rng, siegeSlots));
     }
   }
 
@@ -220,6 +247,7 @@ function makeUnit(args: MakeUnitArgs, stats: typeof PLAYER_UNITS[PlayerUnitId] |
     rank: args.rank,
     posture: 'posture' in stats ? stats.posture : 0,
     wallFocused: 'wallFocused' in stats ? stats.wallFocused === true : false,
+    wallFraction: 'wallFraction' in stats ? stats.wallFraction ?? 0 : 0,
     spawnPeriod: args.spawnPeriod,
     spawnIn: args.spawnPeriod,
     spawnKind: args.spawnKind,
@@ -229,7 +257,7 @@ function makeUnit(args: MakeUnitArgs, stats: typeof PLAYER_UNITS[PlayerUnitId] |
     anim: 0,
     flash: 0,
     recoil: 0,
-    heldAtLine: 0,
+    advancePressure: 0,
   };
 }
 

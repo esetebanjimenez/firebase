@@ -80,8 +80,8 @@ export function Panel({ snapshot, actions, onRestart }: Props) {
         {tab === 'defense' && (
           <>
             <p className="panel__note">
-              Wall {wall.hp}/{wall.maxHp} · {towers.count} towers at {towers.dps.toFixed(0)} dps combined ·
-              range {towers.range.toFixed(0)}
+              Wall {wall.hp}/{wall.maxHp} · {towers.count} towers at {towers.dps.toFixed(0)} dps
+              combined · guns cover all but the top {towers.uncoveredRows} rows, where siege parks
             </p>
             {defenseTracks.map((u) => (
               <Row

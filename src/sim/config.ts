@@ -43,7 +43,12 @@ export interface GameConfig {
     readonly towerY: number;
   };
 
-  /** Static defenses on the wall. One level raises damage, rate and range. */
+  /**
+   * Static defenses on the wall. They cover nearly the whole field — all of it
+   * bar a strip along the top — so a tower level buys damage and rate rather
+   * than ground. The strip is the point: siege parks in it, outranges the guns
+   * by construction, and no amount of tower investment reaches it.
+   */
   readonly towers: {
     readonly baseDamage: number;
     /** Damage is multiplied by this per level: power has to compound, or the
@@ -53,8 +58,11 @@ export interface GameConfig {
     /** Subtracted per level, floored by minPeriodSec. */
     readonly periodPerLevel: number;
     readonly minPeriodSec: number;
-    readonly baseRange: number;
-    readonly rangePerLevel: number;
+    /** Rows at the top of the field the guns cannot reach, at level 1. */
+    readonly baseUncoveredStrip: number;
+    /** Each level claws back this much of the strip, down to minStrip. */
+    readonly stripPerLevel: number;
+    readonly minStrip: number;
     readonly projectileSpeed: number;
     readonly baseCost: number;
     readonly costGrowth: number;
@@ -66,18 +74,21 @@ export interface GameConfig {
    * upgrading the towers visibly pushes your front forward.
    */
   readonly support: {
-    /** Share of tower range treated as safely covered ground. */
-    readonly coverFraction: number;
-    /** The umbrella never reaches past this row, however good the towers. */
-    readonly minY: number;
+    /**
+     * Where your soldiers hold, as a share of the distance from the wall to
+     * the top of the field. Deliberately independent of tower range: tying the
+     * two together meant every change to the guns dragged the infantry around
+     * with it, and neither could be tuned on its own.
+     */
+    readonly holdFraction: number;
     /** How far inside the line idle soldiers form up. */
     readonly musterInset: number;
     /**
-     * How long a soldier will stand pinned at the line, unable to reach its
-     * target, before pushing out anyway. Without this the leash is a trap:
-     * anything that outranges your soldiers — an archer by eight pixels, a
-     * catapult by a hundred — can sit beyond the line and plink forever, and
-     * the wave never ends.
+     * How long soldiers will hold with nothing they can reach before advancing
+     * on an enemy that refuses to close. Without it, anything that outranges
+     * the line — an archer by eight pixels, a catapult by a hundred — stands
+     * beyond it and plinks forever, and the wave never ends. Taking fire
+     * shortens this sharply: troops shot at return fire rather than stand.
      */
     readonly pushOutSec: number;
   };
@@ -148,6 +159,10 @@ export interface GameConfig {
     readonly bossBudgetFactor: number;
     /** From this wave on, a wave can draw from two armies at once. */
     readonly mixFromWave: number;
+    /** Standoff siege engines a wave may field: base, +1 every N waves, capped. */
+    readonly siegeBase: number;
+    readonly siegePerWaves: number;
+    readonly siegeMax: number;
   };
 
   readonly abilities: {
@@ -235,16 +250,16 @@ export const defaultConfig: GameConfig = {
     basePeriodSec: 0.9,
     periodPerLevel: 0.02,
     minPeriodSec: 0.4,
-    baseRange: 124,
-    rangePerLevel: 3,
+    baseUncoveredStrip: 96,
+    stripPerLevel: 2,
+    minStrip: 40,
     projectileSpeed: 460,
     baseCost: 50,
     costGrowth: 1.17,
   },
 
   support: {
-    coverFraction: 0.85,
-    minY: 72,
+    holdFraction: 0.42,
     musterInset: 14,
     pushOutSec: 2,
   },
@@ -293,6 +308,9 @@ export const defaultConfig: GameConfig = {
     bossEvery: 10,
     bossBudgetFactor: 0.6,
     mixFromWave: 16,
+    siegeBase: 1,
+    siegePerWaves: 12,
+    siegeMax: 4,
   },
 
   abilities: {

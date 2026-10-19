@@ -21,7 +21,8 @@ rams, golems, wraiths and the necromancers raising more of them.
    you tell a wave-30 skeleton from a wave-3 one.
 2. **Launch.** You decide when the wave comes — nothing starts without you.
    Enemies pour in from the top and head for the wall.
-3. **Fight.** Towers shoot what comes into range. Each soldier kind has its own
+3. **Fight.** Your towers cover almost the whole field — all but a strip along
+   the top, which upgrades shave down row by row. Each soldier kind has its own
    button, and pressing one puts that soldier through the gate immediately — a
    charge per rifleman or shield bearer, two for a gunner or a rocketeer.
    Charges come back one at a time, so a wave is a sequence of decisions, not
@@ -31,21 +32,25 @@ rams, golems, wraiths and the necromancers raising more of them.
    0 HP and you re-fight the same wave. Either way **every credit you earned is
    yours** and the wall is rebuilt to full.
 
-Your soldiers charge the nearest enemy, and fall back to **the ground your
-towers can cover** when nothing is left to fight — a scalloped line drawn on the
-field that moves up as you upgrade the towers. They will not chase past it
-(unless the enemy refuses to come to them). Shield bearers hold in front of it,
-rocketeers behind. Enemies charge your soldiers, and press
-the wall when there are none — except siege engines, which ignore your soldiers
-entirely and drive straight for the wall.
+Your soldiers hold **a line drawn across the field** under the guns. They fight
+from that line and return to it rather than chasing, and only advance on an
+enemy that has stopped out of reach and refuses to close. Shield bearers hold in
+front of it, rocketeers behind. Enemies charge your soldiers, and press the wall
+when there are none.
+
+**Siege is the exception, and the reason towers are not a solved purchase.**
+Trebuchets, Obelisks and Bonethrowers ignore your soldiers, stop inside the
+strip your guns cannot reach, and shell the wall from there. No amount of tower
+levelling touches them — you have to send somebody out, or drop a barrage on
+them.
 
 ## The three armies
 
 | Army | Shows up | What it does |
 | --- | --- | --- |
-| **Kingdom Army** | wave 1 | Levies and archers, then armoured knights, battering rams and catapults. A Royal Champion leads the boss waves. |
-| **Magical Army** | wave 4 | Imps and casters hurling bolts from range, behind stone golems that soak everything. The Archmage drops splash from across the field. |
-| **Necromancer Army** | wave 7 | Endless cheap bodies — skeletons, zombies, ghouls — plus wraiths, and necromancers that raise more skeletons until you kill them. Bone Giants anchor the boss waves. |
+| **Kingdom Army** | wave 1 | Levies and archers, then armoured knights, battering rams and Trebuchets. A Royal Champion leads the boss waves. |
+| **Magical Army** | wave 4 | Imps and casters hurling bolts from range, behind stone golems that soak everything. Floating Obelisks shell the wall from out of reach; the Archmage drops splash from across the field. |
+| **Necromancer Army** | wave 7 | Endless cheap bodies — skeletons, zombies, ghouls — plus wraiths, Bonethrowers lobbing remains at the wall, and necromancers that raise more skeletons until you kill them. Bone Giants anchor the boss waves. |
 
 From wave 16 on, two armies can attack together. Every tenth wave brings a boss.
 
