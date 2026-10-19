@@ -54,6 +54,8 @@ export function castAbility(
       radius: ac.radius,
       damage: 0,
       dps: damage,
+      // Burning ground is sustained fire: it answers a crowd, not armour.
+      damageClass: 'sustained',
       delay: ac.delaySec,
       timer: ac.burnSec,
       duration: ac.burnSec,
@@ -71,6 +73,8 @@ export function castAbility(
         radius: ac.radius,
         damage,
         dps: 0,
+        // Shells are explosive: fire support is your answer to armour.
+        damageClass: 'explosive',
         delay,
         timer: 0,
         duration: delay,

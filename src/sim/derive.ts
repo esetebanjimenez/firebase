@@ -8,7 +8,7 @@
 
 import type { AbilityConfig, GameConfig } from './config';
 import { PLAYER_UNITS } from './roster';
-import type { AbilityId, PlayerUnitId, SimState } from './types';
+import type { AbilityId, BodyClass, DamageClass, PlayerUnitId, SimState } from './types';
 
 /** The standard idle-game price curve: base * growth^(level-1). */
 export function geometricCost(base: number, growth: number, level: number): number {
@@ -232,6 +232,23 @@ export function waveBudget(cfg: GameConfig, wave: number): number {
  * Armor soaks flat damage, but never all of it: a fraction always lands, so
  * swarms of cheap shooters stay relevant against heavy armour (just bad at it).
  */
+/**
+ * The counter triangle, as a multiplier. Returns 1 when there is nothing to
+ * match against — your own soldiers have no body class, so enemy attacks are
+ * never scaled by this.
+ */
+export function counterMultiplier(
+  cfg: GameConfig,
+  damage: DamageClass,
+  body: BodyClass | null,
+): number {
+  if (!body) return 1;
+  const matchup = cfg.counters.matchups[damage];
+  if (matchup.strong === body) return cfg.counters.strong;
+  if (matchup.weak === body) return cfg.counters.weak;
+  return 1;
+}
+
 export function applyArmor(cfg: GameConfig, damage: number, armor: number): number {
   return Math.max(damage * cfg.sim.minDamageFraction, damage - armor);
 }

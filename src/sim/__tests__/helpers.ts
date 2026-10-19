@@ -15,7 +15,7 @@ import {
 import { castAbility } from '../abilities';
 import { abilityCost } from '../derive';
 import { PLAYER_UNITS, PLAYER_UNIT_ORDER } from '../roster';
-import type { AbilityId, PlayerUnitId, SimEvent, SimState, Unit, WaveResult } from '../types';
+import type { AbilityId, BodyClass, PlayerUnitId, SimEvent, SimState, Unit, WaveResult } from '../types';
 import type { UpgradeTrack } from '../actions';
 
 export const DT = 1 / 30;
@@ -144,12 +144,36 @@ export function autoShop(state: SimState, cfg: GameConfig = defaultConfig): void
 }
 
 /** The heaviest unlocked kind, alternating so charges are never left idle. */
+/** Which soldier answers which kind of body. */
+const COUNTER: Record<BodyClass, PlayerUnitId> = {
+  armored: 'rocketeer',
+  swarm: 'gunner',
+  elusive: 'rifleman',
+};
+
+/**
+ * What the scripted player deploys next.
+ *
+ * It reads the field and answers what is actually on it, because the balance
+ * suite is an instrument: a player who ignores the counter triangle measures a
+ * game nobody plays, and every number this file reports would be a floor far
+ * below what the design intends rather than a reading of it.
+ *
+ * It alternates a screen in front — a line of specialists with nothing to soak
+ * for it dies before it fires — and otherwise brings the counter to whatever
+ * class is most numerous on the field, falling back to a rifleman while the
+ * field is still empty.
+ */
 function autoPick(state: SimState): PlayerUnitId {
-  const order: PlayerUnitId[] = ['rocketeer', 'gunner', 'shield', 'rifleman'];
-  const mix = state.units.filter((u) => u.team === 'player').length % 2 === 0;
-  for (const id of order) {
-    if (state.unlocked[id] && (mix || id !== 'rocketeer')) return id;
+  const mine = state.units.filter((u) => u.team === 'player');
+  if (state.unlocked.shield && mine.length % 3 === 0) return 'shield';
+
+  const seen: Record<BodyClass, number> = { armored: 0, swarm: 0, elusive: 0 };
+  for (const u of state.units) {
+    if (u.team === 'enemy' && u.hp > 0 && u.bodyClass) seen[u.bodyClass] += 1;
   }
+  const worst = (Object.keys(seen) as BodyClass[]).reduce((a, b) => (seen[b] > seen[a] ? b : a));
+  if (seen[worst] > 0 && state.unlocked[COUNTER[worst]]) return COUNTER[worst];
   return 'rifleman';
 }
 

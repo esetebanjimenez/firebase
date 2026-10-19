@@ -33,6 +33,14 @@ rams, golems, wraiths and the necromancers raising more of them.
    0 HP and you re-fight the same wave. Either way **every credit you earned is
    yours** and the wall is rebuilt to full.
 
+**Every soldier answers something.** Rifles cut down skirmishers and bounce off
+armour; the machine gun shreds hordes and is outranged by skirmishers; rockets
+crack armour and waste themselves on crowds. The Shield Bearer screens the line
+rather than countering anything. Each wave rolls a shape — an armoured column, a
+horde, a skirmish line — and the preview tells you which, so you can bring the
+right soldiers through the gate. Every soldier costs one charge, so the choice
+is tactical rather than a question of price.
+
 **The parapet starts empty.** There are four gun pads on the wall and nothing
 standing in them; each Towers level builds the next gun, then makes the ones
 you have hit harder. Wave 1 is the gate's job, not the guns'.

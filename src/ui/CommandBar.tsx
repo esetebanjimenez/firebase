@@ -80,7 +80,7 @@ export function CommandBar({ snapshot, actions }: Props) {
                 <UnitIcon kind={unit.id} level={unit.level} className="deploy__icon" scale={1} />
                 <span className="deploy__name">{unit.short}</span>
                 <span className="deploy__meta">
-                  L{unit.level} · {unit.chargeCost}
+                  L{unit.level} · {unit.counters}
                 </span>
               </button>
             ))}

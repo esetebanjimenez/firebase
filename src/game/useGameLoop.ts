@@ -29,6 +29,7 @@ import {
   defaultConfig,
   deployUnit,
   launchWave,
+  SHAPES,
   planWave,
   playerUnitStats,
   randomSeed,
@@ -89,6 +90,8 @@ export interface UnitView {
   upgradeCost: number;
   upgradeAffordable: boolean;
   chargeCost: number;
+  /** What this soldier is for: "vs Armour" and so on. */
+  counters: string;
   selected: boolean;
   deployable: boolean;
   hp: number;
@@ -118,6 +121,9 @@ export interface WavePreview {
   /** Set for hand-written waves: a name to put on the launch button. */
   label: string | null;
   armies: string[];
+  /** The wave's character, and what answers it. */
+  shape: string;
+  counter: string;
   accent: string;
   boss: boolean;
   count: number;
@@ -229,6 +235,7 @@ function buildUnits(state: SimState, cfg: GameConfig): UnitView[] {
       upgradeCost,
       upgradeAffordable: state.unlocked[id] && state.credits >= upgradeCost,
       chargeCost: def.chargeCost,
+      counters: def.role,
       selected: state.selectedUnit === id,
       deployable: canDeploy(state, cfg, id),
       hp: Math.round(stats.hp),
@@ -268,6 +275,8 @@ function buildPreview(state: SimState, cfg: GameConfig): WavePreview {
     wave: state.wave,
     label: plan.label,
     armies: plan.factions.map((f) => FACTIONS[f].name),
+    shape: SHAPES[plan.shape].label,
+    counter: SHAPES[plan.shape].counter,
     accent: FACTIONS[plan.factions[0]].accent,
     boss: plan.boss,
     count: plan.spawns.length,

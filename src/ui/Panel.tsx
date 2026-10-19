@@ -97,7 +97,8 @@ export function Panel({ snapshot, actions, onRestart }: Props) {
             ))}
             {phase === 'prep' && (
               <p className="panel__note panel__note--dim">
-                Wave {preview.wave} threat {compact(preview.threat)} hp · pays {compact(preview.payout)} credits
+                Wave {preview.wave} · {preview.shape} — wants {preview.counter} · threat{' '}
+                {compact(preview.threat)} hp · pays {compact(preview.payout)} credits
                 {preview.composition.length > 0 && (
                   <>
                     <br />

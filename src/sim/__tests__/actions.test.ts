@@ -18,7 +18,7 @@ import {
 } from '../actions';
 import { chargeMax, wallMaxHp } from '../derive';
 import { step } from '../engine';
-import { PLAYER_UNITS } from '../roster';
+import { PLAYER_UNITS, PLAYER_UNIT_ORDER } from '../roster';
 import { DT, freshState } from './helpers';
 
 describe('upgrades', () => {
@@ -148,14 +148,22 @@ describe('deployment charges', () => {
     expect(state.units.filter((u) => u.team === 'player')).toHaveLength(max);
   });
 
-  it('charges heavier kinds more than one charge', () => {
+  it('charges one charge for every kind, whatever it is', () => {
+    // Heavier kinds used to cost two. That made the deployment decision a
+    // price tier rather than a tactical choice: the counter you wanted cost
+    // twice as much as the generalist, which swamped the counter triangle
+    // entirely — measured, the right soldier lost to a rifleman nearly every
+    // time. The charge is the resource; which soldier it buys is the choice.
     const state = freshState();
     state.credits = 100000;
-    unlockUnit(state, cfg, 'gunner');
     launchWave(state, cfg);
+    for (const id of PLAYER_UNIT_ORDER) {
+      expect(PLAYER_UNITS[id].chargeCost, id).toBe(1);
+    }
+    unlockUnit(state, cfg, 'gunner');
     state.charges.current = 2;
     expect(deployUnit(state, cfg, 'gunner')).toBe(true);
-    expect(state.charges.current).toBe(0);
+    expect(state.charges.current).toBe(1);
   });
 
   it('recharges one charge at a time', () => {

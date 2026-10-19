@@ -20,7 +20,36 @@ import { RngStream, deriveSeed } from './rng';
 import { ENEMY_UNITS, FACTIONS, FACTION_ORDER, PLAYER_UNITS, bossFor, rosterFor } from './roster';
 import { scriptedWave } from './scripted';
 import type { EnemyUnitDef } from './roster';
-import type { EnemyUnitId, FactionId, PlayerUnitId, QueuedSpawn, SimState, Unit } from './types';
+import type {
+  BodyClass,
+  EnemyUnitId,
+  FactionId,
+  PlayerUnitId,
+  QueuedSpawn,
+  SimState,
+  Unit,
+  WaveShape,
+} from './types';
+
+/** What each shape spends its budget on, and what answers it. */
+export const SHAPES: Readonly<
+  Record<WaveShape, { readonly favours: BodyClass | null; readonly label: string; readonly counter: string }>
+> = {
+  column: { favours: 'armored', label: 'Armoured column', counter: 'explosives' },
+  horde: { favours: 'swarm', label: 'Horde', counter: 'sustained fire' },
+  skirmish: { favours: 'elusive', label: 'Skirmish line', counter: 'rifles' },
+  mixed: { favours: null, label: 'Mixed force', counter: 'a balanced force' },
+};
+
+/**
+ * The shape of a given wave. Rolled from the run's seed and the wave number,
+ * like everything else about a wave, so the preview is still a promise.
+ */
+export function shapeFor(cfg: GameConfig, wave: number, seed: number): WaveShape {
+  if (wave < cfg.waves.shapeFromWave) return 'mixed';
+  const rng = new RngStream(deriveSeed(seed, wave * 7919 + 17));
+  return rng.pick(['column', 'horde', 'skirmish', 'mixed', 'mixed']);
+}
 
 export interface WaveComposition {
   readonly kind: EnemyUnitId;
@@ -33,6 +62,9 @@ export interface WavePlan {
   readonly label: string | null;
   readonly hint: string | null;
   readonly factions: readonly FactionId[];
+  readonly shape: WaveShape;
+  /** How the wave's *threat* splits across the counter triangle, in hit points. */
+  readonly classMix: Readonly<Record<BodyClass, number>>;
   readonly spawns: readonly QueuedSpawn[];
   readonly composition: readonly WaveComposition[];
   readonly boss: boolean;
@@ -71,6 +103,8 @@ function pickUnits(
   maxUnits: number,
   rng: RngStream,
   siegeSlots: { left: number },
+  favours: BodyClass | null,
+  bias: number,
 ): EnemyUnitDef[] {
   const picks: EnemyUnitDef[] = [];
   if (roster.length === 0) return picks;
@@ -88,7 +122,13 @@ function pickUnits(
   while (heavyLeft >= cheapest && picks.length < maxUnits) {
     const affordable = allowed().filter((d) => d.cost <= Math.min(heavyLeft, left));
     if (affordable.length === 0) break;
-    const top = affordable.slice(-2);
+    // A shaped wave takes its heavies from its own class most of the time.
+    // Most, not always: a column of nothing but armour is a monoculture the
+    // player answers with one unit, and a horde with no heavies at all never
+    // fields siege. A shape is a tendency.
+    const favoured = favours ? affordable.filter((d) => d.bodyClass === favours) : [];
+    const pool = favoured.length > 0 && rng.float() < 0.85 ? favoured : affordable;
+    const top = pool.slice(-2);
     const def = rng.pick(top);
     take(def);
     heavyLeft -= def.cost;
@@ -99,7 +139,7 @@ function pickUnits(
   while (left >= cheapest && picks.length < maxUnits) {
     const affordable = allowed().filter((d) => d.cost <= left);
     if (affordable.length === 0) break;
-    const weights = affordable.map((d) => 1 / d.cost);
+    const weights = affordable.map((d) => (1 / d.cost) * (favours && d.bodyClass === favours ? bias : 1));
     const total = weights.reduce((a, b) => a + b, 0);
     let roll = rng.float() * total;
     let def = affordable[affordable.length - 1];
@@ -126,6 +166,8 @@ export function siegeAllowance(cfg: GameConfig, wave: number): number {
 export function planWave(cfg: GameConfig, wave: number, seed: number): WavePlan {
   const rng = new RngStream(deriveSeed(seed, wave));
   const scripted = scriptedWave(wave);
+  // A written wave is its own composition, so it has no rolled shape.
+  const shape: WaveShape = scripted ? 'mixed' : shapeFor(cfg, wave, seed);
   const factions = scripted
     ? [...new Set(scripted.entries.map((e) => ENEMY_UNITS[e.kind].faction))]
     : factionsForWave(cfg, wave);
@@ -149,7 +191,17 @@ export function planWave(cfg: GameConfig, wave: number, seed: number): WavePlan 
     for (let i = 0; i < factions.length; i++) {
       const roster = rosterFor(factions[i], wave);
       const slots = Math.max(1, Math.floor(cfg.waves.maxUnits / factions.length));
-      defs.push(...pickUnits(roster, budget * shares[i], slots, rng, siegeSlots));
+      defs.push(
+        ...pickUnits(
+          roster,
+          budget * shares[i],
+          slots,
+          rng,
+          siegeSlots,
+          SHAPES[shape].favours,
+          cfg.waves.shapeBias,
+        ),
+      );
     }
   }
 
@@ -184,10 +236,15 @@ export function planWave(cfg: GameConfig, wave: number, seed: number): WavePlan 
 
   // Preview data.
   const counts = new Map<EnemyUnitId, number>();
+  const classMix: Record<BodyClass, number> = { armored: 0, swarm: 0, elusive: 0 };
   let totalHp = 0;
   let totalBounty = 0;
   for (const def of defs) {
     counts.set(def.id, (counts.get(def.id) ?? 0) + 1);
+    // Weighted by hit points, not bodies. A column is 15 knights behind 39
+    // skeletons by headcount, which makes "armoured column" read as a lie;
+    // by threat it is overwhelmingly armour, which is what the player meets.
+    classMix[def.bodyClass] += def.hp * hpScale;
     totalHp += def.hp * hpScale;
     totalBounty += def.bounty * bountyScale;
   }
@@ -197,6 +254,8 @@ export function planWave(cfg: GameConfig, wave: number, seed: number): WavePlan 
 
   return {
     wave,
+    shape,
+    classMix,
     label: scripted?.label ?? null,
     hint: scripted?.hint ?? null,
     factions,
@@ -252,6 +311,8 @@ function makeUnit(args: MakeUnitArgs, stats: typeof PLAYER_UNITS[PlayerUnitId] |
     bounty: args.bounty,
     rank: args.rank,
     posture: 'posture' in stats ? stats.posture : 0,
+    damageClass: 'damageClass' in stats ? stats.damageClass : 'kinetic',
+    bodyClass: 'bodyClass' in stats ? stats.bodyClass : null,
     wallFocused: 'wallFocused' in stats ? stats.wallFocused === true : false,
     wallFraction: 'wallFraction' in stats ? stats.wallFraction ?? 0 : 0,
     spawnPeriod: args.spawnPeriod,

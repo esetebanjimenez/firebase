@@ -14,6 +14,8 @@
  * are yours to keep and the wall comes back to full.
  */
 
+import type { BodyClass, DamageClass } from './types';
+
 export interface GameConfig {
   readonly version: number;
   readonly seed: number;
@@ -166,6 +168,15 @@ export interface GameConfig {
     readonly bossBudgetFactor: number;
     /** From this wave on, a wave can draw from two armies at once. */
     readonly mixFromWave: number;
+    /**
+     * From this wave on a wave can take a shape. Before it, everything is
+     * mixed: a pure armoured column is unanswerable while the explosive
+     * counter is still hundreds of credits out of reach, and losing to a roll
+     * you had no tool for is not a tactical problem, it is a dice game.
+     */
+    readonly shapeFromWave: number;
+    /** How much a shape favours its own class when spending the budget. */
+    readonly shapeBias: number;
     /** Standoff siege engines a wave may field: base, +1 every N waves, capped. */
     readonly siegeBase: number;
     readonly siegePerWaves: number;
@@ -189,6 +200,17 @@ export interface GameConfig {
     readonly autoLaunchCost: number;
     /** Seconds of prep before auto-launch fires the next wave. */
     readonly autoLaunchDelaySec: number;
+  };
+
+  /**
+   * The counter triangle. Stored as one strong and one weak matchup per damage
+   * class rather than a free 3x3 of numbers: that shape *is* the rule, so a
+   * mistyped table cannot quietly produce a weapon good against everything.
+   */
+  readonly counters: {
+    readonly strong: number;
+    readonly weak: number;
+    readonly matchups: Readonly<Record<DamageClass, { readonly strong: BodyClass; readonly weak: BodyClass }>>;
   };
 
   /** Simulation details that are tuning, not rules. */
@@ -318,6 +340,8 @@ export const defaultConfig: GameConfig = {
     bossEvery: 10,
     bossBudgetFactor: 0.6,
     mixFromWave: 16,
+    shapeFromWave: 8,
+    shapeBias: 8,
     siegeBase: 1,
     siegePerWaves: 12,
     siegeMax: 4,
@@ -386,6 +410,15 @@ export const defaultConfig: GameConfig = {
     autoLaunchDelaySec: 4,
   },
 
+  counters: {
+    strong: 1.5,
+    weak: 0.65,
+    matchups: {
+      kinetic: { strong: 'elusive', weak: 'armored' },
+      explosive: { strong: 'armored', weak: 'swarm' },
+      sustained: { strong: 'swarm', weak: 'elusive' },
+    },
+  },
   sim: {
     minDamageFraction: 0.3,
     retargetSec: 0.4,

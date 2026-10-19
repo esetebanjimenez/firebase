@@ -168,6 +168,73 @@ out of reach at *any* tower level, that the clock stays near a minute from wave
 13 to 35, that the engine cap holds to wave 60, and that soldiers sent out
 actually destroy it.
 
+### The counter triangle
+
+Every weapon deals one of three damage classes and every enemy body is one of
+three classes, and the two taxonomies are deliberately different:
+
+| Weapon | Strong against | Weak against |
+| --- | --- | --- |
+| Kinetic — Rifleman, tower guns | Elusive | Armoured |
+| Explosive — Rocketeer, Artillery, Barrage | Armoured | Swarm |
+| Sustained — Machine Gunner, Napalm | Swarm | Elusive |
+
+A symmetric taxonomy — one class per unit, attacker class versus defender
+class — is tidier and does not fit this game. The anchor of your line is a
+Shield Bearer that deals almost no damage, so "heavy beats massed infantry"
+cannot be expressed as a damage multiplier on your side at all. Weapons have a
+damage class, enemies have a body class, and the matrix connects them in the
+direction the player actually chooses: what to deploy against what is coming.
+The Shield sits outside it and counters skirmishers structurally, by closing
+and soaking.
+
+The table is stored as one strong and one weak matchup per damage class rather
+than a free 3x3 of numbers, so the shape *is* the rule: a mistyped table cannot
+quietly produce a weapon that is good against everything. A test asserts the
+cycle — each body class answered by exactly one weapon and punishing exactly
+one.
+
+The multiplier is applied at the single function every point of damage passes
+through, and *before* armour. Armour is flat subtraction, so applying it first
+would let a heavy's plating eat the rocket bonus meant to beat it.
+
+**What the multiplier could not fix on its own.** Measured, the right soldier
+lost to a plain rifleman in nine of twelve contested waves even with the
+triangle live. Three things were drowning it: the counters cost two deployment
+charges against the rifleman's one, the scripted player levelled the rifleman
+highest, and shapes were too impure to reward a specialist. The multiplier was
+never the problem — the economy around it was. Every soldier now costs one
+charge, so the deployment decision is tactical rather than a price tier, and
+with that the right tool wins seven of ten contested waves.
+
+### Wave shapes
+
+A wave rolls a shape, which biases how its budget is spent: an armoured column,
+a horde, a skirmish line, or a mixed force. The budget itself stays outside the
+roll — total strength for a wave is fixed and knowable, and only the spend
+varies. That split is what makes a wave a tactical problem rather than a
+lottery.
+
+Shapes are tendencies, not monocultures. A column of nothing but armour is
+answered with one unit and never fields siege; the heavy pass takes from the
+favoured class 85% of the time. Measured across forty runs, by threat:
+
+| Shape | Armour | Swarm | Elusive |
+| --- | --- | --- | --- |
+| Column | 70% | 17% | 13% |
+| Horde | 25% | 68% | 6% |
+| Skirmish | 25% | 13% | 62% |
+| Mixed | 56% | 22% | 21% |
+
+That mix is weighted by hit points rather than bodies on purpose. By headcount
+a column is fifteen knights behind thirty-nine skeletons, which makes the label
+read as a lie; by threat it is overwhelmingly armour, which is what the player
+meets.
+
+Shapes hold off until wave 8. A pure armoured column is a dice roll rather than
+a tactical problem while the explosive answer is still hundreds of credits out
+of reach, and losing to a roll you had no tool for teaches nothing.
+
 ### A run's own campaign
 
 Wave composition is random, but for a long time it was the *same* random: the
