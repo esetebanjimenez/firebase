@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { defaultConfig as cfg } from '../config';
+import { defaultConfig as cfg, type GameConfig } from '../config';
 import { buyUpgrade, deployUnit, unlockUnit } from '../actions';
 import { startBattle, step } from '../engine';
 import { PLAYER_UNITS } from '../roster';
@@ -17,23 +17,23 @@ import type { PlayerUnitId, SimState } from '../types';
 const LESSON_WAVE = 6;
 
 /** A player who has reached wave 6 having spent sensibly on the basics. */
-function readyForTheCharge(): SimState {
-  const state = freshState();
+function readyForTheCharge(config: GameConfig = cfg): SimState {
+  const state = freshState(config);
   state.wave = LESSON_WAVE;
   state.credits = 400;
-  buyUpgrade(state, cfg, 'wall');
-  buyUpgrade(state, cfg, 'towers');
-  for (let i = 0; i < 2; i++) buyUpgrade(state, cfg, 'charges');
+  buyUpgrade(state, config, 'wall');
+  buyUpgrade(state, config, 'towers');
+  for (let i = 0; i < 2; i++) buyUpgrade(state, config, 'charges');
   return state;
 }
 
 /** Fight the wave, spending every charge on the given mix. */
-function fight(state: SimState, mix: readonly PlayerUnitId[]): boolean {
-  startBattle(state, cfg);
+function fight(state: SimState, mix: readonly PlayerUnitId[], config: GameConfig = cfg): boolean {
+  startBattle(state, config);
   let next = 0;
   for (let i = 0; i < 180 / DT && state.phase === 'battle'; i++) {
-    while (deployUnit(state, cfg, mix[next % mix.length])) next += 1;
-    step(state, DT, cfg);
+    while (deployUnit(state, config, mix[next % mix.length])) next += 1;
+    step(state, DT, config);
   }
   if (state.phase === 'battle') throw new Error('the lesson wave stalled');
   return state.lastResult?.won ?? false;
@@ -59,6 +59,26 @@ describe('wave 6, the charge', () => {
     const state = readyForTheCharge();
     expect(unlockUnit(state, cfg, 'shield')).toBe(true);
     expect(fight(state, ['shield', 'rifleman', 'rifleman'])).toBe(true);
+  });
+
+  /**
+   * The lesson has twice been broken by a tuning pass elsewhere, and once it
+   * survived only on the default seed — a wave that teaches on seed 1 and not
+   * on seed 5 is luck, not design. So the claim is made across seeds.
+   */
+  it('teaches the same thing whatever the seed', () => {
+    for (const seed of [1, 2, 3, 4, 5, 6, 7, 8]) {
+      const config: GameConfig = { ...cfg, seed };
+      expect(fight(readyForTheCharge(config), ['rifleman'], config), `seed ${seed}, rifles only`).toBe(
+        false,
+      );
+      const withShield = readyForTheCharge(config);
+      unlockUnit(withShield, config, 'shield');
+      expect(
+        fight(withShield, ['shield', 'rifleman', 'rifleman'], config),
+        `seed ${seed}, with a shield`,
+      ).toBe(true);
+    }
   });
 
   it('puts the shield bearer in front of the riflemen it screens', () => {

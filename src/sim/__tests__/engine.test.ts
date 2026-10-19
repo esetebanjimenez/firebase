@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { defaultConfig as cfg } from '../config';
 import { startBattle, step, syncDerived } from '../engine';
 import { buyUpgrade, deployUnit } from '../actions';
-import { coverLineY } from '../derive';
+import { holdLineY, towerRange } from '../derive';
 import { createEnemyUnit, planWave } from '../waves';
 import { DT, freshState, pin, runWave } from './helpers';
 
@@ -110,7 +110,7 @@ describe('unit behaviour', () => {
     expect(state.phase).toBe('battle');
     // Formed up inside the towers' cover, not out in the open and not back at
     // the wall. The row offsets of the formation are the tolerance.
-    const line = coverLineY(cfg, state.upgrades.towers, soldier.x);
+    const line = holdLineY(cfg);
     expect(soldier.y).toBeGreaterThan(line - 24);
     expect(soldier.y).toBeLessThan(cfg.field.wallTop - 8);
   });
@@ -140,7 +140,7 @@ describe('unit behaviour', () => {
     // Up to the push-out limit, the soldier stays inside the towers' cover.
     const ticks = Math.floor((cfg.support.pushOutSec * 0.8) / DT);
     for (let i = 0; i < ticks; i++) step(state, DT, cfg);
-    expect(soldier.y).toBeGreaterThanOrEqual(coverLineY(cfg, state.upgrades.towers, soldier.x) - 1);
+    expect(soldier.y).toBeGreaterThanOrEqual(holdLineY(cfg) - 1);
   });
 
   it('does not let the front creep up the field over a wave', () => {
@@ -164,8 +164,11 @@ describe('unit behaviour', () => {
     }
 
     expect(fronts.length).toBeGreaterThan(5);
-    const early = fronts.slice(0, Math.floor(fronts.length / 3));
-    const late = fronts.slice(-Math.floor(fronts.length / 3));
+    // Skip the opening, while the first soldiers are still walking out to the
+    // line: that march is not creep.
+    const formed = fronts.slice(Math.floor(fronts.length / 3));
+    const early = formed.slice(0, Math.floor(formed.length / 2));
+    const late = formed.slice(-Math.floor(formed.length / 2));
     const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
     // Lower y is further up the field: the late front must not be meaningfully
     // more advanced than the early one.
@@ -187,44 +190,53 @@ describe('unit behaviour', () => {
     const soldiers = state.units.filter((u) => u.team === 'player');
     if (soldiers.length > 0) {
       for (const soldier of soldiers) {
-        const line = coverLineY(cfg, state.upgrades.towers, soldier.x);
+        const line = holdLineY(cfg);
         // Within a body's length of the post, on either side of it.
         expect(soldier.y).toBeGreaterThan(line - 40);
       }
     }
   });
 
-  it('pushes out rather than stalling when the enemy refuses to close', () => {
-    // An archer outranges a rifleman by a few pixels. Pinned at the line for
-    // good, the two would plink at each other until the heat death of the
-    // universe — which is exactly how wave 3 hung before the release valve.
+  it('marches on siege parked in the strip the guns cannot reach', () => {
+    // The whole point of the strip: siege stops inside it, shells the wall
+    // from a spot no tower can answer, and the infantry has to go and deal
+    // with it. (A straggler that is in nobody's range and shooting nothing is
+    // not this case — enemies always end up in range of the wall or of a
+    // soldier, which is what earns the march.)
     const state = freshState();
+    state.credits = 5000;
+    for (let i = 0; i < 3; i++) buyUpgrade(state, cfg, 'charges');
     startBattle(state, cfg);
     state.units = [];
     state.spawnQueue = [];
-    deployUnit(state, cfg, 'rifleman');
-    const soldier = state.units.find((u) => u.team === 'player')!;
-    const archer = createEnemyUnit(state, cfg, {
-      kind: 'archer',
-      x: soldier.x,
+    for (let i = 0; i < 3; i++) deployUnit(state, cfg, 'rifleman');
+    const siege = createEnemyUnit(state, cfg, {
+      kind: 'catapult',
+      x: cfg.field.gateX,
       at: 0,
       hpScale: 1,
       damageScale: 1,
       bountyScale: 1,
     });
-    archer.y = coverLineY(cfg, state.upgrades.towers, soldier.x) - 74;
-    pin(archer);
-    state.units.push(archer);
+    siege.y = cfg.field.spawnTop;
+    state.units.push(siege);
 
-    let resolvedAt = 0;
-    for (let i = 0; i < 60 / DT && state.phase === 'battle'; i++) {
+    let shelledTheWall = false;
+    let everInTowerReach = false;
+    const towerReach = towerRange(cfg, state.upgrades.towers);
+    for (let i = 0; i < 150 / DT && state.phase === 'battle'; i++) {
       step(state, DT, cfg);
-      resolvedAt += DT;
+      const live = state.units.find((u) => u.id === siege.id);
+      if (!live) break;
+      if (state.wall.hp < state.wall.maxHp) shelledTheWall = true;
+      if (cfg.field.towerY - live.y <= towerReach) everInTowerReach = true;
     }
-    expect(state.phase).toBe('prep');
-    expect(state.lastResult?.won).toBe(true);
-    // And it took the push-out delay, not an instant charge.
-    expect(resolvedAt).toBeGreaterThan(cfg.support.pushOutSec);
+
+    // It got its shots off from safety...
+    expect(shelledTheWall).toBe(true);
+    expect(everInTowerReach).toBe(false);
+    // ...and the infantry still went and killed it.
+    expect(state.units.some((u) => u.id === siege.id)).toBe(false);
   });
 
   it('keeps enemies on the attacking side of the wall', () => {

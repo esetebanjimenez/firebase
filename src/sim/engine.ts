@@ -17,7 +17,7 @@ import type { GameConfig } from './config';
 import {
   applyArmor,
   chargeMax,
-  coverLineY,
+  holdLineY,
   incomePerSec,
   musterLineY,
   rechargeSec,
@@ -227,6 +227,7 @@ function fireProjectile(
     damage: unit.damage,
     splashRadius: unit.splashRadius,
     siegeBonus: unit.siegeBonus,
+    wallFraction: unit.wallFraction,
     targetId,
     tx,
     ty,
@@ -255,6 +256,16 @@ function attackUnit(state: SimState, cfg: GameConfig, unit: Unit, target: Unit, 
   }
 }
 
+/**
+ * What one hit takes off the wall. Standoff siege removes a share of the
+ * wall's maximum instead of flat damage, so its clock does not drift as the
+ * campaign scales; everything else hits for what it hits for.
+ */
+function wallDamage(state: SimState, damage: number, siegeBonus: number, wallFraction: number): number {
+  if (wallFraction > 0) return state.wall.maxHp * wallFraction;
+  return damage * siegeBonus;
+}
+
 /** Resolve one attack from `unit` against the wall. */
 function attackWall(state: SimState, cfg: GameConfig, unit: Unit, events: SimEvent[]): void {
   unit.cooldown = unit.attackPeriod;
@@ -265,7 +276,7 @@ function attackWall(state: SimState, cfg: GameConfig, unit: Unit, events: SimEve
     fireProjectile(state, unit, unit.x, wallY, null, true, events);
     return;
   }
-  hurtWall(state, cfg, unit.damage * unit.siegeBonus, unit.x, events);
+  hurtWall(state, cfg, wallDamage(state, unit.damage, unit.siegeBonus, unit.wallFraction), unit.x, events);
 }
 
 // ---------------------------------------------------------------------------
@@ -273,21 +284,21 @@ function attackWall(state: SimState, cfg: GameConfig, unit: Unit, events: SimEve
 // ---------------------------------------------------------------------------
 
 /**
- * Where an idle soldier forms up: a loose block around the gate, held at the
- * edge of what the towers can cover rather than at a fixed row. Upgrading the
- * towers pushes this line — and the whole front — forward.
+ * Where an idle soldier forms up: a loose block around the gate, a little
+ * behind the hold line, so a soldier with nothing to fight is already standing
+ * where the next fight will be.
  */
-function musterPoint(cfg: GameConfig, state: SimState, unit: Unit): { x: number; y: number } {
+function musterPoint(cfg: GameConfig, unit: Unit): { x: number; y: number } {
   const column = ((unit.id * 37) % 7) - 3;
   const row = ((unit.id * 17) % 3) - 1;
   const x = cfg.field.gateX + column * 32;
-  return { x, y: musterLineY(cfg, state.upgrades.towers, x) + unit.posture + row * 22 };
+  return { x, y: musterLineY(cfg) + unit.posture + row * 22 };
 }
 
 /**
  * Is this enemy holding position rather than closing? True when it is already
  * in range of the wall or of one of your soldiers — which is what an archer
- * shooting your line, or a catapult shelling the wall, looks like.
+ * shooting your line, or a trebuchet shelling the wall, looks like.
  *
  * The distinction matters: soldiers should wait for an enemy that is walking
  * toward them, and only go out to one that has stopped where they cannot reach
@@ -305,9 +316,9 @@ function enemyIsPinned(cfg: GameConfig, state: SimState, enemy: Unit): boolean {
   return false;
 }
 
-/** The row this kind holds at a given x. Posture puts shields in front. */
-function lineFor(cfg: GameConfig, state: SimState, unit: Unit, x: number): number {
-  return coverLineY(cfg, state.upgrades.towers, x) + unit.posture;
+/** The row this kind holds. Posture puts shields in front, rocketeers behind. */
+function lineFor(cfg: GameConfig, unit: Unit): number {
+  return holdLineY(cfg) + unit.posture;
 }
 
 /**
@@ -334,7 +345,7 @@ interface PlayerOrders {
 }
 
 function playerTarget(state: SimState, cfg: GameConfig, unit: Unit, dt: number): PlayerOrders {
-  const line = lineFor(cfg, state, unit, unit.x);
+  const line = lineFor(cfg, unit);
   // Could this unit hit that enemy from the post it is meant to hold? Measured
   // as a real distance from (x, line), not a comparison of rows: an enemy far
   // off to the side is not reachable just because it shares a row. The margin
@@ -542,7 +553,7 @@ export function step(state: SimState, dt: number, cfg: GameConfig): SimEvent[] {
 
       if (!target && state.units.every((other) => other.team !== 'enemy' || other.hp <= 0)) {
         // Nothing on the field at all: fall back into formation.
-        const park = musterPoint(cfg, state, u);
+        const park = musterPoint(cfg, u);
         if (dist(u.x, u.y, park.x, park.y) > 2) {
           const toward = stepToward(u.x, u.y, park.x, park.y, u.speed * dt);
           u.x = toward.x;
@@ -620,7 +631,7 @@ export function step(state: SimState, dt: number, cfg: GameConfig): SimEvent[] {
     }
 
     // Nothing worth leaving the line for: fall back and hold.
-    const park = musterPoint(cfg, state, u);
+    const park = musterPoint(cfg, u);
     const d = dist(u.x, u.y, park.x, park.y);
     if (d > 2) {
       const toward = stepToward(u.x, u.y, park.x, park.y, u.speed * dt);
@@ -667,6 +678,7 @@ export function step(state: SimState, dt: number, cfg: GameConfig): SimEvent[] {
       damage: tDamage,
       splashRadius: 0,
       siegeBonus: 1,
+      wallFraction: 0,
       targetId: best.id,
       tx: best.x,
       ty: best.y,
@@ -708,7 +720,7 @@ export function step(state: SimState, dt: number, cfg: GameConfig): SimEvent[] {
       p.x = p.tx;
       p.y = p.ty;
       if (p.atWall) {
-        hurtWall(state, cfg, p.damage * p.siegeBonus, p.x, events);
+        hurtWall(state, cfg, wallDamage(state, p.damage, p.siegeBonus, p.wallFraction), p.x, events);
         if (p.splashRadius > 0) {
           areaDamage(state, cfg, p.x, p.y, p.splashRadius, p.damage * 0.5, 'player', events);
           events.push({ type: 'explosion', x: p.x, y: p.y, radius: p.splashRadius });

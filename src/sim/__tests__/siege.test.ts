@@ -1,0 +1,104 @@
+/**
+ * Siege, as executable claims.
+ *
+ * The strip the guns cannot reach only means something if standoff siege is a
+ * problem you have to go and solve: it must be out of tower reach, it must
+ * give you time to get to it, and soldiers must actually be able to get there.
+ * Each of those broke at least once while this was being built.
+ */
+
+import { describe, expect, it } from 'vitest';
+import { defaultConfig as cfg } from '../config';
+import { buyUpgrade, deployUnit } from '../actions';
+import { holdLineY, uncoveredStrip } from '../derive';
+import { startBattle, step } from '../engine';
+import { ENEMY_UNITS, PLAYER_UNITS } from '../roster';
+import { planWave, siegeAllowance } from '../waves';
+import { DT, freshState } from './helpers';
+import type { EnemyUnitId, SimState } from '../types';
+
+const SIEGE = (Object.keys(ENEMY_UNITS) as EnemyUnitId[]).filter((k) => (ENEMY_UNITS[k].wallFraction ?? 0) > 0);
+
+/** A player who has upgraded steadily to the given wave. */
+function readyAt(wave: number, wallLevels: number, towerLevels: number): SimState {
+  const state = freshState();
+  state.wave = wave;
+  state.credits = 10_000_000;
+  for (let i = 0; i < wallLevels; i++) buyUpgrade(state, cfg, 'wall');
+  for (let i = 0; i < towerLevels; i++) buyUpgrade(state, cfg, 'towers');
+  state.credits = 10_000_000;
+  return state;
+}
+
+describe('siege', () => {
+  it('is every army, not just the kingdom', () => {
+    expect(new Set(SIEGE.map((k) => ENEMY_UNITS[k].faction)).size).toBe(3);
+  });
+
+  it('outranges the guns at every tower level, so it parks in the strip', () => {
+    for (const kind of SIEGE) {
+      const def = ENEMY_UNITS[kind];
+      // Where it stops: its own range short of the wall.
+      const parkY = cfg.field.wallTop - def.range;
+      for (const level of [1, 10, 40, 200]) {
+        expect(parkY, `${def.name} at tower L${level}`).toBeLessThan(uncoveredStrip(cfg, level));
+      }
+      expect(def.wallFocused).toBe(true);
+    }
+  });
+
+  /**
+   * The clock used to *shrink* as the campaign went on — 14 seconds at wave
+   * 13, four by wave 35 — because engine count and per-engine damage both
+   * scaled while the wall only grew with what you bought. A share of the wall
+   * per hit, plus a cap on engines per wave, makes it roughly constant.
+   */
+  it('gives you about the same time to answer it, whatever the wave', () => {
+    const clocks: number[] = [];
+    for (const [wave, towers, wall] of [[13, 6, 8], [18, 9, 12], [25, 13, 17], [35, 18, 24]] as const) {
+      const state = readyAt(wave, wall, towers);
+      startBattle(state, cfg);
+      // Keep only the siege: this measures the siege clock, not the whole wave.
+      state.spawnQueue = state.spawnQueue.filter((q) => SIEGE.includes(q.kind));
+      expect(state.spawnQueue.length, `wave ${wave} fields siege`).toBeGreaterThan(0);
+      let seconds = 0;
+      for (let i = 0; i < 300 / DT && state.phase === 'battle'; i++) {
+        step(state, DT, cfg);
+        seconds = i * DT;
+      }
+      expect(state.lastResult?.wallHpLeft, `wave ${wave} breaches eventually`).toBe(0);
+      clocks.push(seconds);
+    }
+    // Long enough to clear an escort and walk out; short enough to be a threat.
+    for (const c of clocks) expect(c).toBeGreaterThan(30);
+    for (const c of clocks) expect(c).toBeLessThan(150);
+  }, 60000);
+
+  it('stays a handful of engines however rich the wave gets', () => {
+    for (let wave = 10; wave <= 60; wave++) {
+      const engines = planWave(cfg, wave)
+        .composition.filter((c) => SIEGE.includes(c.kind))
+        .reduce((n, c) => n + c.count, 0);
+      expect(engines, `wave ${wave}`).toBeLessThanOrEqual(siegeAllowance(cfg, wave));
+    }
+    expect(siegeAllowance(cfg, 60)).toBeLessThanOrEqual(cfg.waves.siegeMax);
+  });
+
+  it('is answered by walking out to it, since the guns never will', () => {
+    const state = readyAt(13, 8, 6);
+    startBattle(state, cfg);
+    const strip = uncoveredStrip(cfg, state.upgrades.towers);
+    const hold = holdLineY(cfg);
+    let deepest = Number.POSITIVE_INFINITY;
+    for (let i = 0; i < 120 / DT && state.phase === 'battle'; i++) {
+      while (deployUnit(state, cfg, 'rifleman')) continue;
+      step(state, DT, cfg);
+      for (const u of state.units) if (u.team === 'player') deepest = Math.min(deepest, u.y);
+    }
+    // They left the hold line far behind and brought the strip under fire —
+    // standing in it is not required, shooting into it is the point.
+    expect(deepest).toBeLessThan(hold / 2);
+    expect(deepest - PLAYER_UNITS.rifleman.range).toBeLessThan(strip);
+    expect(state.units.filter((u) => SIEGE.includes(u.kind as EnemyUnitId))).toHaveLength(0);
+  }, 60000);
+});

@@ -43,7 +43,12 @@ export interface GameConfig {
     readonly towerY: number;
   };
 
-  /** Static defenses on the wall. One level raises damage, rate and range. */
+  /**
+   * Static defenses on the wall. They cover nearly the whole field — all of it
+   * bar a strip along the top — so a tower level buys damage and rate rather
+   * than ground. The strip is the point: siege parks in it, outranges the guns
+   * by construction, and no amount of tower investment reaches it.
+   */
   readonly towers: {
     readonly baseDamage: number;
     /** Damage is multiplied by this per level: power has to compound, or the
@@ -53,8 +58,11 @@ export interface GameConfig {
     /** Subtracted per level, floored by minPeriodSec. */
     readonly periodPerLevel: number;
     readonly minPeriodSec: number;
-    readonly baseRange: number;
-    readonly rangePerLevel: number;
+    /** Rows at the top of the field the guns cannot reach, at level 1. */
+    readonly baseUncoveredStrip: number;
+    /** Each level claws back this much of the strip, down to minStrip. */
+    readonly stripPerLevel: number;
+    readonly minStrip: number;
     readonly projectileSpeed: number;
     readonly baseCost: number;
     readonly costGrowth: number;
@@ -67,17 +75,12 @@ export interface GameConfig {
    */
   readonly support: {
     /**
-     * The line is pulled this far back inside tower range, because what
-     * matters is covering the ENEMY, not covering your own soldiers. An enemy
-     * stops at its own firing range from your line, so a line placed at the
-     * edge of tower reach leaves everything shooting at it comfortably outside
-     * that reach — which was exactly the bug this number fixes.
+     * Where your soldiers hold, as a share of the distance from the wall to
+     * the top of the field. Deliberately independent of tower range: tying the
+     * two together meant every change to the guns dragged the infantry around
+     * with it, and neither could be tuned on its own.
      */
-    readonly engagementMargin: number;
-    /** The line never collapses closer to the wall than this. */
-    readonly minStandoff: number;
-    /** The umbrella never reaches past this row, however good the towers. */
-    readonly minY: number;
+    readonly holdFraction: number;
     /** How far inside the line idle soldiers form up. */
     readonly musterInset: number;
     /**
@@ -156,6 +159,10 @@ export interface GameConfig {
     readonly bossBudgetFactor: number;
     /** From this wave on, a wave can draw from two armies at once. */
     readonly mixFromWave: number;
+    /** Standoff siege engines a wave may field: base, +1 every N waves, capped. */
+    readonly siegeBase: number;
+    readonly siegePerWaves: number;
+    readonly siegeMax: number;
   };
 
   readonly abilities: {
@@ -243,17 +250,16 @@ export const defaultConfig: GameConfig = {
     basePeriodSec: 0.9,
     periodPerLevel: 0.02,
     minPeriodSec: 0.4,
-    baseRange: 170,
-    rangePerLevel: 4,
+    baseUncoveredStrip: 96,
+    stripPerLevel: 2,
+    minStrip: 40,
     projectileSpeed: 460,
     baseCost: 50,
     costGrowth: 1.17,
   },
 
   support: {
-    engagementMargin: 76,
-    minStandoff: 56,
-    minY: 72,
+    holdFraction: 0.42,
     musterInset: 14,
     pushOutSec: 2,
   },
@@ -302,6 +308,9 @@ export const defaultConfig: GameConfig = {
     bossEvery: 10,
     bossBudgetFactor: 0.6,
     mixFromWave: 16,
+    siegeBase: 1,
+    siegePerWaves: 12,
+    siegeMax: 4,
   },
 
   abilities: {

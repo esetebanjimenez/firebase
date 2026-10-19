@@ -36,6 +36,7 @@ export type EnemyUnitId =
   | 'apprentice'
   | 'battlemage'
   | 'golem'
+  | 'obelisk'
   | 'archmage'
   // Undead — endless cheap bodies, raised faster than you can mow them down.
   | 'skeleton'
@@ -43,6 +44,7 @@ export type EnemyUnitId =
   | 'ghoul'
   | 'wraith'
   | 'necromancer'
+  | 'bonethrower'
   | 'boneGiant';
 
 export type UnitKindId = PlayerUnitId | EnemyUnitId;
@@ -89,6 +91,11 @@ export interface Unit {
   readonly splashRadius: number;
   /** Damage multiplier against the wall. */
   readonly siegeBonus: number;
+  /**
+   * Standoff siege only: the share of the wall's *maximum* hit points one hit
+   * takes off, in place of flat damage. See `EnemyUnitDef.wallFraction`.
+   */
+  readonly wallFraction: number;
   /** Body radius: used for spacing, melee reach, and splash hit tests. */
   readonly radius: number;
   /** Credits paid out when this unit dies (enemies only). */
@@ -136,6 +143,8 @@ export interface Projectile {
   readonly damage: number;
   readonly splashRadius: number;
   readonly siegeBonus: number;
+  /** Carried from the firer, for shots aimed at the wall. */
+  readonly wallFraction: number;
   /** Homing target; falls back to (tx, ty) once the target is gone. */
   targetId: number | null;
   /** Last known target position — also the aim point for wall shots. */

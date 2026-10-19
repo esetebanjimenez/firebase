@@ -38,7 +38,7 @@ import {
   syncDerived,
   toggleAutomation,
   towerDps,
-  towerRange,
+  uncoveredStrip,
   trackCost,
   unitLevelCost,
   unlockAutomation,
@@ -131,7 +131,7 @@ export interface UiSnapshot {
   bestWave: number;
   phase: 'prep' | 'battle';
   wall: { level: number; hp: number; maxHp: number; pct: number };
-  towers: { level: number; count: number; dps: number; range: number };
+  towers: { level: number; count: number; dps: number; uncoveredRows: number };
   charges: { current: number; max: number; rechargeProgress: number; rechargeSec: number };
   upgrades: UpgradeView[];
   units: UnitView[];
@@ -182,7 +182,9 @@ function buildUpgrades(state: SimState, cfg: GameConfig): UpgradeView[] {
         detail = `${Math.round(wallMaxHp(cfg, level))} → ${Math.round(wallMaxHp(cfg, level + 1))} hp`;
         break;
       case 'towers':
-        detail = `${towerDps(cfg, level).toFixed(1)} → ${towerDps(cfg, level + 1).toFixed(1)} dps each`;
+        detail =
+          `${towerDps(cfg, level).toFixed(1)} → ${towerDps(cfg, level + 1).toFixed(1)} dps each` +
+          ` · strip ${Math.round(uncoveredStrip(cfg, level))} → ${Math.round(uncoveredStrip(cfg, level + 1))}`;
         break;
       case 'charges':
         detail = `${chargeMax(cfg, level)} → ${chargeMax(cfg, level + 1)} charges`;
@@ -285,7 +287,7 @@ function buildSnapshot(state: SimState, cfg: GameConfig): UiSnapshot {
       level: state.upgrades.towers,
       count: state.towers.length,
       dps: towerDps(cfg, state.upgrades.towers) * state.towers.length,
-      range: towerRange(cfg, state.upgrades.towers),
+      uncoveredRows: Math.round(uncoveredStrip(cfg, state.upgrades.towers)),
     },
     charges: {
       current: state.charges.current,

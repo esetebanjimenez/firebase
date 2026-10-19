@@ -24,11 +24,14 @@ export const SCRIPTED_WAVES: Readonly<Record<number, ScriptedWave>> = {
   6: {
     label: 'THE CHARGE',
     hint: 'Skirmishers are fast enough to cross your riflemen’s field of fire and hit hard once they arrive. A Shield Bearer steps in front and soaks the charge while the rifles keep firing.',
-    // Swept, not guessed — and re-swept after the towers gained reach, which
-    // had quietly made the wave winnable with rifles alone and killed the
-    // lesson. Fourteen is where rifles lose and a shield holds.
+    // Swept, not guessed — and re-swept after the guns gained field-wide
+    // cover, which had quietly made this winnable with rifles alone and killed
+    // the lesson. Nine durable skirmishers is the shape that teaches across
+    // every seed tried: the rifles are outpaced wherever they stand, and a
+    // Shield Bearer in front of them holds. Fewer and the rifles win anyway;
+    // more and nothing the player can buy at wave 6 saves the wall.
     entries: [
-      { kind: 'skirmisher', count: 14 },
+      { kind: 'skirmisher', count: 9 },
       { kind: 'militia', count: 4 },
     ],
   },
