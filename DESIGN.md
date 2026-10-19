@@ -55,58 +55,62 @@ defend the wall rather than win every fight at the muster point.
 Ranged units stop at their range and fire; melee close to contact. Bodies push
 each other apart, which turns a column into a firing line without pathfinding.
 
-### The support line
+### How soldiers fight
 
-Soldiers hold a line of their own, a fixed fraction up the field, and that line
-is deliberately *not* derived from tower reach. Tying the two together was the
-first design, and it created a problem with no good answer: the line had to sit
-far enough forward to be worth holding and far enough back to be under the
-guns, and those two pulls fought each other every time either number moved.
-Now the guns cover the field (see below) and the line is simply where the
-infantry fight is.
+**Anything on the field gets charged.** This is the rule straight from the
+original brief, and every attempt to be cleverer than it has been a mistake.
 
-The rule lives in **what a soldier chooses to fight**, not in a clamp on its
-movement. The first version clamped position, and it showed: soldiers walked
-into an invisible wall and slid along it, and because the clamp released on a
-timer that only reset on contact, the line crept forward with every kill until a
-wave ended far from the guns. Now a soldier picks a target it can engage *from
-its post* and marches until something is actually inside its weapon's reach,
-then plants and fires. Nothing is clamped, so nothing looks stuck, and a
-soldier that advanced to deal with something walks back to the line once the
-shooting stops.
+The clever versions, in order. First a clamp on movement: soldiers walked into
+an invisible wall and slid along it, and because the clamp released on a timer
+that only reset on contact, the line crept forward with every kill until a wave
+ended far from the guns. Then a rule about choice — a soldier picked a target
+it could engage *from its post* — which fixed the sliding but introduced a
+worse tell: only an enemy that had already stopped earned an advance, so a
+soldier would stand at its line watching a freshly spawned enemy stroll all the
+way down the map, and react only once it arrived. That reads as the soldiers
+being asleep, and that is exactly how it was reported.
 
-**Range ends the walk, not the line.** Firing used to run while a soldier was
-still closing on its post, so troops strolled across the field with rifles
-going off and the halt looked arbitrary — it happened at a bookkeeping row
-rather than at the moment of contact. Movement and shooting are now exclusive:
-a target inside reach means stand and work. The line is where soldiers go when
-nothing is in reach, not a place they must be standing to fight. Measured over
-a wave, that took firing-while-walking from 23% of attacks to none, and moved
-where the fighting happens by five pixels — the halt looks deliberate without
-the front sitting anywhere different.
+So: a soldier charges the nearest enemy, full stop. The only cap is **the edge
+of the ground the guns cover**. Soldiers march to meet anything below that
+edge, hold the edge when the target is above it, and do not walk into the strip
+unprompted — which keeps a charge from becoming a jog to the top of the map and
+leaves the siege problem intact. The edge is walked toward from either side, so
+a soldier that pushed into the strip and has nothing to show for it steps back
+under cover instead of standing out there. (Retreating all the way to a rear
+line instead would make it oscillate: back to the line, then forward to the
+edge, forever.)
 
-Two details make it work:
+**Range ends the walk.** Firing used to run while a soldier was still closing
+on its post, so troops strolled across the field with rifles going off and the
+halt looked arbitrary — it happened at a bookkeeping row rather than at the
+moment of contact. Movement and shooting are now exclusive: a target inside
+reach means stand and work. Measured over a wave, that took firing-while-walking
+from 23% of attacks to none and moved where the fighting happens by five pixels.
 
-- **Reachability is measured from the post, as a distance.** Comparing rows
-  instead counted an enemy far off to the side as reachable, and a target
-  sitting exactly on the boundary flickered in and out, resetting the release
-  timer every other tick and silently disabling it.
-- **Only an enemy that has stopped earns an advance.** Pressure builds when the
-  nearest enemy is already in range of the wall or of your soldiers — an archer
-  shooting the line, a trebuchet shelling the wall — and not merely because
-  something is still walking toward you. Without that, strong towers thin the
-  approach, nothing gets close, and the whole line wanders up the field looking
-  for a fight.
+When the field is clear, soldiers fall back to a muster block around the gate,
+so an idle army is already standing where the next fight will start.
 
-The release valve is mandatory, not optional. With a hard leash, an enemy that
-outranges the line can stand beyond it with impunity — an archer does this by
-eight pixels — and the wave never resolves. (Wave 3 hung for the full time limit
-the first time this shipped.)
+**Pressure is the release valve**, and it is mandatory rather than optional.
+With a hard cap, an enemy that outranges your soldiers can stand beyond it with
+impunity — an archer does this by eight pixels, a trebuchet by the length of
+the strip — and the wave never resolves. (Wave 3 hung for the full time limit
+the first time this shipped.) Pressure builds only while the nearest enemy
+cannot be answered from covered ground *and* has itself stopped — shooting your
+soldiers or shelling the wall — and it jumps when a soldier takes fire. Past
+the limit, the soldier goes into the strip after it. That one rule answers
+siege, archers and stragglers without a special case for any of them.
 
-Each kind holds a different part of the line. Shield bearers stand in front, so
-they are the nearest target and soak first; riflemen hold the line itself;
-rocketeers hang back. Without that, every kind stands on the same row and a
-shield screens nothing.
+Reachability is measured as a real distance from the edge of cover, not a
+comparison of rows: an enemy far off to the side is not reachable just because
+it shares one. A target sitting exactly on the boundary used to flicker in and
+out, resetting the release timer every other tick and silently disabling it, so
+the test carries a margin and the timer decays rather than resets.
+
+Each kind ends up holding a different part of the fight. Shield bearers have
+almost no reach, so a charge carries them to contact and they are the nearest
+target; riflemen stop at rifle range behind them; rocketeers stop a hundred
+pixels back. Posture biases the muster block the same way, so the ordering is
+already right before the first shot.
 
 ### Towers, the strip, and siege
 

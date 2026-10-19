@@ -37,12 +37,13 @@ rams, golems, wraiths and the necromancers raising more of them.
 standing in them; each Towers level builds the next gun, then makes the ones
 you have hit harder. Wave 1 is the gate's job, not the guns'.
 
-Your soldiers hold **a line drawn across the field** under whatever guns you
-have built. They fight
-from that line and return to it rather than chasing, and only advance on an
-enemy that has stopped out of reach and refuses to close. Shield bearers hold in
-front of it, rocketeers behind. Enemies charge your soldiers, and press the wall
-when there are none.
+**Your soldiers charge whatever is on the field.** They march out to meet it,
+stop the moment it is inside their weapon's reach, and fight from there — they
+do not shoot on the move. The one cap is the edge of the ground your guns
+cover: they will hold that edge rather than wander into the strip above it.
+With the field clear they fall back and muster around the gate. Shield bearers
+end up in front (they have to reach contact), rocketeers a long way back.
+Enemies charge your soldiers, and press the wall when there are none.
 
 **Siege is the exception, and the reason towers are not a solved purchase.**
 Trebuchets, Obelisks and Bonethrowers ignore your soldiers, stop inside the
