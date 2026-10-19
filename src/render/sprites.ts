@@ -9,7 +9,7 @@
  * cannot disagree.
  */
 
-import { buildBody } from './body';
+import { WALK_CYCLE, buildBody } from './body';
 import { drawGear } from './gear';
 import { PALETTE } from './palette';
 import { bake, createLayer, type PixelGrid, type Ramp, type Sprite } from './pixel';
@@ -26,17 +26,17 @@ const PROP_CRATER: PixelGrid = [' 444 ', '41114', '41114', ' 444 '];
 export type PropId = 'rock' | 'bush' | 'bones' | 'crater';
 
 const PROP_ART: Record<PropId, { grid: PixelGrid; ramp: Ramp }> = {
-  rock: { grid: PROP_ROCK, ramp: [PALETTE.rock, PALETTE.rockLight, PALETTE.rockLight, PALETTE.dirtDark] },
-  bush: { grid: PROP_BUSH, ramp: [PALETTE.grassLight, PALETTE.grass, PALETTE.grassLight, PALETTE.grassDark] },
-  bones: { grid: PROP_BONES, ramp: [PALETTE.bone, PALETTE.bone, PALETTE.bone, PALETTE.dirtDark] },
-  crater: { grid: PROP_CRATER, ramp: [PALETTE.dirt, PALETTE.dirtDark, PALETTE.dirt, PALETTE.dirtDark] },
+  rock: { grid: PROP_ROCK, ramp: [PALETTE.rock, PALETTE.rockLight, PALETTE.rockLight, PALETTE.dirtDark, PALETTE.rock] },
+  bush: { grid: PROP_BUSH, ramp: [PALETTE.grassLight, PALETTE.grass, PALETTE.grassLight, PALETTE.grassDark, PALETTE.grass] },
+  bones: { grid: PROP_BONES, ramp: [PALETTE.bone, PALETTE.bone, PALETTE.bone, PALETTE.dirtDark, PALETTE.bone] },
+  crater: { grid: PROP_CRATER, ramp: [PALETTE.dirt, PALETTE.dirtDark, PALETTE.dirt, PALETTE.dirtDark, PALETTE.dirtDark] },
 };
 
 // --- Registry --------------------------------------------------------------
 
 export interface UnitSprites {
-  /** Two walk frames: the body, and the body lifted a pixel. */
-  readonly frames: readonly [Sprite, Sprite];
+  /** The four poses of the walk cycle. */
+  readonly frames: readonly Sprite[];
   /** Flat silhouette drawn over the body on a hit. */
   readonly flash: Sprite;
   /** Where the unit's centre sits inside the sprite. */
@@ -75,13 +75,12 @@ export function unitSprites(kind: UnitKindId): UnitSprites {
 
   const def = defFor(kind);
   const ramp = def.colors as Ramp;
-  const still = buildBody(def.silhouette, def.radius, ramp, 0);
-  const bobbed = buildBody(def.silhouette, def.radius, ramp, 1);
+  const poses = WALK_CYCLE.map((pose) => buildBody(def.silhouette, def.radius, ramp, pose));
   const sprites: UnitSprites = {
-    frames: [still.sprite, bobbed.sprite],
-    flash: flatten(still.sprite, PALETTE.flash),
-    originX: still.originX,
-    originY: still.originY,
+    frames: poses.map((p) => p.sprite),
+    flash: flatten(poses[0].sprite, PALETTE.flash),
+    originX: poses[0].originX,
+    originY: poses[0].originY,
   };
   unitCache.set(kind, sprites);
   return sprites;

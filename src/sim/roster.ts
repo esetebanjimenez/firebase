@@ -36,10 +36,14 @@ export interface UnitStats {
   /** Damage multiplier against the wall. */
   readonly siegeBonus: number;
   readonly radius: number;
-  /** Art: silhouette + 4-colour palette + a distinguishing mark. */
+  /**
+   * Art: a silhouette, a mark, and a five-colour ramp —
+   * [body, lit, accent, outline, shade]. The shade is the body's turned-away
+   * side; without it a unit is a flat disc with a rim.
+   */
   readonly silhouette: Silhouette;
   readonly mark: UnitMark;
-  readonly colors: readonly [string, string, string, string];
+  readonly colors: readonly [string, string, string, string, string];
 }
 
 export interface PlayerUnitDef extends UnitStats {
@@ -100,7 +104,7 @@ export const PLAYER_UNITS: Readonly<Record<PlayerUnitId, PlayerUnitDef>> = {
     upgradeCost: 30,
     silhouette: 'trooper',
     mark: 'gun',
-    colors: ['#3f4a33', '#6b7a50', '#cfa98a', '#2a3124'],
+    colors: ['#3f4a33', '#6b7a50', '#cfa98a', '#2a3124', '#2f3827'],
   },
   shield: {
     id: 'shield',
@@ -124,7 +128,7 @@ export const PLAYER_UNITS: Readonly<Record<PlayerUnitId, PlayerUnitDef>> = {
     upgradeCost: 45,
     silhouette: 'armored',
     mark: 'shield',
-    colors: ['#2f3a44', '#55656f', '#cfa98a', '#1d242a'],
+    colors: ['#2f3a44', '#55656f', '#cfa98a', '#1d242a', '#242d35'],
   },
   gunner: {
     id: 'gunner',
@@ -148,7 +152,7 @@ export const PLAYER_UNITS: Readonly<Record<PlayerUnitId, PlayerUnitDef>> = {
     upgradeCost: 80,
     silhouette: 'trooper',
     mark: 'bigGun',
-    colors: ['#3b4330', '#7d8a5c', '#cfa98a', '#23281c'],
+    colors: ['#3b4330', '#7d8a5c', '#cfa98a', '#23281c', '#2d3325'],
   },
   rocketeer: {
     id: 'rocketeer',
@@ -172,7 +176,7 @@ export const PLAYER_UNITS: Readonly<Record<PlayerUnitId, PlayerUnitDef>> = {
     upgradeCost: 130,
     silhouette: 'trooper',
     mark: 'launcher',
-    colors: ['#43402c', '#8a7f4e', '#cfa98a', '#272519'],
+    colors: ['#43402c', '#8a7f4e', '#cfa98a', '#272519', '#332f20'],
   },
 };
 
@@ -241,7 +245,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     radius: 7,
     silhouette: 'grunt',
     mark: 'blade',
-    colors: ['#7a4a30', '#a86b40', '#d9a885', '#4a2a1c'],
+    colors: ['#7a4a30', '#a86b40', '#d9a885', '#4a2a1c', '#5d3824'],
   },
   archer: {
     id: 'archer',
@@ -264,7 +268,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     radius: 7,
     silhouette: 'grunt',
     mark: 'bow',
-    colors: ['#3f6b3a', '#5f9150', '#d9a885', '#27401f'],
+    colors: ['#3f6b3a', '#5f9150', '#d9a885', '#27401f', '#305128'],
   },
   knight: {
     id: 'knight',
@@ -287,7 +291,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     radius: 9,
     silhouette: 'armored',
     mark: 'blade',
-    colors: ['#6e7684', '#aab3c0', '#d9a885', '#3c424c'],
+    colors: ['#6e7684', '#aab3c0', '#d9a885', '#3c424c', '#545b67'],
   },
   ram: {
     id: 'ram',
@@ -311,7 +315,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     wallFocused: true,
     silhouette: 'engine',
     mark: 'wheels',
-    colors: ['#6b4a2a', '#8f6436', '#b9b9c4', '#3b2715'],
+    colors: ['#6b4a2a', '#8f6436', '#b9b9c4', '#3b2715', '#523820'],
   },
   catapult: {
     id: 'catapult',
@@ -335,7 +339,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     wallFocused: true,
     silhouette: 'engine',
     mark: 'wheels',
-    colors: ['#5d4428', '#8a6a38', '#9aa0a8', '#33230f'],
+    colors: ['#5d4428', '#8a6a38', '#9aa0a8', '#33230f', '#46321d'],
   },
   champion: {
     id: 'champion',
@@ -359,7 +363,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     boss: true,
     silhouette: 'brute',
     mark: 'blade',
-    colors: ['#8d7330', '#e0c35c', '#d9a885', '#4e3d12'],
+    colors: ['#8d7330', '#e0c35c', '#d9a885', '#4e3d12', '#6b5724'],
   },
 
   // --- Arcane ---
@@ -384,7 +388,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     radius: 5,
     silhouette: 'grunt',
     mark: 'horns',
-    colors: ['#8c2f6b', '#c24a93', '#f0a8d0', '#4e1839'],
+    colors: ['#8c2f6b', '#c24a93', '#f0a8d0', '#4e1839', '#6b2452'],
   },
   apprentice: {
     id: 'apprentice',
@@ -407,7 +411,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     radius: 7,
     silhouette: 'caster',
     mark: 'staff',
-    colors: ['#3a3f8c', '#5a63c8', '#d9a885', '#20224e'],
+    colors: ['#3a3f8c', '#5a63c8', '#d9a885', '#20224e', '#2c3069'],
   },
   battlemage: {
     id: 'battlemage',
@@ -430,7 +434,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     radius: 7,
     silhouette: 'caster',
     mark: 'staff',
-    colors: ['#6a2fa8', '#9a5ce0', '#d9a885', '#3a1660'],
+    colors: ['#6a2fa8', '#9a5ce0', '#d9a885', '#3a1660', '#512480'],
   },
   golem: {
     id: 'golem',
@@ -453,7 +457,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     radius: 12,
     silhouette: 'brute',
     mark: 'none',
-    colors: ['#5a5f6b', '#868d9b', '#6fe0d0', '#31343c'],
+    colors: ['#5a5f6b', '#868d9b', '#6fe0d0', '#31343c', '#454953'],
   },
   archmage: {
     id: 'archmage',
@@ -477,7 +481,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     boss: true,
     silhouette: 'caster',
     mark: 'staff',
-    colors: ['#2d1c6e', '#7b5cff', '#b9f0ff', '#160d3a'],
+    colors: ['#2d1c6e', '#7b5cff', '#b9f0ff', '#160d3a', '#221553'],
   },
 
   // --- Undead ---
@@ -502,7 +506,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     radius: 5,
     silhouette: 'grunt',
     mark: 'blade',
-    colors: ['#9aa08c', '#d8dcc4', '#6e7360', '#43463a'],
+    colors: ['#9aa08c', '#d8dcc4', '#6e7360', '#43463a', '#767a69'],
   },
   zombie: {
     id: 'zombie',
@@ -525,7 +529,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     radius: 7,
     silhouette: 'grunt',
     mark: 'none',
-    colors: ['#4a6b3f', '#6e9153', '#8aa06e', '#2a3f22'],
+    colors: ['#4a6b3f', '#6e9153', '#8aa06e', '#2a3f22', '#395130'],
   },
   ghoul: {
     id: 'ghoul',
@@ -548,7 +552,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     radius: 7,
     silhouette: 'grunt',
     mark: 'horns',
-    colors: ['#6b4a6b', '#9a6f9a', '#d8c4d8', '#3a263a'],
+    colors: ['#6b4a6b', '#9a6f9a', '#d8c4d8', '#3a263a', '#523852'],
   },
   wraith: {
     id: 'wraith',
@@ -571,7 +575,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     radius: 7,
     silhouette: 'caster',
     mark: 'none',
-    colors: ['#2f4a5a', '#4e7d92', '#9ae0f0', '#1a2a33'],
+    colors: ['#2f4a5a', '#4e7d92', '#9ae0f0', '#1a2a33', '#243944'],
   },
   necromancer: {
     id: 'necromancer',
@@ -596,7 +600,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     spawnKind: 'skeleton',
     silhouette: 'caster',
     mark: 'staff',
-    colors: ['#2a2a3a', '#4a4a6b', '#67d49b', '#16161f'],
+    colors: ['#2a2a3a', '#4a4a6b', '#67d49b', '#16161f', '#20202c'],
   },
   boneGiant: {
     id: 'boneGiant',
@@ -620,7 +624,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     boss: true,
     silhouette: 'brute',
     mark: 'horns',
-    colors: ['#b9bca8', '#e8ebd4', '#67d49b', '#5a5d4c'],
+    colors: ['#b9bca8', '#e8ebd4', '#67d49b', '#5a5d4c', '#8e9180'],
   },
 };
 

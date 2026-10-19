@@ -203,6 +203,7 @@ function makeUnit(args: MakeUnitArgs, stats: typeof PLAYER_UNITS[PlayerUnitId] |
     aim: args.aim,
     anim: 0,
     flash: 0,
+    recoil: 0,
   };
 }
 

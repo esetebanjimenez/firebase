@@ -217,9 +217,14 @@ function fireProjectile(
   events.push({ type: 'shot', kind: unit.projectile, x: unit.x, y: unit.y, aim: unit.aim });
 }
 
+/** How long the firing kick lasts, as a share of the attack period. */
+const RECOIL_FRACTION = 0.35;
+const MAX_RECOIL_SEC = 0.12;
+
 /** Resolve one attack from `unit` against a unit target. */
 function attackUnit(state: SimState, cfg: GameConfig, unit: Unit, target: Unit, events: SimEvent[]): void {
   unit.cooldown = unit.attackPeriod;
+  unit.recoil = Math.min(MAX_RECOIL_SEC, unit.attackPeriod * RECOIL_FRACTION);
   unit.aim = angleTo(unit.x, unit.y, target.x, target.y);
   if (unit.style === 'ranged' && unit.projectileSpeed > 0) {
     fireProjectile(state, unit, target.x, target.y, target.id, false, events);
@@ -234,6 +239,7 @@ function attackUnit(state: SimState, cfg: GameConfig, unit: Unit, target: Unit, 
 /** Resolve one attack from `unit` against the wall. */
 function attackWall(state: SimState, cfg: GameConfig, unit: Unit, events: SimEvent[]): void {
   unit.cooldown = unit.attackPeriod;
+  unit.recoil = Math.min(MAX_RECOIL_SEC, unit.attackPeriod * RECOIL_FRACTION);
   unit.aim = Math.PI / 2;
   const wallY = cfg.field.wallTop;
   if (unit.style === 'ranged' && unit.projectileSpeed > 0) {
@@ -393,6 +399,7 @@ export function step(state: SimState, dt: number, cfg: GameConfig): SimEvent[] {
     if (u.hp <= 0) continue;
     if (u.cooldown > 0) u.cooldown = Math.max(0, u.cooldown - dt);
     if (u.flash > 0) u.flash = Math.max(0, u.flash - dt);
+    if (u.recoil > 0) u.recoil = Math.max(0, u.recoil - dt);
 
     // Necromancers and friends raise reinforcements on a timer.
     if (u.spawnPeriod > 0 && u.spawnKind) {
@@ -571,7 +578,15 @@ export function step(state: SimState, dt: number, cfg: GameConfig): SimEvent[] {
     } else {
       state.battleUnitsLost += 1;
     }
-    events.push({ type: 'kill', team: u.team, kind: u.kind, x: u.x, y: u.y, bounty: u.bounty });
+    events.push({
+      type: 'kill',
+      team: u.team,
+      kind: u.kind,
+      x: u.x,
+      y: u.y,
+      bounty: u.bounty,
+      aim: u.aim,
+    });
   }
   if (died) state.units = state.units.filter((u) => u.hp > 0);
 

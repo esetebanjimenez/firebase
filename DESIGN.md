@@ -111,6 +111,18 @@ sized by that kind's own `radius`. A skeleton, a knight and a bone giant are one
 construction at three sizes rather than three hand-drawn buckets, which is what
 lets 21 kinds have 21 silhouettes instead of six.
 
+Colour comes from a five-slot ramp: a lit front, a mid-tone body, a shaded
+underside, an accent for visors and trim, and an outline. The shade slot is what
+stops a unit reading as a flat disc with a rim.
+
+Each body is built in the four poses of a walk cycle — feet together, left lead,
+together, right lead — with the figure lifting on the passing frames, the arms
+swinging opposite each other, and the shoulders rolling. The cycle advances with
+distance covered rather than with time, so a plodding golem and a scurrying
+ghoul are paced by their own speed without either needing special timing. Firing
+kicks a shooter back along its aim for a moment, and the dead leave a body that
+settles and fades instead of blinking out.
+
 Gear (`render/gear.ts`) is drawn live on top, along the unit's aim, in the rank
 colour. Because the battlefield and the UI's icons call the same two functions,
 a deploy button cannot drift from the soldier that walks out of the gate.

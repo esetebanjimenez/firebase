@@ -21,6 +21,14 @@ import { createLayer, type Ramp } from './pixel';
 import { unitSprites } from './sprites';
 import { bakeTerrain, type TerrainLayer } from './terrain';
 
+interface Corpse {
+  readonly kind: UnitKindId;
+  readonly x: number;
+  readonly y: number;
+  life: number;
+  readonly maxLife: number;
+}
+
 interface Particle {
   kind: 'spark' | 'puff' | 'ring' | 'coin' | 'flash' | 'smoke';
   x: number;
@@ -49,6 +57,7 @@ export class Renderer {
   private readonly fieldCanvas: HTMLCanvasElement;
   private terrain: TerrainLayer;
   private particles: Particle[] = [];
+  private corpses: Corpse[] = [];
   private shake = 0;
   private clock = 0;
 
@@ -95,6 +104,7 @@ export class Renderer {
     this.clock += dt;
     this.consume(fx);
     this.advanceParticles(dt);
+    this.advanceCorpses(dt);
     if (this.shake > 0) this.shake = Math.max(0, this.shake - dt * 14);
 
     const ctx = this.field;
@@ -103,6 +113,7 @@ export class Renderer {
 
     this.drawWallDamage(state);
     this.drawHazards(state);
+    this.drawCorpses();
     this.drawUnits(state);
     this.drawTowers(state);
     this.drawProjectiles(state);
@@ -161,6 +172,9 @@ export class Renderer {
           }
           break;
         case 'kill':
+          if (this.corpses.length < 60) {
+            this.corpses.push({ kind: event.kind, x: event.x, y: event.y, life: 1.6, maxLife: 1.6 });
+          }
           for (let i = 0; i < 7; i++) {
             const a = Math.random() * Math.PI * 2;
             this.push(
@@ -219,6 +233,33 @@ export class Renderer {
   ): void {
     if (this.particles.length > 400) return;
     this.particles.push({ kind, x, y, vx, vy, life, maxLife: life, color, size });
+  }
+
+  private advanceCorpses(dt: number): void {
+    if (this.corpses.length === 0) return;
+    const live: Corpse[] = [];
+    for (const c of this.corpses) {
+      c.life -= dt;
+      if (c.life > 0) live.push(c);
+    }
+    this.corpses = live;
+  }
+
+  /** Fallen bodies, drawn under everything still standing. */
+  private drawCorpses(): void {
+    for (const c of this.corpses) {
+      const t = c.life / c.maxLife;
+      const sprites = unitSprites(c.kind);
+      // Settle into the ground over the first moments, then fade out.
+      const frame = sprites.frames[t > 0.75 ? 1 : 0];
+      this.field.globalAlpha = t < 0.35 ? t / 0.35 : 1;
+      this.field.drawImage(
+        frame.canvas,
+        Math.round(c.x - sprites.originX),
+        Math.round(c.y - sprites.originY + (1 - t) * 2),
+      );
+      this.field.globalAlpha = 1;
+    }
   }
 
   private advanceParticles(dt: number): void {
@@ -330,9 +371,13 @@ export class Renderer {
 
   private drawUnit(unit: Unit): void {
     const sprites = unitSprites(unit.kind);
-    const frame = sprites.frames[Math.floor(unit.anim / 12) % 2];
-    const x = Math.round(unit.x - sprites.originX);
-    const y = Math.round(unit.y - sprites.originY);
+    // The walk cycle advances with distance covered, so a slow golem plods and
+    // a ghoul scurries without either needing its own timing.
+    const frame = sprites.frames[Math.floor(unit.anim / 9) % sprites.frames.length];
+    // Firing kicks the shooter back along its aim for a moment.
+    const kick = unit.recoil > 0 ? Math.min(2, unit.recoil * 22) : 0;
+    const x = Math.round(unit.x - sprites.originX - Math.cos(unit.aim) * kick);
+    const y = Math.round(unit.y - sprites.originY - Math.sin(unit.aim) * kick);
 
     this.drawKit(unit);
     this.field.drawImage(frame.canvas, x, y);

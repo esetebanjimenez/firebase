@@ -114,6 +114,8 @@ export interface Unit {
   anim: number;
   /** Seconds of hit-flash left. Render-only. */
   flash: number;
+  /** Seconds of firing recoil left: the kick after an attack. Render-only. */
+  recoil: number;
 }
 
 export interface Projectile {
@@ -287,7 +289,16 @@ export type SimEvent =
   | { type: 'spawn'; team: Team; kind: UnitKindId; x: number; y: number }
   | { type: 'shot'; kind: ProjectileKind; x: number; y: number; aim: number }
   | { type: 'hit'; x: number; y: number; team: Team }
-  | { type: 'kill'; team: Team; kind: UnitKindId; x: number; y: number; bounty: number }
+  | {
+      type: 'kill';
+      team: Team;
+      kind: UnitKindId;
+      x: number;
+      y: number;
+      bounty: number;
+      /** Facing at the moment of death, so the body falls the way it stood. */
+      aim: number;
+    }
   | { type: 'wallHit'; x: number; y: number; damage: number }
   | { type: 'explosion'; x: number; y: number; radius: number }
   | { type: 'burn'; x: number; y: number; radius: number }
