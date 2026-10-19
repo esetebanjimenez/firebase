@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { defaultConfig as cfg } from '../config';
+import { towerPositions } from '../derive';
 import { buyAbility, buyUpgrade, deployUnit, launchWave, unlockUnit } from '../actions';
 import { deserialize, serialize, toSaveState } from '../persistence';
 import { step, syncDerived } from '../engine';
@@ -104,7 +105,7 @@ describe('saves written against different field geometry', () => {
     const loaded = deserialize(serialize(state, 1), cfg)!.state;
     syncDerived(loaded, cfg);
 
-    expect(loaded.towers.map((t) => t.x)).toEqual([...cfg.field.towerX]);
+    expect(loaded.towers.map((t) => t.x)).toEqual(towerPositions(cfg, loaded.upgrades.towers));
     for (const tower of loaded.towers) {
       expect(tower.y).toBe(cfg.field.towerY);
       // On the wall, not out in the field where the enemy walks.

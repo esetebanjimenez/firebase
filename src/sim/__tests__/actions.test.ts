@@ -26,7 +26,7 @@ describe('upgrades', () => {
     const state = freshState();
     state.credits = 0;
     expect(buyUpgrade(state, cfg, 'towers')).toBe(false);
-    expect(state.upgrades.towers).toBe(1);
+    expect(state.upgrades.towers).toBe(0);
   });
 
   it('charges credits and raises the level', () => {
@@ -35,7 +35,7 @@ describe('upgrades', () => {
     state.credits = cost;
     expect(buyUpgrade(state, cfg, 'towers')).toBe(true);
     expect(state.credits).toBe(0);
-    expect(state.upgrades.towers).toBe(2);
+    expect(state.upgrades.towers).toBe(1);
     expect(trackCost(cfg, state, 'towers')).toBeGreaterThan(cost);
   });
 

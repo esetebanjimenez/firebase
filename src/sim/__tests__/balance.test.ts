@@ -7,28 +7,41 @@
 
 import { describe, expect, it } from 'vitest';
 import { defaultConfig as cfg } from '../config';
+import { towerUpgradeCost } from '../derive';
 import { planWave } from '../waves';
 import { autoFight, autoRun, autoShop, freshState, runWave } from './helpers';
 
 describe('the opening', () => {
-  it('is winnable with the starting towers and nothing else', () => {
+  /**
+   * The parapet starts empty on purpose. Four guns from wave 1 cleared the
+   * early waves on their own, so the gate — the thing the whole game is about
+   * — was optional exactly where it should be teaching you to use it.
+   */
+  it('cannot be won by standing still', () => {
+    const state = freshState();
+    const { result } = runWave(state, { deploy: null });
+    expect(result.won).toBe(false);
+    expect(state.towers).toHaveLength(0);
+  });
+
+  it('is winnable from wave 1 by sending soldiers out', () => {
     const state = freshState();
     for (let wave = 1; wave <= 3; wave++) {
-      const { result } = runWave(state, { deploy: null });
-      expect(result.won).toBe(true);
+      const { result } = runWave(state, { deploy: 'rifleman' });
+      expect(result.won, `wave ${wave}`).toBe(true);
     }
     expect(state.bestWave).toBe(3);
   });
 
   it('pays enough for a first upgrade inside two waves', () => {
     const state = freshState();
-    runWave(state, { deploy: null });
-    runWave(state, { deploy: null });
-    expect(state.credits).toBeGreaterThanOrEqual(cfg.wall.baseCost);
+    runWave(state, { deploy: 'rifleman' });
+    runWave(state, { deploy: 'rifleman' });
+    expect(state.credits).toBeGreaterThanOrEqual(towerUpgradeCost(cfg, 1));
   });
 
   it('cannot be beaten by ignoring the gate forever', () => {
-    // Towers alone must run out of road well before the late game.
+    // Guns alone must run out of road well before the late game.
     const state = freshState();
     let cleared = 0;
     for (let i = 0; i < 25; i++) {

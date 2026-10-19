@@ -60,17 +60,20 @@ describe('units wear their rank', () => {
   });
 
   it('gives enemies of a late wave a higher rank than wave one', () => {
-    const early = freshState();
-    launchWave(early, cfg);
-    step(early, DT, cfg);
-    const firstWave = early.units.find((u) => u.team === 'enemy')!;
+    // Spawns are spread over the wave's window, so step until one walks on
+    // rather than assuming the first tick produces a body.
+    const firstEnemy = (wave: number) => {
+      const state = freshState();
+      state.wave = wave;
+      launchWave(state, cfg);
+      for (let i = 0; i < 30 / DT; i++) {
+        step(state, DT, cfg);
+        const enemy = state.units.find((u) => u.team === 'enemy');
+        if (enemy) return enemy;
+      }
+      throw new Error(`wave ${wave} never spawned anything`);
+    };
 
-    const late = freshState();
-    late.wave = 30;
-    launchWave(late, cfg);
-    step(late, DT, cfg);
-    const lateWave = late.units.find((u) => u.team === 'enemy')!;
-
-    expect(lateWave.rank.index).toBeGreaterThan(firstWave.rank.index);
+    expect(firstEnemy(30).rank.index).toBeGreaterThan(firstEnemy(1).rank.index);
   });
 });

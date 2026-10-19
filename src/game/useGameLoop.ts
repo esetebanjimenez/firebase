@@ -37,6 +37,7 @@ import {
   step,
   syncDerived,
   toggleAutomation,
+  towerCount,
   towerDps,
   uncoveredStrip,
   trackCost,
@@ -181,11 +182,17 @@ function buildUpgrades(state: SimState, cfg: GameConfig): UpgradeView[] {
       case 'wall':
         detail = `${Math.round(wallMaxHp(cfg, level))} → ${Math.round(wallMaxHp(cfg, level + 1))} hp`;
         break;
-      case 'towers':
+      case 'towers': {
+        const built = towerCount(cfg, level);
+        const next = towerCount(cfg, level + 1);
         detail =
-          `${towerDps(cfg, level).toFixed(1)} → ${towerDps(cfg, level + 1).toFixed(1)} dps each` +
-          ` · strip ${Math.round(uncoveredStrip(cfg, level))} → ${Math.round(uncoveredStrip(cfg, level + 1))}`;
+          next > built
+            ? `builds gun ${next} of ${cfg.field.towerX.length}` +
+              ` · ${towerDps(cfg, level + 1).toFixed(1)} dps each`
+            : `${towerDps(cfg, level).toFixed(1)} → ${towerDps(cfg, level + 1).toFixed(1)} dps each` +
+              ` · strip ${Math.round(uncoveredStrip(cfg, level))} → ${Math.round(uncoveredStrip(cfg, level + 1))}`;
         break;
+      }
       case 'charges':
         detail = `${chargeMax(cfg, level)} → ${chargeMax(cfg, level + 1)} charges`;
         break;

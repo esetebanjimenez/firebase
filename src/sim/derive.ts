@@ -27,6 +27,21 @@ export function wallUpgradeCost(cfg: GameConfig, level: number): number {
 
 // --- Towers ----------------------------------------------------------------
 
+/**
+ * How many emplacements stand on the parapet at this tower level. Level 0 is
+ * an empty wall: the guns are something you build, not something you start
+ * with, so the early waves are the soldiers' job.
+ */
+export function towerCount(cfg: GameConfig, level: number): number {
+  const built = Math.ceil(Math.max(0, level) / cfg.towers.emplacementEvery);
+  return Math.min(cfg.field.towerX.length, built);
+}
+
+/** Where the guns bought so far stand, in the order they are built. */
+export function towerPositions(cfg: GameConfig, level: number): number[] {
+  return cfg.field.towerBuildOrder.slice(0, towerCount(cfg, level)).map((i) => cfg.field.towerX[i]);
+}
+
 export function towerDamage(cfg: GameConfig, level: number): number {
   return cfg.towers.baseDamage * Math.pow(cfg.towers.damageGrowth, Math.max(0, level - 1));
 }
@@ -75,8 +90,12 @@ export function towerDps(cfg: GameConfig, level: number): number {
   return towerDamage(cfg, level) / towerPeriod(cfg, level);
 }
 
+/**
+ * Towers are the one track that starts at level 0, so the exponent is shifted:
+ * the first gun costs the base price and every level after it compounds.
+ */
 export function towerUpgradeCost(cfg: GameConfig, level: number): number {
-  return geometricCost(cfg.towers.baseCost, cfg.towers.costGrowth, level);
+  return geometricCost(cfg.towers.baseCost, cfg.towers.costGrowth, level + 1);
 }
 
 // --- Soldiers -------------------------------------------------------------

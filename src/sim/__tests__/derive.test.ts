@@ -10,7 +10,10 @@ import {
   incomePerSec,
   playerUnitStats,
   rechargeSec,
+  towerCount,
   towerDps,
+  towerPositions,
+  towerUpgradeCost,
   unitUpgradeCost,
   towerPeriod,
   wallMaxHp,
@@ -19,6 +22,7 @@ import {
 } from '../derive';
 import { PLAYER_UNITS } from '../roster';
 import { createInitialState } from '../state';
+import { freshState } from './helpers';
 
 describe('cost curves', () => {
   it('charges the base price for the first level and grows geometrically', () => {
@@ -108,5 +112,41 @@ describe('idle income', () => {
     expect(incomePerSec(cfg, 0)).toBeCloseTo(cfg.idle.baseCreditsPerSec, 6);
     expect(incomePerSec(cfg, 10)).toBeCloseTo(cfg.idle.baseCreditsPerSec * cfg.idle.incomeGrowth ** 10, 6);
     expect(incomePerSec(cfg, 20)).toBeGreaterThan(incomePerSec(cfg, 5));
+  });
+});
+
+describe('the parapet fills up', () => {
+  it('starts empty, so wave 1 is the gate\'s job', () => {
+    expect(towerCount(cfg, 0)).toBe(0);
+    expect(towerPositions(cfg, 0)).toEqual([]);
+    expect(freshState().towers).toHaveLength(0);
+  });
+
+  it('adds a gun every few levels, and never more than the wall holds', () => {
+    let previous = 0;
+    for (let level = 0; level <= 40; level++) {
+      const count = towerCount(cfg, level);
+      expect(count).toBeGreaterThanOrEqual(previous);
+      expect(count - previous).toBeLessThanOrEqual(1);
+      expect(count).toBeLessThanOrEqual(cfg.field.towerX.length);
+      previous = count;
+    }
+    expect(towerCount(cfg, 40)).toBe(cfg.field.towerX.length);
+  });
+
+  it('builds the gate pair before the flanks', () => {
+    const gate = cfg.field.gateX;
+    const nearest = (xs: number[]) => Math.min(...xs.map((x) => Math.abs(x - gate)));
+    // The first guns up are closer to the gate than the last ones.
+    expect(nearest(towerPositions(cfg, 2))).toBeLessThan(
+      Math.max(...towerPositions(cfg, 99).map((x) => Math.abs(x - gate))),
+    );
+  });
+
+  it('prices the first gun at the base cost, then compounds', () => {
+    expect(towerUpgradeCost(cfg, 0)).toBe(cfg.towers.baseCost);
+    for (let level = 0; level < 10; level++) {
+      expect(towerUpgradeCost(cfg, level + 1)).toBeGreaterThan(towerUpgradeCost(cfg, level));
+    }
   });
 });

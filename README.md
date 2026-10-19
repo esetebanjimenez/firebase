@@ -11,7 +11,8 @@ rams, golems, wraiths and the necromancers raising more of them.
 
 ## The loop
 
-1. **Prep.** Spend credits. The wall gets tougher, the towers hit harder, the
+1. **Prep.** Spend credits. The wall gets tougher, the parapet gets another gun
+   (it starts empty — see below), the
    deployment pool gets deeper and recharges faster, and fire support unlocks
    and levels up. Soldiers improve **one kind at a time**: a Rifleman level
    buys riflemen more hit points, damage and a little speed — and nothing for
@@ -21,8 +22,8 @@ rams, golems, wraiths and the necromancers raising more of them.
    you tell a wave-30 skeleton from a wave-3 one.
 2. **Launch.** You decide when the wave comes — nothing starts without you.
    Enemies pour in from the top and head for the wall.
-3. **Fight.** Your towers cover almost the whole field — all but a strip along
-   the top, which upgrades shave down row by row. Each soldier kind has its own
+3. **Fight.** Any guns you have built cover almost the whole field — all but a
+   strip along the top, which upgrades shave down row by row. Each soldier kind has its own
    button, and pressing one puts that soldier through the gate immediately — a
    charge per rifleman or shield bearer, two for a gunner or a rocketeer.
    Charges come back one at a time, so a wave is a sequence of decisions, not
@@ -32,7 +33,12 @@ rams, golems, wraiths and the necromancers raising more of them.
    0 HP and you re-fight the same wave. Either way **every credit you earned is
    yours** and the wall is rebuilt to full.
 
-Your soldiers hold **a line drawn across the field** under the guns. They fight
+**The parapet starts empty.** There are four gun pads on the wall and nothing
+standing in them; each Towers level builds the next gun, then makes the ones
+you have hit harder. Wave 1 is the gate's job, not the guns'.
+
+Your soldiers hold **a line drawn across the field** under whatever guns you
+have built. They fight
 from that line and return to it rather than chasing, and only advance on an
 enemy that has stopped out of reach and refuses to close. Shield bearers hold in
 front of it, rocketeers behind. Enemies charge your soldiers, and press the wall

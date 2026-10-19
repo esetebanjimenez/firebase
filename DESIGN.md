@@ -99,8 +99,22 @@ shield screens nothing.
 
 ### Towers, the strip, and siege
 
-The guns reach **almost the whole field, except a strip along the top**, and
-upgrading them shaves rows off that strip. This replaced a tower *range* that
+**The parapet starts empty.** Four guns from wave 1 answered the early waves on
+their own, which made deploying soldiers optional exactly where the game should
+be teaching you to do it — the complaint was that you simply never needed the
+gate. So the wall now has four pads and nothing in them, levels build the guns
+one at a time, and the first waves are the gate's job. The emplacements are
+baked into the terrain either way, so an empty pad reads as something to fill
+rather than as missing art.
+
+Spreading the guns over several levels is also what lets each level be small.
+The old track handed you the whole battery at level 1 and then multiplied it;
+the new one adds a gun every other level and a modest damage step in between,
+which is a longer run of cheaper, smaller decisions — and the campaign reaches
+further than it did before (wave 57 for the scripted auto-player, against 49).
+
+Once built, the guns reach **almost the whole field, except a strip along the
+top**, and upgrading them shaves rows off that strip. This replaced a tower *range* that
 grew outward from the wall, and it is a better system for one reason: a radius
 made tower level and soldier placement the same decision, and every change to
 one broke the other. A strip makes tower level a question about territory
@@ -286,7 +300,7 @@ formality.
 `src/sim/__tests__/balance.test.ts` runs a scripted player: it buys the cheapest
 useful thing, spends every charge the moment it has one, and drops abilities on
 crowds. Every balance claim in this document is something that test checks — the
-opening is winnable on towers alone, naive play reaches wave 20, towers alone
+opening is not winnable on guns alone, naive play reaches wave 20, towers alone
 run out of road, no wave can stall, and a wave deep into a run still takes real
 time to clear.
 

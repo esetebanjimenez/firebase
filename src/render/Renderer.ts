@@ -433,10 +433,19 @@ export class Renderer {
     this.px(x, y, color, Math.max(1, Math.round(w * ratio)), 2);
   }
 
-  /** Tower barrels track their target, which is the only moving part up there. */
+  /**
+   * The guns that have actually been bought. The stone pads for all four are
+   * baked into the terrain; the hardware standing in them is drawn here, so
+   * the parapet visibly fills up as the Towers track is levelled.
+   */
   private drawTowers(state: SimState): void {
     const period = towerPeriod(this.cfg, state.upgrades.towers);
+    const { wallTop } = this.cfg.field;
     for (const tower of state.towers) {
+      // The emplacement body, sitting in its pad.
+      this.px(tower.x - 10, wallTop - 8, PALETTE.towerBody, 20, 20);
+      this.px(tower.x - 10, wallTop - 8, PALETTE.wallStoneLight, 20, 2);
+      this.px(tower.x - 4, wallTop - 8, PALETTE.towerBarrel, 8, 8);
       let aim = -Math.PI / 2;
       let nearest = Infinity;
       for (const unit of state.units) {

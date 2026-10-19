@@ -23,6 +23,7 @@ import {
   rechargeSec,
   towerDamage,
   towerPeriod,
+  towerPositions,
   towerRange,
   wallMaxHp,
 } from './derive';
@@ -51,7 +52,7 @@ export function syncDerived(state: SimState, cfg: GameConfig): void {
   // different field would otherwise restore its own coordinates and leave the
   // guns standing in the middle of the map — shooting from there, too, since
   // the engine measures tower range from these same positions.
-  state.towers = cfg.field.towerX.map((x, i) => ({
+  state.towers = towerPositions(cfg, state.upgrades.towers).map((x, i) => ({
     id: i + 1,
     x,
     y: cfg.field.towerY,
