@@ -22,9 +22,29 @@ interface Props {
   armedRadius: number | null;
   armedReady: boolean;
   onCast: (x: number, y: number) => void;
+  /**
+   * A tap on the field while no ability is armed. Field coordinates, plus
+   * where that landed on screen so the caller can hang a control off it.
+   */
+  onTap?: (point: {
+    x: number;
+    y: number;
+    screenX: number;
+    screenY: number;
+    /** CSS pixels per field pixel, so the caller can place things exactly. */
+    scale: number;
+  }) => void;
 }
 
-export function BattlefieldCanvas({ stateRef, fxRef, config, armedRadius, armedReady, onCast }: Props) {
+export function BattlefieldCanvas({
+  stateRef,
+  fxRef,
+  config,
+  armedRadius,
+  armedReady,
+  onCast,
+  onTap,
+}: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const hostRef = useRef<HTMLDivElement | null>(null);
   const rendererRef = useRef<Renderer | null>(null);
@@ -83,12 +103,23 @@ export function BattlefieldCanvas({ stateRef, fxRef, config, armedRadius, armedR
 
   const onPointerDown = useCallback(
     (event: React.PointerEvent<HTMLCanvasElement>) => {
-      if (armedRadius === null) return;
+      if (armedRadius === null) {
+        // Nothing armed, so the tap belongs to whatever is on the field —
+        // the gun pads use this to let you fit them where you can see them.
+        const renderer = rendererRef.current;
+        const point = pointAt(event.clientX, event.clientY);
+        if (onTap && point && renderer) {
+          const here = renderer.toScreenCoords(point.x, point.y);
+          const step = renderer.toScreenCoords(point.x + 1, point.y);
+          onTap({ ...point, screenX: here.x, screenY: here.y, scale: step.x - here.x });
+        }
+        return;
+      }
       event.currentTarget.setPointerCapture(event.pointerId);
       pressingRef.current = true;
       aimRef.current = pointAt(event.clientX, event.clientY);
     },
-    [armedRadius, pointAt],
+    [armedRadius, onTap, pointAt],
   );
 
   const onPointerMove = useCallback(

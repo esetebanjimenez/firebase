@@ -183,7 +183,7 @@ export interface UiSnapshot {
   wall: { level: number; hp: number; maxHp: number; pct: number };
   towers: { level: number; count: number; dps: number; uncoveredRows: number };
   /** Each pad and what is bolted into it, in build order. */
-  pads: { id: number; weapon: TowerWeaponId; short: string }[];
+  pads: { id: number; weapon: TowerWeaponId; short: string; x: number; y: number }[];
   /** The three gun tracks: what they do, what the next level costs. */
   guns: GunView[];
   charges: { current: number; max: number; rechargeProgress: number; rechargeSec: number };
@@ -382,6 +382,8 @@ function buildSnapshot(state: SimState, cfg: GameConfig): UiSnapshot {
       id: t.id,
       weapon: t.weapon,
       short: TOWER_WEAPONS[t.weapon].short,
+      x: t.x,
+      y: t.y,
     })),
     guns: TOWER_WEAPON_ORDER.map((id) => {
       const def = TOWER_WEAPONS[id];

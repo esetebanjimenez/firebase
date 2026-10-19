@@ -98,6 +98,22 @@ export class Renderer {
     };
   }
 
+  /**
+   * The inverse of `toFieldCoords`: where a point on the field sits on screen,
+   * in CSS pixels relative to the canvas. Used to hang controls off things the
+   * player can see, like the gun pads on the wall.
+   */
+  toScreenCoords(x: number, y: number): { x: number; y: number } {
+    const rect = this.canvas.getBoundingClientRect();
+    const dpr = this.canvas.width / Math.max(1, rect.width);
+    const { width, height } = this.cfg.field;
+    const layout = fieldLayout(this.canvas.width, this.canvas.height, width, height);
+    return {
+      x: (x * layout.scale + layout.offsetX) / dpr,
+      y: (y * layout.scale + layout.offsetY) / dpr,
+    };
+  }
+
   // --- Frame ---------------------------------------------------------------
 
   render(state: SimState, fx: SimEvent[], dt: number, opts: RenderOptions = {}): void {

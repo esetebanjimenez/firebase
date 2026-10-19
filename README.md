@@ -50,7 +50,7 @@ the wall for them.
 
 **The guns are a decision too.** Each pad on the wall takes an MG emplacement
 (hordes), a grenade launcher (skirmish lines) or a rocket launcher (armour).
-Re-fitting is free between waves, so you answer the wave you can see — but
+Tap a pad on the wall to fit it. Re-fitting is free between waves, so you answer the wave you can see — but
 levels are per gun type, so the answer is only as good as the track you have
 been feeding.
 

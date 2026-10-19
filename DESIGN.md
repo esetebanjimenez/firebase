@@ -343,6 +343,13 @@ and the strip they cannot cover is where siege lives; giving one gun more reach
 would hand it the siege problem, which is meant to be answered by going out
 there.
 
+**You fit a pad by pointing at it.** Tapping a gun pad on the wall opens a
+picker over it; the list in the panel is an abstraction over the same four
+objects, kept for when a thumb is not precise enough. The picker anchors on the
+pad rather than on wherever the tap landed, so it appears in the same place
+however accurate you were, and a tap anywhere else closes it — there is no way
+to get stuck in it.
+
 **Levels are per gun type, placement is per pad.** Upgrading the MG lifts every
 MG on the wall. Re-fitting is free and only between waves, so the parapet is
 chosen against the wave you can see while what limits you is how far each gun's
