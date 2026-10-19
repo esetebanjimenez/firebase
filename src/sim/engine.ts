@@ -565,17 +565,22 @@ export function step(state: SimState, dt: number, cfg: GameConfig): SimEvent[] {
           u.aim = -Math.PI / 2;
         }
       } else if (holdPost) {
-        // Stand on the line and work from there. Walking to the post covers
-        // both directions: a soldier that advanced to deal with something
-        // comes back afterwards, which is what stops the front creeping up
-        // the field over a wave. Firing is not exclusive with that — they
-        // shoot while they reposition.
-        if (Math.abs(u.y - line) > 1) {
+        // Range ends the walk. A soldier marches until something is actually
+        // within its weapon's reach, then plants and fires — it does not keep
+        // strolling to a bookkeeping row with a rifle going off, which is what
+        // this used to look like.
+        //
+        // Walking covers both directions, so once the shooting stops a soldier
+        // that advanced on something returns to the line instead of leaving
+        // the front creeping up the field over a wave. The line is where they
+        // go when nothing is in reach, not a place they have to stand.
+        if (target && d <= reach) {
+          if (u.cooldown <= 0) attackUnit(state, cfg, u, target, events);
+        } else if (Math.abs(u.y - line) > 1) {
           const toward = stepToward(u.x, u.y, u.x, line, u.speed * dt);
           u.y = toward.y;
           u.anim += u.speed * dt;
         }
-        if (target && d <= reach && u.cooldown <= 0) attackUnit(state, cfg, u, target, events);
       } else if (target) {
         // Committed advance on something that will not come to us.
         if (d > reach) {
