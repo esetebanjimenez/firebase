@@ -108,7 +108,7 @@ describe('saves written against different field geometry', () => {
     for (const tower of loaded.towers) {
       expect(tower.y).toBe(cfg.field.towerY);
       // On the wall, not out in the field where the enemy walks.
-      expect(tower.y).toBeGreaterThan(cfg.field.musterY);
+      expect(tower.y).toBeGreaterThan(cfg.field.height * 0.6);
     }
   });
 

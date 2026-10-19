@@ -12,7 +12,7 @@
  * dropped, resized or re-created at any time without touching a battle.
  */
 
-import { ENEMY_UNITS, PLAYER_UNITS, towerPeriod } from '../sim';
+import { ENEMY_UNITS, PLAYER_UNITS, coverLineY, towerPeriod } from '../sim';
 import type { GameConfig, Hazard, SimEvent, SimState, Unit, UnitKindId, UnitMark } from '../sim';
 import { PALETTE } from './palette';
 import { drawGear } from './gear';
@@ -112,6 +112,7 @@ export class Renderer {
     ctx.drawImage(this.terrain.canvas, 0, 0);
 
     this.drawWallDamage(state);
+    this.drawCoverLine(state);
     this.drawHazards(state);
     this.drawCorpses();
     this.drawUnits(state);
@@ -307,6 +308,24 @@ export class Renderer {
         const seed = (i * 40503 + 7) >>> 0;
         this.px(seed % width, wallTop - 1 - (seed % 2), PALETTE.wallStoneDark);
       }
+    }
+  }
+
+  /**
+   * The edge of the towers' cover — the line the soldiers hold. Drawn because a
+   * rule you cannot see reads as a bug: with the scalloped arc on screen,
+   * troops stopping at it reads as holding a line, and a tower upgrade visibly
+   * pushes that line up the field.
+   */
+  private drawCoverLine(state: SimState): void {
+    const { width } = this.cfg.field;
+    const level = state.upgrades.towers;
+    for (let x = 0; x < width; x += 2) {
+      const y = coverLineY(this.cfg, level, x);
+      if (y >= this.cfg.field.towerY - 1) continue; // no cover here: nothing to draw
+      // A dotted boundary, with a sparse wash of lit ground just inside it.
+      if ((x >> 1) % 2 === 0) this.px(x, y, PALETTE.coverLine);
+      if ((x >> 1) % 4 === 0) this.px(x, y + 4, PALETTE.coverGround);
     }
   }
 

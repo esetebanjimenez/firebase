@@ -38,8 +38,6 @@ export interface GameConfig {
     readonly spawnBottom: number;
     /** Keep spawns and movement this far from the left/right edges. */
     readonly sideMargin: number;
-    /** Where idle player units park when the field is clear. */
-    readonly musterY: number;
     /** Tower emplacements along the wall. */
     readonly towerX: readonly number[];
     readonly towerY: number;
@@ -60,6 +58,28 @@ export interface GameConfig {
     readonly projectileSpeed: number;
     readonly baseCost: number;
     readonly costGrowth: number;
+  };
+
+  /**
+   * The ground your towers can support, and how far your soldiers will go.
+   * Soldiers hold the line the guns can cover rather than a fixed row, so
+   * upgrading the towers visibly pushes your front forward.
+   */
+  readonly support: {
+    /** Share of tower range treated as safely covered ground. */
+    readonly coverFraction: number;
+    /** The umbrella never reaches past this row, however good the towers. */
+    readonly minY: number;
+    /** How far inside the line idle soldiers form up. */
+    readonly musterInset: number;
+    /**
+     * How long a soldier will stand pinned at the line, unable to reach its
+     * target, before pushing out anyway. Without this the leash is a trap:
+     * anything that outranges your soldiers — an archer by eight pixels, a
+     * catapult by a hundred — can sit beyond the line and plink forever, and
+     * the wave never ends.
+     */
+    readonly pushOutSec: number;
   };
 
   readonly wall: {
@@ -205,7 +225,6 @@ export const defaultConfig: GameConfig = {
     spawnTop: 8,
     spawnBottom: 36,
     sideMargin: 20,
-    musterY: 256,
     towerX: [40, 112, 272, 344],
     towerY: 422,
   },
@@ -221,6 +240,13 @@ export const defaultConfig: GameConfig = {
     projectileSpeed: 460,
     baseCost: 50,
     costGrowth: 1.17,
+  },
+
+  support: {
+    coverFraction: 0.85,
+    minY: 72,
+    musterInset: 14,
+    pushOutSec: 2,
   },
 
   wall: {

@@ -116,6 +116,11 @@ export interface Unit {
   flash: number;
   /** Seconds of firing recoil left: the kick after an attack. Render-only. */
   recoil: number;
+  /**
+   * Seconds this unit has been held at the support line with a target it
+   * cannot reach. Past the configured limit it pushes out regardless.
+   */
+  heldAtLine: number;
 }
 
 export interface Projectile {
