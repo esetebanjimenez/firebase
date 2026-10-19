@@ -9,7 +9,13 @@ import type { AbilityId, PlayerUnitId, SimState, Tower } from './types';
 const ABILITY_IDS: AbilityId[] = ['artillery', 'barrage', 'napalm'];
 
 function initialTowers(cfg: GameConfig, level: number): Tower[] {
-  return towerPositions(cfg, level).map((x, i) => ({ id: i + 1, x, y: cfg.field.towerY, cooldown: 0 }));
+  return towerPositions(cfg, level).map((x, i) => ({
+    id: i + 1,
+    x,
+    y: cfg.field.towerY,
+    cooldown: 0,
+    weapon: 'mg' as const,
+  }));
 }
 
 export function createInitialState(cfg: GameConfig, seed: number = cfg.seed): SimState {
@@ -44,6 +50,8 @@ export function createInitialState(cfg: GameConfig, seed: number = cfg.seed): Si
       towers: 0,
       charges: 1,
       recharge: 1,
+      // The MG is the gun you start able to build; the other two are bought.
+      weapons: { mg: 1, grenade: 0, rocket: 0 },
     },
     unlocked,
     unitLevels,

@@ -285,6 +285,94 @@ loss, so every failed attempt still funds the upgrade that eventually breaks
 through. What a streak must not do is last forever, which is what cutting
 bounty caused.
 
+### The parapet is part of the triangle
+
+The guns used to be fixed kinetic, and they do most of a wave's killing —
+turning them off drops a wave's margin from 45-71% to 0-32%. So the largest
+share of the player's output answered every wave equally, and diluted every
+decision they made. Typing the guns turns that dominance into the thing the
+decision moves.
+
+Three can be bolted into a pad, one per damage class:
+
+| Emplacement | Class | Answers | Character |
+| --- | --- | --- | --- |
+| MG Emplacement | Sustained | Hordes | Quarter-second cadence, single target |
+| Grenade Launcher | Kinetic | Skirmish lines | Lobbed airburst, modest splash |
+| Rocket Launcher | Explosive | Armoured columns | One heavy warhead every two seconds |
+
+Range is deliberately shared. How far the guns reach is a property of the wall,
+and the strip they cannot cover is where siege lives; giving one gun more reach
+would hand it the siege problem, which is meant to be answered by going out
+there.
+
+**Levels are per gun type, placement is per pad.** Upgrading the MG lifts every
+MG on the wall. Re-fitting is free and only between waves, so the parapet is
+chosen against the wave you can see while what limits you is how far each gun's
+own track has been levelled — you can always answer a column, but your rocket
+level may be a long way behind your MG.
+
+**Cadence beat the coefficient, so the guns needed targeting rules.** With the
+counter multiplier alone, fitting the shape's counter *lost* to leaving every
+pad on the MG: a quarter-second gun has near-perfect uptime and wastes almost
+nothing, while a two-second rocket pours most of a warhead into a skeleton.
+Rate of fire beat the matchup every time. So each gun aims its own way — the MG
+takes whatever is closest to the wall, the grenade launcher the best-packed
+cluster, the rocket the heaviest thing it can see. That is a mechanic rather
+than a bigger number, which is what the measurements had been pointing at all
+along: refitting went from 2.6 points *worse* than never refitting to 2.4
+points better.
+
+### Why tactics are still a margin more than a decision
+
+The counter triangle was built to make deployment a choice. Measured at the
+frontier a player actually lives on — upgrade, fight the wave you are stuck
+on, repeat — bringing the shape's counter instead of plain riflemen flips the
+result in **one attempt out of forty**, and is worth **0.3 percentage points**
+of leftover wall on average. Sometimes it is worse: the worst case measured
+was twenty-one points *down*.
+
+Four levers were tried against that number, and none of them moved it:
+
+- **The multiplier.** From 1.5x up to 2.4x. Separation between units widens on
+  columns and hordes, but skirmish waves stay flat whatever the number.
+- **Unit stats.** The Rocketeer was strictly the best unit on every shape,
+  including the hordes it is supposed to lose to, because range 100 and a
+  30-pixel splash beat a 0.65x penalty. Cutting the splash fixed that — and
+  simply moved dominance to the Machine Gunner.
+- **Shape purity and threat.** Both were real bugs and both are fixed (below).
+  Neither changed the frontier number.
+- **Tower scaling.** Turning the guns off drops a wave's margin from 45-71% to
+  0-32%, so the parapet does most of the killing — and tower guns are fixed
+  kinetic, so that damage is the same whatever you deploy. Cutting tower growth
+  dilutes less but re-opens the difficulty curve: at 1.13 the scripted player
+  stalls at wave 12.
+
+The structural reason is that a wave's outcome is the sum of many sources —
+the parapet, the screen, the chosen soldier, fire support — so a 50% modifier
+on one component of one source is a small share of the whole. Making the
+choice decisive needs a *qualitative* counter rather than a larger
+coefficient: armour-piercing that ignores armour outright, suppression that
+halts a horde, resistance that makes the wrong weapon fail rather than
+underperform. That is a mechanic, not a tuning pass, and it is the open
+question.
+
+What the triangle does deliver today is texture: the right soldier wins a wave
+more comfortably, and no soldier is dominant across all three shapes.
+
+### Shapes differ in what they field, not how hard they hit
+
+A point of budget buys far more hit points as armour than as skirmishers, so
+at a flat budget a column carried 121% of a mixed wave's threat and a horde
+60%. The shape was a difficulty label: a horde was a breather whatever you
+brought, a column dangerous whatever you brought — which is the opposite of
+what a shape is for.
+
+Threat is now scaled per shape, and deliberately not the budget: the field
+caps how many bodies a wave can hold, so buying more of them moved threat from
+60% to only 64%. Scaling hit points instead brings every shape within 92-109%
+of a mixed wave.
+
 **What this does not fix.** Outcomes are close to bimodal — a wave ends with
 roughly 60-75% of the wall standing, or with none of it. With exponential
 scaling the band where a fight is genuinely close is about one wave wide, so a

@@ -32,6 +32,16 @@ export type Team = 'player' | 'enemy';
 export type DamageClass = 'kinetic' | 'explosive' | 'sustained';
 
 /**
+ * What is bolted into a gun pad. The parapet does most of a wave's killing —
+ * measured, turning it off drops a wave's margin from 45-71% to 0-32% — and
+ * for a long time all of it was fixed kinetic, so the largest share of the
+ * player's output answered everything equally and diluted every decision they
+ * made. Typing the guns turns that dominance into the thing the decision
+ * moves.
+ */
+export type TowerWeaponId = 'mg' | 'grenade' | 'rocket';
+
+/**
  * The character of a wave: what the budget was mostly spent on. A wave with a
  * shape is a tactical problem — something to bring the right soldiers to —
  * where an evenly random one is just noise with extra steps.
@@ -217,6 +227,8 @@ export interface WallState {
 
 /** A static defense emplacement on the wall. Position comes from config. */
 export interface Tower {
+  /** Which gun is fitted here. Changed freely between waves. */
+  weapon: TowerWeaponId;
   readonly id: number;
   readonly x: number;
   readonly y: number;
@@ -244,6 +256,8 @@ export interface QueuedSpawn {
 export interface UpgradeState {
   wall: number;
   towers: number;
+  /** Level per gun type, shared by every pad fitted with it. */
+  weapons: Record<TowerWeaponId, number>;
   /** Size of the deployment charge pool. */
   charges: number;
   /** Charge recharge rate. */

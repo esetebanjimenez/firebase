@@ -6,16 +6,22 @@ import { startBattle, step } from '../engine';
 import {
   buyAbility,
   buyUpgrade,
+  buyWeaponLevel,
   deployUnit,
+  fitTowerWeapon,
   trackCost,
   unitLevelCost,
   unlockUnit,
   upgradeUnit,
 } from '../actions';
 import { castAbility } from '../abilities';
-import { abilityCost } from '../derive';
-import { PLAYER_UNITS, PLAYER_UNIT_ORDER } from '../roster';
-import type { AbilityId, BodyClass, PlayerUnitId, SimEvent, SimState, Unit, WaveResult } from '../types';
+import { planWave } from '../waves';
+import {
+  abilityCost,
+  weaponUpgradeCost,
+} from '../derive';
+import { PLAYER_UNITS, PLAYER_UNIT_ORDER, TOWER_WEAPON_ORDER } from '../roster';
+import type { AbilityId, BodyClass, PlayerUnitId, SimEvent, SimState, TowerWeaponId, Unit, WaveResult } from '../types';
 import type { UpgradeTrack } from '../actions';
 
 export const DT = 1 / 30;
@@ -113,6 +119,20 @@ const ABILITIES: AbilityId[] = ['artillery', 'barrage', 'napalm'];
  * Unlock what is comfortably affordable, then buy the cheapest thing on offer —
  * a command track, or a level for one of the soldier kinds.
  */
+/** Bolt the counter to the coming wave into every pad that can take it. */
+export function fitParapet(state: SimState, cfg: GameConfig = defaultConfig): void {
+  const plan = planWave(cfg, state.wave, state.seed);
+  const mix = plan.classMix;
+  const worst = (Object.keys(mix) as BodyClass[]).reduce((a, b) => (mix[b] > mix[a] ? b : a));
+  const wanted: Record<BodyClass, TowerWeaponId> = {
+    armored: 'rocket',
+    swarm: 'mg',
+    elusive: 'grenade',
+  };
+  const pick = state.upgrades.weapons[wanted[worst]] > 0 ? wanted[worst] : 'mg';
+  for (let i = 0; i < state.towers.length; i++) fitTowerWeapon(state, i, pick);
+}
+
 export function autoShop(state: SimState, cfg: GameConfig = defaultConfig): void {
   for (let i = 0; i < 80; i++) {
     let acted = false;
@@ -127,6 +147,14 @@ export function autoShop(state: SimState, cfg: GameConfig = defaultConfig): void
       }
     }
 
+    // Gun tracks are bought like any other: cheapest useful thing first. A
+    // scripted player that never researched the guns would measure a parapet
+    // nobody fields.
+    const cheapestGun = [...TOWER_WEAPON_ORDER].sort(
+      (a, b) => weaponUpgradeCost(a, state.upgrades.weapons[a]) - weaponUpgradeCost(b, state.upgrades.weapons[b]),
+    )[0];
+    const gunPrice = weaponUpgradeCost(cheapestGun, state.upgrades.weapons[cheapestGun]);
+
     const cheapestTrack = [...TRACKS].sort((a, b) => trackCost(cfg, state, a) - trackCost(cfg, state, b))[0];
     const cheapestUnit = PLAYER_UNIT_ORDER.filter((id) => state.unlocked[id]).sort(
       (a, b) => unitLevelCost(cfg, state, a) - unitLevelCost(cfg, state, b),
@@ -134,11 +162,18 @@ export function autoShop(state: SimState, cfg: GameConfig = defaultConfig): void
 
     const trackPrice = trackCost(cfg, state, cheapestTrack);
     const unitPrice = cheapestUnit ? unitLevelCost(cfg, state, cheapestUnit) : Infinity;
-    if (unitPrice <= trackPrice && state.credits >= unitPrice * 1.1) {
+    const best = Math.min(unitPrice, trackPrice, gunPrice);
+    if (best === unitPrice && state.credits >= unitPrice * 1.1) {
       acted = upgradeUnit(state, cfg, cheapestUnit) || acted;
+    } else if (best === gunPrice && state.credits >= gunPrice * 1.1) {
+      acted = buyWeaponLevel(state, cheapestGun) || acted;
     } else if (state.credits >= trackPrice * 1.1) {
       acted = buyUpgrade(state, cfg, cheapestTrack) || acted;
     }
+
+    // Fit the parapet to the wave that is coming: the guns are most of the
+    // killing, so leaving them mismatched measures a player nobody is.
+    fitParapet(state, cfg);
     if (!acted) return;
   }
 }

@@ -16,11 +16,19 @@ import {
   unitUpgradeCost,
   wallMaxHp,
   wallUpgradeCost,
+  weaponUpgradeCost,
 } from './derive';
 import { startBattle, syncDerived } from './engine';
 import { PLAYER_UNITS } from './roster';
 import { createPlayerUnit } from './waves';
-import type { AbilityId, AutomationState, PlayerUnitId, SimEvent, SimState } from './types';
+import type {
+  AbilityId,
+  AutomationState,
+  PlayerUnitId,
+  SimEvent,
+  SimState,
+  TowerWeaponId,
+} from './types';
 
 /** The command-level credit sinks. Soldiers level per kind, not here. */
 export type UpgradeTrack = 'wall' | 'towers' | 'charges' | 'recharge';
@@ -43,6 +51,38 @@ export function trackCost(cfg: GameConfig, state: SimState, track: UpgradeTrack)
 }
 
 /** Buy one level of a track. */
+/**
+ * Bolt a different gun into a pad. Free, and only between waves: the choice of
+ * what the parapet answers is meant to be made against the wave you can see,
+ * while what limits you is how far each gun's own track has been levelled.
+ * Charging for it would punish acting on intel, which is the whole loop.
+ */
+export function fitTowerWeapon(
+  state: SimState,
+  tower: number,
+  weapon: TowerWeaponId,
+): boolean {
+  if (state.phase !== 'prep') return false;
+  if (state.upgrades.weapons[weapon] <= 0) return false;
+  const pad = state.towers[tower];
+  if (!pad) return false;
+  pad.weapon = weapon;
+  pad.cooldown = 0;
+  return true;
+}
+
+/**
+ * Level a gun type, which lifts every pad fitted with it. Level 0 means the
+ * gun has not been researched yet, so the first purchase unlocks it.
+ */
+export function buyWeaponLevel(state: SimState, weapon: TowerWeaponId): boolean {
+  const cost = weaponUpgradeCost(weapon, state.upgrades.weapons[weapon]);
+  if (state.credits < cost) return false;
+  state.credits -= cost;
+  state.upgrades.weapons[weapon] += 1;
+  return true;
+}
+
 export function buyUpgrade(state: SimState, cfg: GameConfig, track: UpgradeTrack): boolean {
   const cost = trackCost(cfg, state, track);
   if (state.credits < cost) return false;
