@@ -9,6 +9,8 @@
 
 import type {
   AttackStyle,
+  BodyClass,
+  DamageClass,
   EnemyUnitId,
   FactionId,
   PlayerUnitId,
@@ -48,6 +50,15 @@ export interface UnitStats {
 
 export interface PlayerUnitDef extends UnitStats {
   readonly id: PlayerUnitId;
+  /** What this soldier's weapon deals, for the counter triangle. */
+  readonly damageClass: DamageClass;
+  /**
+   * What this soldier is for, in the player's words. Stated rather than
+   * derived from the damage class: a Shield Bearer carries a sidearm, so its
+   * class is kinetic, but labelling it "vs Skirmishers" describes the pistol
+   * instead of the job. It screens.
+   */
+  readonly role: string;
   /**
    * Where this kind stands relative to the support line, in field pixels.
    * Negative is forward. Shield bearers step out in front so they are the
@@ -68,6 +79,8 @@ export interface PlayerUnitDef extends UnitStats {
 
 export interface EnemyUnitDef extends UnitStats {
   readonly id: EnemyUnitId;
+  /** What this kind counts as when struck, for the counter triangle. */
+  readonly bodyClass: BodyClass;
   readonly faction: FactionId;
   /** Wave-budget points this unit costs the wave planner. */
   readonly cost: number;
@@ -120,6 +133,8 @@ export const PLAYER_UNITS: Readonly<Record<PlayerUnitId, PlayerUnitDef>> = {
     projectile: 'bullet',
     projectileSpeed: 420,
     splashRadius: 0,
+    role: 'vs Skirmishers',
+    damageClass: 'kinetic',
     siegeBonus: 1,
     radius: 7,
     chargeCost: 1,
@@ -145,6 +160,8 @@ export const PLAYER_UNITS: Readonly<Record<PlayerUnitId, PlayerUnitDef>> = {
     projectile: 'bullet',
     projectileSpeed: 0,
     splashRadius: 0,
+    role: 'Screens',
+    damageClass: 'kinetic',
     siegeBonus: 1,
     radius: 9,
     chargeCost: 1,
@@ -170,9 +187,11 @@ export const PLAYER_UNITS: Readonly<Record<PlayerUnitId, PlayerUnitDef>> = {
     projectile: 'bullet',
     projectileSpeed: 480,
     splashRadius: 0,
+    role: 'vs Hordes',
+    damageClass: 'sustained',
     siegeBonus: 1,
     radius: 7,
-    chargeCost: 2,
+    chargeCost: 1,
     unlockCost: 400,
     upgradeCost: 80,
     silhouette: 'trooper',
@@ -195,9 +214,11 @@ export const PLAYER_UNITS: Readonly<Record<PlayerUnitId, PlayerUnitDef>> = {
     projectile: 'rocket',
     projectileSpeed: 240,
     splashRadius: 30,
+    role: 'vs Armour',
+    damageClass: 'explosive',
     siegeBonus: 1,
     radius: 7,
-    chargeCost: 2,
+    chargeCost: 1,
     unlockCost: 900,
     upgradeCost: 130,
     silhouette: 'trooper',
@@ -267,6 +288,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     projectile: 'arrow',
     projectileSpeed: 0,
     splashRadius: 0,
+    bodyClass: 'swarm',
     siegeBonus: 1,
     radius: 7,
     silhouette: 'grunt',
@@ -290,6 +312,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     projectile: 'arrow',
     projectileSpeed: 0,
     splashRadius: 0,
+    bodyClass: 'swarm',
     siegeBonus: 1,
     radius: 6,
     silhouette: 'grunt',
@@ -313,6 +336,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     projectile: 'arrow',
     projectileSpeed: 260,
     splashRadius: 0,
+    bodyClass: 'elusive',
     siegeBonus: 1,
     radius: 7,
     silhouette: 'grunt',
@@ -336,6 +360,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     projectile: 'arrow',
     projectileSpeed: 0,
     splashRadius: 0,
+    bodyClass: 'armored',
     siegeBonus: 1,
     radius: 9,
     silhouette: 'armored',
@@ -359,6 +384,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     projectile: 'arrow',
     projectileSpeed: 0,
     splashRadius: 0,
+    bodyClass: 'armored',
     siegeBonus: 3,
     radius: 12,
     wallFocused: true,
@@ -383,6 +409,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     projectile: 'boulder',
     projectileSpeed: 140,
     splashRadius: 28,
+    bodyClass: 'armored',
     siegeBonus: 2,
     radius: 10,
     wallFocused: true,
@@ -408,6 +435,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     projectile: 'arrow',
     projectileSpeed: 0,
     splashRadius: 0,
+    bodyClass: 'armored',
     siegeBonus: 1.5,
     radius: 12,
     boss: true,
@@ -434,6 +462,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     projectile: 'bolt',
     projectileSpeed: 0,
     splashRadius: 0,
+    bodyClass: 'swarm',
     siegeBonus: 1,
     radius: 5,
     silhouette: 'grunt',
@@ -457,6 +486,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     projectile: 'bolt',
     projectileSpeed: 240,
     splashRadius: 0,
+    bodyClass: 'elusive',
     siegeBonus: 1,
     radius: 7,
     silhouette: 'caster',
@@ -480,6 +510,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     projectile: 'bolt',
     projectileSpeed: 200,
     splashRadius: 26,
+    bodyClass: 'elusive',
     siegeBonus: 1,
     radius: 7,
     silhouette: 'caster',
@@ -503,6 +534,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     projectile: 'bolt',
     projectileSpeed: 0,
     splashRadius: 0,
+    bodyClass: 'armored',
     siegeBonus: 1.8,
     radius: 12,
     silhouette: 'brute',
@@ -526,6 +558,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     projectile: 'bolt',
     projectileSpeed: 150,
     splashRadius: 24,
+    bodyClass: 'armored',
     siegeBonus: 2,
     radius: 11,
     wallFocused: true,
@@ -551,6 +584,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     projectile: 'bolt',
     projectileSpeed: 220,
     splashRadius: 40,
+    bodyClass: 'elusive',
     siegeBonus: 1.4,
     radius: 10,
     boss: true,
@@ -577,6 +611,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     projectile: 'drain',
     projectileSpeed: 0,
     splashRadius: 0,
+    bodyClass: 'swarm',
     siegeBonus: 1,
     radius: 5,
     silhouette: 'grunt',
@@ -600,6 +635,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     projectile: 'drain',
     projectileSpeed: 0,
     splashRadius: 0,
+    bodyClass: 'swarm',
     siegeBonus: 1,
     radius: 7,
     silhouette: 'grunt',
@@ -623,6 +659,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     projectile: 'drain',
     projectileSpeed: 0,
     splashRadius: 0,
+    bodyClass: 'swarm',
     siegeBonus: 1,
     radius: 7,
     silhouette: 'grunt',
@@ -646,6 +683,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     projectile: 'drain',
     projectileSpeed: 190,
     splashRadius: 0,
+    bodyClass: 'elusive',
     siegeBonus: 1,
     radius: 7,
     silhouette: 'caster',
@@ -669,6 +707,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     projectile: 'drain',
     projectileSpeed: 200,
     splashRadius: 0,
+    bodyClass: 'elusive',
     siegeBonus: 1,
     radius: 7,
     spawnPeriod: 5,
@@ -694,6 +733,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     projectile: 'boulder',
     projectileSpeed: 120,
     splashRadius: 20,
+    bodyClass: 'armored',
     siegeBonus: 2,
     radius: 10,
     wallFocused: true,
@@ -719,6 +759,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     projectile: 'drain',
     projectileSpeed: 0,
     splashRadius: 0,
+    bodyClass: 'armored',
     siegeBonus: 2.2,
     radius: 14,
     boss: true,

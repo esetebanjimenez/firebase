@@ -17,6 +17,7 @@ import type { GameConfig } from './config';
 import {
   applyArmor,
   chargeMax,
+  counterMultiplier,
   coverEdgeY,
   incomePerSec,
   musterLineY,
@@ -30,6 +31,7 @@ import {
 import { angleTo, dist, distSq, stepToward } from './math';
 import { PLAYER_UNITS } from './roster';
 import type {
+  DamageClass,
   Hazard,
   Projectile,
   SimEvent,
@@ -125,9 +127,25 @@ function endBattle(state: SimState, cfg: GameConfig, won: boolean, events: SimEv
 // Damage
 // ---------------------------------------------------------------------------
 
-function hurtUnit(cfg: GameConfig, unit: Unit, amount: number, events: SimEvent[]): void {
+/**
+ * Every point of damage in the game goes through here, which is why the
+ * counter triangle is applied here and nowhere else: one place to get right,
+ * and no path that can quietly skip it.
+ *
+ * The multiplier lands before armour. Armour is flat subtraction, so applying
+ * it first would let a heavy's armour eat a rocket's bonus and turn "strong
+ * against armour" into barely anything.
+ */
+function hurtUnit(
+  cfg: GameConfig,
+  unit: Unit,
+  amount: number,
+  damageClass: DamageClass,
+  events: SimEvent[],
+): void {
   if (unit.hp <= 0) return;
-  const dealt = applyArmor(cfg, amount, unit.armor);
+  const matched = amount * counterMultiplier(cfg, damageClass, unit.bodyClass);
+  const dealt = applyArmor(cfg, matched, unit.armor);
   unit.hp -= dealt;
   unit.flash = cfg.sim.flashSec;
   // Soldiers being shot at by something they are ignoring return fire rather
@@ -158,6 +176,7 @@ function areaDamage(
   y: number,
   radius: number,
   damage: number,
+  damageClass: DamageClass,
   against: Team,
   events: SimEvent[],
 ): void {
@@ -167,7 +186,7 @@ function areaDamage(
     const d2 = distSq(u.x, u.y, x, y);
     if (d2 > r2) continue;
     const falloff = 0.6 + 0.4 * (1 - Math.sqrt(d2) / radius);
-    hurtUnit(cfg, u, damage * falloff, events);
+    hurtUnit(cfg, u, damage * falloff, damageClass, events);
   }
 }
 
@@ -228,6 +247,7 @@ function fireProjectile(
     damage: unit.damage,
     splashRadius: unit.splashRadius,
     siegeBonus: unit.siegeBonus,
+    damageClass: unit.damageClass,
     wallFraction: unit.wallFraction,
     targetId,
     tx,
@@ -251,9 +271,19 @@ function attackUnit(state: SimState, cfg: GameConfig, unit: Unit, target: Unit, 
     fireProjectile(state, unit, target.x, target.y, target.id, false, events);
     return;
   }
-  hurtUnit(cfg, target, unit.damage, events);
+  hurtUnit(cfg, target, unit.damage, unit.damageClass, events);
   if (unit.splashRadius > 0) {
-    areaDamage(state, cfg, target.x, target.y, unit.splashRadius, unit.damage * 0.5, target.team, events);
+    areaDamage(
+      state,
+      cfg,
+      target.x,
+      target.y,
+      unit.splashRadius,
+      unit.damage * 0.5,
+      unit.damageClass,
+      target.team,
+      events,
+    );
   }
 }
 
@@ -496,12 +526,12 @@ export function step(state: SimState, dt: number, cfg: GameConfig): SimEvent[] {
         }
       }
       if (h.kind === 'strike') {
-        areaDamage(state, cfg, h.x, h.y, h.radius, h.damage, 'enemy', events);
+        areaDamage(state, cfg, h.x, h.y, h.radius, h.damage, h.damageClass, 'enemy', events);
         events.push({ type: 'explosion', x: h.x, y: h.y, radius: h.radius });
         continue;
       }
       h.timer -= dt;
-      areaDamage(state, cfg, h.x, h.y, h.radius, h.dps * dt, 'enemy', events);
+      areaDamage(state, cfg, h.x, h.y, h.radius, h.dps * dt, h.damageClass, 'enemy', events);
       events.push({ type: 'burn', x: h.x, y: h.y, radius: h.radius });
       if (h.timer > 0) live.push(h);
     }
@@ -670,6 +700,8 @@ export function step(state: SimState, dt: number, cfg: GameConfig): SimEvent[] {
       damage: tDamage,
       splashRadius: 0,
       siegeBonus: 1,
+      // Tower guns are small arms: they answer skirmishers, not armour.
+      damageClass: 'kinetic',
       wallFraction: 0,
       targetId: best.id,
       tx: best.x,
@@ -714,15 +746,15 @@ export function step(state: SimState, dt: number, cfg: GameConfig): SimEvent[] {
       if (p.atWall) {
         hurtWall(state, cfg, wallDamage(state, p.damage, p.siegeBonus, p.wallFraction), p.x, events);
         if (p.splashRadius > 0) {
-          areaDamage(state, cfg, p.x, p.y, p.splashRadius, p.damage * 0.5, 'player', events);
+          areaDamage(state, cfg, p.x, p.y, p.splashRadius, p.damage * 0.5, p.damageClass, 'player', events);
           events.push({ type: 'explosion', x: p.x, y: p.y, radius: p.splashRadius });
         }
         continue;
       }
       const against: Team = p.team === 'player' ? 'enemy' : 'player';
-      if (target && target.hp > 0) hurtUnit(cfg, target, p.damage, events);
+      if (target && target.hp > 0) hurtUnit(cfg, target, p.damage, p.damageClass, events);
       if (p.splashRadius > 0) {
-        areaDamage(state, cfg, p.x, p.y, p.splashRadius, p.damage * 0.6, against, events);
+        areaDamage(state, cfg, p.x, p.y, p.splashRadius, p.damage * 0.6, p.damageClass, against, events);
         events.push({ type: 'explosion', x: p.x, y: p.y, radius: p.splashRadius });
       } else if (!target) {
         events.push({ type: 'hit', x: p.x, y: p.y, team: against });

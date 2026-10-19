@@ -16,6 +16,29 @@ import type { Rank } from './ranks';
 
 export type Team = 'player' | 'enemy';
 
+/**
+ * What a weapon deals, and what a body is — the two halves of the counter
+ * triangle. Kinetic beats Elusive, Explosive beats Armoured, Sustained beats
+ * Swarm, and each is weak to the one its victim counters.
+ *
+ * The two taxonomies are deliberately different. A symmetric one — every unit
+ * has a single class, attacker class versus defender class — is tidier, and it
+ * does not fit this game: your anchor is a Shield Bearer that deals almost no
+ * damage, so "heavy beats massed infantry" cannot be expressed as a damage
+ * multiplier on your side at all. Weapons have a damage class; enemies have a
+ * body class; the matrix connects them in the direction the player actually
+ * chooses — what to deploy against what is coming.
+ */
+export type DamageClass = 'kinetic' | 'explosive' | 'sustained';
+
+/**
+ * The character of a wave: what the budget was mostly spent on. A wave with a
+ * shape is a tactical problem — something to bring the right soldiers to —
+ * where an evenly random one is just noise with extra steps.
+ */
+export type WaveShape = 'column' | 'horde' | 'skirmish' | 'mixed';
+export type BodyClass = 'armored' | 'swarm' | 'elusive';
+
 /** The three invading armies. */
 export type FactionId = 'kingdom' | 'arcane' | 'undead';
 
@@ -89,6 +112,11 @@ export interface Unit {
   readonly projectileSpeed: number;
   /** Splash radius of this unit's hits (0 = single target). */
   readonly splashRadius: number;
+  /** What this unit's attacks count as, for the counter triangle. */
+  readonly damageClass: DamageClass;
+  /** What this unit counts as when struck. Null for your soldiers, who are
+   *  answered by enemy stats and reach rather than by the triangle. */
+  readonly bodyClass: BodyClass | null;
   /** Damage multiplier against the wall. */
   readonly siegeBonus: number;
   /**
@@ -143,6 +171,8 @@ export interface Projectile {
   readonly damage: number;
   readonly splashRadius: number;
   readonly siegeBonus: number;
+  /** Carried from the firer, so a shell counters what the firer counters. */
+  readonly damageClass: DamageClass;
   /** Carried from the firer, for shots aimed at the wall. */
   readonly wallFraction: number;
   /** Homing target; falls back to (tx, ty) once the target is gone. */
@@ -167,6 +197,9 @@ export interface Hazard {
   readonly damage: number;
   /** Damage per second for a 'burn'. */
   readonly dps: number;
+  /** Fire support counts in the triangle too: shells are explosive, fire is
+   *  sustained, so abilities answer armour and crowds respectively. */
+  readonly damageClass: DamageClass;
   /** Seconds before this hazard goes off: the shell is still in the air. */
   delay: number;
   /** Seconds of burning left (unused by a 'strike', which is instantaneous). */
