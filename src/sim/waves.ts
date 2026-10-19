@@ -173,7 +173,7 @@ export function planWave(cfg: GameConfig, wave: number, seed: number): WavePlan 
     : factionsForWave(cfg, wave);
   const isBossWave = wave % cfg.waves.bossEvery === 0 && !scriptedWave(wave);
   const budget = waveBudget(cfg, wave) * (isBossWave ? cfg.waves.bossBudgetFactor : 1);
-  const hpScale = waveHpScale(cfg, wave);
+  const hpScale = waveHpScale(cfg, wave) * cfg.waves.shapeThreat[shape];
   const damageScale = waveDamageScale(cfg, wave);
   const bountyScale = waveBountyScale(cfg, wave);
 

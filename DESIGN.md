@@ -285,6 +285,56 @@ loss, so every failed attempt still funds the upgrade that eventually breaks
 through. What a streak must not do is last forever, which is what cutting
 bounty caused.
 
+### Why tactics stay a margin, not a decision
+
+The counter triangle was built to make deployment a choice. Measured at the
+frontier a player actually lives on — upgrade, fight the wave you are stuck
+on, repeat — bringing the shape's counter instead of plain riflemen flips the
+result in **one attempt out of forty**, and is worth **0.3 percentage points**
+of leftover wall on average. Sometimes it is worse: the worst case measured
+was twenty-one points *down*.
+
+Four levers were tried against that number, and none of them moved it:
+
+- **The multiplier.** From 1.5x up to 2.4x. Separation between units widens on
+  columns and hordes, but skirmish waves stay flat whatever the number.
+- **Unit stats.** The Rocketeer was strictly the best unit on every shape,
+  including the hordes it is supposed to lose to, because range 100 and a
+  30-pixel splash beat a 0.65x penalty. Cutting the splash fixed that — and
+  simply moved dominance to the Machine Gunner.
+- **Shape purity and threat.** Both were real bugs and both are fixed (below).
+  Neither changed the frontier number.
+- **Tower scaling.** Turning the guns off drops a wave's margin from 45-71% to
+  0-32%, so the parapet does most of the killing — and tower guns are fixed
+  kinetic, so that damage is the same whatever you deploy. Cutting tower growth
+  dilutes less but re-opens the difficulty curve: at 1.13 the scripted player
+  stalls at wave 12.
+
+The structural reason is that a wave's outcome is the sum of many sources —
+the parapet, the screen, the chosen soldier, fire support — so a 50% modifier
+on one component of one source is a small share of the whole. Making the
+choice decisive needs a *qualitative* counter rather than a larger
+coefficient: armour-piercing that ignores armour outright, suppression that
+halts a horde, resistance that makes the wrong weapon fail rather than
+underperform. That is a mechanic, not a tuning pass, and it is the open
+question.
+
+What the triangle does deliver today is texture: the right soldier wins a wave
+more comfortably, and no soldier is dominant across all three shapes.
+
+### Shapes differ in what they field, not how hard they hit
+
+A point of budget buys far more hit points as armour than as skirmishers, so
+at a flat budget a column carried 121% of a mixed wave's threat and a horde
+60%. The shape was a difficulty label: a horde was a breather whatever you
+brought, a column dangerous whatever you brought — which is the opposite of
+what a shape is for.
+
+Threat is now scaled per shape, and deliberately not the budget: the field
+caps how many bodies a wave can hold, so buying more of them moved threat from
+60% to only 64%. Scaling hit points instead brings every shape within 92-109%
+of a mixed wave.
+
 **What this does not fix.** Outcomes are close to bimodal — a wave ends with
 roughly 60-75% of the wall standing, or with none of it. With exponential
 scaling the band where a fight is genuinely close is about one wave wide, so a

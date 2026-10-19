@@ -14,7 +14,7 @@
  * are yours to keep and the wall comes back to full.
  */
 
-import type { BodyClass, DamageClass } from './types';
+import type { BodyClass, DamageClass, WaveShape } from './types';
 
 export interface GameConfig {
   readonly version: number;
@@ -177,6 +177,19 @@ export interface GameConfig {
     readonly shapeFromWave: number;
     /** How much a shape favours its own class when spending the budget. */
     readonly shapeBias: number;
+    /**
+     * Threat multiplier per shape, so shapes differ in *what* they field
+     * rather than in how dangerous they are. A point of budget buys far more
+     * hit points as armour than as skirmishers, so at a flat budget a column
+     * carried 121% of a mixed wave's threat and a horde 60% — which made the
+     * shape a difficulty label rather than a tactical one, and left hordes and
+     * skirmish lines comfortable whatever you brought.
+     *
+     * This scales hit points rather than the budget: the budget is capped by
+     * how many bodies a field can hold, so buying more of them barely moved
+     * the threat at all (60% to 64%).
+     */
+    readonly shapeThreat: Readonly<Record<WaveShape, number>>;
     /** Standoff siege engines a wave may field: base, +1 every N waves, capped. */
     readonly siegeBase: number;
     readonly siegePerWaves: number;
@@ -342,6 +355,7 @@ export const defaultConfig: GameConfig = {
     mixFromWave: 16,
     shapeFromWave: 8,
     shapeBias: 8,
+    shapeThreat: { column: 0.9, horde: 1.55, skirmish: 1.5, mixed: 1 },
     siegeBase: 1,
     siegePerWaves: 12,
     siegeMax: 4,

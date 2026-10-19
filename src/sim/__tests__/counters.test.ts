@@ -154,3 +154,35 @@ describe('the multiplier reaches real damage', () => {
     expect(damageOver('rifleman', 'archer')).toBeGreaterThan(damageOver('rifleman', 'knight'));
   });
 });
+
+describe('shapes differ in what they field, not how hard they hit', () => {
+  /**
+   * A point of budget buys far more hit points as armour than as skirmishers,
+   * so at a flat budget a column carried 121% of a mixed wave's threat and a
+   * horde 60%. That made the shape a difficulty label rather than a tactical
+   * one: a horde was a breather whatever you brought, and a column was
+   * dangerous whatever you brought.
+   *
+   * Threat is scaled per shape rather than the budget, because the field caps
+   * how many bodies a wave can hold — buying more of them moved the threat
+   * from 60% to only 64%.
+   */
+  it('keeps every shape within reach of a mixed wave', () => {
+    const totals: Record<string, { hp: number; n: number }> = {};
+    for (let seed = 1; seed <= 25; seed++) {
+      for (let wave = 12; wave <= 40; wave++) {
+        const plan = planWave(cfg, wave, seed);
+        const bucket = (totals[plan.shape] ??= { hp: 0, n: 0 });
+        // Normalised by wave so different waves can be pooled.
+        bucket.hp += plan.totalHp / Math.pow(1.2, wave);
+        bucket.n += 1;
+      }
+    }
+    const mixed = totals.mixed.hp / totals.mixed.n;
+    for (const shape of ['column', 'horde', 'skirmish'] as WaveShape[]) {
+      const relative = totals[shape].hp / totals[shape].n / mixed;
+      expect(relative, `${shape} vs mixed`).toBeGreaterThan(0.8);
+      expect(relative, `${shape} vs mixed`).toBeLessThan(1.25);
+    }
+  });
+});

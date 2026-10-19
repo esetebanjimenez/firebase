@@ -213,7 +213,7 @@ export const PLAYER_UNITS: Readonly<Record<PlayerUnitId, PlayerUnitDef>> = {
     style: 'ranged',
     projectile: 'rocket',
     projectileSpeed: 240,
-    splashRadius: 30,
+    splashRadius: 22,
     role: 'vs Armour',
     damageClass: 'explosive',
     siegeBonus: 1,
