@@ -20,6 +20,13 @@ import type { UpgradeTrack } from '../actions';
 
 export const DT = 1 / 30;
 
+/**
+ * The seed the tests plan waves with. Real runs draw their own, so a wave is
+ * only reproducible within a run; the tests pin one so they can assert exact
+ * outcomes.
+ */
+export const SEED = defaultConfig.seed;
+
 export function freshState(cfg: GameConfig = defaultConfig): SimState {
   return createInitialState(cfg);
 }

@@ -1,10 +1,16 @@
 /**
  * waves.ts — wave composition, enemy scheduling, and unit construction.
  *
- * `planWave` is pure in cfg and the wave number (it derives its own RNG stream
- * from the seed), which means the "next wave" preview in the UI is the very
- * wave you will fight — and that re-fighting a lost wave gives you the same
- * fight to plan against, not a reroll.
+ * `planWave` is pure in cfg, the wave number and the run's seed (it derives its
+ * own RNG stream from them), which means the "next wave" preview in the UI is
+ * the very wave you will fight — and that re-fighting a lost wave gives you the
+ * same fight to plan against, not a reroll.
+ *
+ * The seed is the *run's*, passed in rather than read from config, and it is
+ * required rather than defaulted. It used to come from `cfg.seed`, a constant,
+ * so every player in every playthrough met the same waves in the same order. A
+ * default here would let that come back silently the next time someone adds a
+ * caller, so there isn't one.
  */
 
 import type { GameConfig } from './config';
@@ -117,8 +123,8 @@ export function siegeAllowance(cfg: GameConfig, wave: number): number {
   return Math.min(w.siegeMax, w.siegeBase + Math.floor(wave / w.siegePerWaves));
 }
 
-export function planWave(cfg: GameConfig, wave: number): WavePlan {
-  const rng = new RngStream(deriveSeed(cfg.seed, wave));
+export function planWave(cfg: GameConfig, wave: number, seed: number): WavePlan {
+  const rng = new RngStream(deriveSeed(seed, wave));
   const scripted = scriptedWave(wave);
   const factions = scripted
     ? [...new Set(scripted.entries.map((e) => ENEMY_UNITS[e.kind].faction))]

@@ -14,7 +14,7 @@ import { holdLineY, uncoveredStrip } from '../derive';
 import { startBattle, step } from '../engine';
 import { ENEMY_UNITS, PLAYER_UNITS } from '../roster';
 import { planWave, siegeAllowance } from '../waves';
-import { DT, freshState } from './helpers';
+import { DT, SEED, freshState } from './helpers';
 import type { EnemyUnitId, SimState } from '../types';
 
 const SIEGE = (Object.keys(ENEMY_UNITS) as EnemyUnitId[]).filter((k) => (ENEMY_UNITS[k].wallFraction ?? 0) > 0);
@@ -77,7 +77,7 @@ describe('siege', () => {
 
   it('stays a handful of engines however rich the wave gets', () => {
     for (let wave = 10; wave <= 60; wave++) {
-      const engines = planWave(cfg, wave)
+      const engines = planWave(cfg, wave, SEED)
         .composition.filter((c) => SIEGE.includes(c.kind))
         .reduce((n, c) => n + c.count, 0);
       expect(engines, `wave ${wave}`).toBeLessThanOrEqual(siegeAllowance(cfg, wave));

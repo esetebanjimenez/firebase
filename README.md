@@ -91,9 +91,10 @@ From wave 16 on, two armies can attack together. Every tenth wave brings a boss.
 - **`src/sim/` is pure TypeScript** — no DOM, no React, no renderer. It is the
   whole game: the engine, the roster, the wave planner, the economy. The UI
   renders a snapshot of it; the renderer reads it.
-- **Deterministic**: wave plans derive from the seed and the wave number, so the
-  "next wave" preview *is* the wave you fight, and a lost wave is a rematch
-  rather than a reroll.
+- **Deterministic within a run, different between runs**: wave plans derive
+  from the *run's* seed and the wave number, so the "next wave" preview *is*
+  the wave you fight and a lost wave is a rematch rather than a reroll — while
+  a new run draws a new seed and fights a different campaign.
 - **Saved to `localStorage`**, with the battlefield cleared on save — progress
   lives in credits, levels, unlocks and the wave number.
 

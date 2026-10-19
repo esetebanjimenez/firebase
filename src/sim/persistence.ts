@@ -63,7 +63,7 @@ export function deserialize(raw: string, cfg: GameConfig): SaveEnvelope | null {
   if (typeof savedAt !== 'number' || !isRecord(candidate)) return null;
   if (candidate.version !== cfg.version) return null;
 
-  const required = ['credits', 'wave', 'bestWave', 'nextId', 'rngState'] as const;
+  const required = ['credits', 'wave', 'bestWave', 'nextId', 'rngState', 'seed'] as const;
   for (const key of required) {
     if (typeof candidate[key] !== 'number') return null;
   }
