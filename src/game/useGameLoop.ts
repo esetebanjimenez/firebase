@@ -113,6 +113,8 @@ export interface AbilityView {
 
 export interface WavePreview {
   wave: number;
+  /** Set for hand-written waves: a name to put on the launch button. */
+  label: string | null;
   armies: string[];
   accent: string;
   boss: boolean;
@@ -141,6 +143,8 @@ export interface UiSnapshot {
   battle: { enemiesLeft: number; soldiers: number; timeSec: number; incoming: number };
   preview: WavePreview;
   result: WaveResult | null;
+  /** What a lost wave was teaching, if it was teaching anything. */
+  resultHint: string | null;
   stats: { kills: number; wavesWon: number; wavesLost: number };
 }
 
@@ -252,6 +256,7 @@ function buildPreview(state: SimState, cfg: GameConfig): WavePreview {
   const plan = planWave(cfg, state.wave);
   return {
     wave: state.wave,
+    label: plan.label,
     armies: plan.factions.map((f) => FACTIONS[f].name),
     accent: FACTIONS[plan.factions[0]].accent,
     boss: plan.boss,
@@ -314,6 +319,8 @@ function buildSnapshot(state: SimState, cfg: GameConfig): UiSnapshot {
     },
     preview: buildPreview(state, cfg),
     result: state.lastResult,
+    resultHint:
+      state.lastResult && !state.lastResult.won ? planWave(cfg, state.lastResult.wave).hint : null,
     stats: {
       kills: state.stats.totalKills,
       wavesWon: state.stats.wavesWon,

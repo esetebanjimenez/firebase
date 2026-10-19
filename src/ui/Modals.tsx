@@ -13,7 +13,16 @@ function duration(seconds: number): string {
   return `${d}d ${h % 24}h`;
 }
 
-export function WaveReport({ result, onDismiss }: { result: WaveResult; onDismiss: () => void }) {
+export function WaveReport({
+  result,
+  hint,
+  onDismiss,
+}: {
+  result: WaveResult;
+  /** What this wave was teaching, shown only when it was lost. */
+  hint?: string | null;
+  onDismiss: () => void;
+}) {
   return (
     <div className="backdrop" onClick={onDismiss}>
       <div className={`modal ${result.won ? 'modal--win' : 'modal--loss'}`} onClick={(e) => e.stopPropagation()}>
@@ -43,6 +52,7 @@ export function WaveReport({ result, onDismiss }: { result: WaveResult; onDismis
             </dd>
           </div>
         </dl>
+        {!result.won && hint && <p className="modal__lesson">{hint}</p>}
         <button className="btn btn--launch" onClick={onDismiss}>
           {result.won ? 'Rearm' : 'Rebuild'}
         </button>

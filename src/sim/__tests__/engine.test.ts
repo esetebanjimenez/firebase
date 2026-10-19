@@ -2,8 +2,16 @@ import { describe, expect, it } from 'vitest';
 import { defaultConfig as cfg } from '../config';
 import { startBattle, step, syncDerived } from '../engine';
 import { buyUpgrade, deployUnit } from '../actions';
-import { planWave } from '../waves';
+import { coverLineY } from '../derive';
+import { createEnemyUnit, planWave } from '../waves';
 import { DT, freshState, pin, runWave } from './helpers';
+
+/**
+ * A field with no emplacements. Tower positions are rebuilt from config on
+ * every sync, so a wall with no guns is a config variant — emptying
+ * `state.towers` would just be undone.
+ */
+const noTowers = { ...cfg, field: { ...cfg.field, towerX: [] } };
 
 describe('battle lifecycle', () => {
   it('queues the planned wave when launched, and refuses to launch twice', () => {
@@ -55,10 +63,9 @@ describe('battle lifecycle', () => {
   });
 
   it('loses the wave when the wall falls, without losing the wave number or credits', () => {
-    const state = freshState();
-    // Strip the towers and deploy nobody: the militia get to the wall unopposed.
-    state.towers = [];
-    const { result } = runWave(state, { deploy: null });
+    // No emplacements and nobody deployed: the militia reach the wall unopposed.
+    const state = freshState(noTowers);
+    const { result } = runWave(state, { deploy: null, cfg: noTowers });
     expect(result.won).toBe(false);
     expect(state.wave).toBe(1);
     expect(state.bestWave).toBe(0);
@@ -68,10 +75,9 @@ describe('battle lifecycle', () => {
   });
 
   it('re-fights the identical wave after a loss', () => {
-    const state = freshState();
-    state.towers = [];
-    runWave(state, { deploy: null });
-    syncDerived(state, cfg);
+    const state = freshState(noTowers);
+    runWave(state, { deploy: null, cfg: noTowers });
+    syncDerived(state, noTowers);
     expect(state.wave).toBe(1);
     expect(planWave(cfg, state.wave).composition).toEqual(planWave(cfg, 1).composition);
   });
@@ -102,8 +108,72 @@ describe('unit behaviour', () => {
     const soldier = state.units.find((u) => u.team === 'player')!;
     for (let i = 0; i < 20 * 30; i++) step(state, DT, cfg);
     expect(state.phase).toBe('battle');
-    // The muster is a loose block, so allow for the formation's row offsets.
-    expect(Math.abs(soldier.y - cfg.field.musterY)).toBeLessThan(cfg.field.height * 0.1);
+    // Formed up inside the towers' cover, not out in the open and not back at
+    // the wall. The row offsets of the formation are the tolerance.
+    const line = coverLineY(cfg, state.upgrades.towers, soldier.x);
+    expect(soldier.y).toBeGreaterThan(line - 24);
+    expect(soldier.y).toBeLessThan(cfg.field.wallTop - 8);
+  });
+
+  it('holds the line rather than running out to meet the enemy', () => {
+    const state = freshState();
+    startBattle(state, cfg);
+    state.units = [];
+    state.spawnQueue = [
+      { kind: 'militia', x: cfg.field.gateX, at: 999, hpScale: 1, damageScale: 1, bountyScale: 1 },
+    ];
+    deployUnit(state, cfg, 'rifleman');
+    const soldier = state.units.find((u) => u.team === 'player')!;
+    const bait = createEnemyUnit(state, cfg, {
+      kind: 'militia',
+      x: cfg.field.gateX,
+      at: 0,
+      hpScale: 1,
+      damageScale: 1,
+      bountyScale: 1,
+    });
+    bait.y = 20;
+    bait.hp = 1e9;
+    pin(bait);
+    state.units.push(bait);
+
+    // Up to the push-out limit, the soldier stays inside the towers' cover.
+    const ticks = Math.floor((cfg.support.pushOutSec * 0.8) / DT);
+    for (let i = 0; i < ticks; i++) step(state, DT, cfg);
+    expect(soldier.y).toBeGreaterThanOrEqual(coverLineY(cfg, state.upgrades.towers, soldier.x) - 1);
+  });
+
+  it('pushes out rather than stalling when the enemy refuses to close', () => {
+    // An archer outranges a rifleman by a few pixels. Pinned at the line for
+    // good, the two would plink at each other until the heat death of the
+    // universe — which is exactly how wave 3 hung before the release valve.
+    const state = freshState();
+    startBattle(state, cfg);
+    state.units = [];
+    state.spawnQueue = [];
+    deployUnit(state, cfg, 'rifleman');
+    const soldier = state.units.find((u) => u.team === 'player')!;
+    const archer = createEnemyUnit(state, cfg, {
+      kind: 'archer',
+      x: soldier.x,
+      at: 0,
+      hpScale: 1,
+      damageScale: 1,
+      bountyScale: 1,
+    });
+    archer.y = coverLineY(cfg, state.upgrades.towers, soldier.x) - 74;
+    pin(archer);
+    state.units.push(archer);
+
+    let resolvedAt = 0;
+    for (let i = 0; i < 60 / DT && state.phase === 'battle'; i++) {
+      step(state, DT, cfg);
+      resolvedAt += DT;
+    }
+    expect(state.phase).toBe('prep');
+    expect(state.lastResult?.won).toBe(true);
+    // And it took the push-out delay, not an instant charge.
+    expect(resolvedAt).toBeGreaterThan(cfg.support.pushOutSec);
   });
 
   it('keeps enemies on the attacking side of the wall', () => {
@@ -123,11 +193,10 @@ describe('unit behaviour', () => {
   });
 
   it('lets enemies chew through an undefended wall', () => {
-    const state = freshState();
-    state.towers = [];
+    const state = freshState(noTowers);
     const start = state.wall.hp;
-    startBattle(state, cfg);
-    for (let i = 0; i < 40 * 30 && state.phase === 'battle'; i++) step(state, DT, cfg);
+    startBattle(state, noTowers);
+    for (let i = 0; i < 40 * 30 && state.phase === 'battle'; i++) step(state, DT, noTowers);
     expect(state.lastResult?.won).toBe(false);
     expect(start).toBeGreaterThan(0);
   });

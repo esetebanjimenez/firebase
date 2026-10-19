@@ -44,7 +44,11 @@ export function App() {
         <WelcomeBack report={idleReport} onDismiss={dismissIdleReport} />
       )}
       {!confirmingRestart && !idleReport && snapshot.result && (
-        <WaveReport result={snapshot.result} onDismiss={actions.dismissResult} />
+        <WaveReport
+          result={snapshot.result}
+          hint={snapshot.resultHint}
+          onDismiss={actions.dismissResult}
+        />
       )}
     </div>
   );

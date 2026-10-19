@@ -55,8 +55,10 @@ export function CommandBar({ snapshot, actions }: Props) {
   return (
     <section className="command">
       {phase === 'prep' ? (
-        <button className="btn btn--launch" onClick={actions.launch}>
-          <span className="btn__title">LAUNCH WAVE {preview.wave}</span>
+        <button className={`btn btn--launch ${preview.label ? 'btn--named' : ''}`} onClick={actions.launch}>
+          <span className="btn__title">
+            {preview.label ? `WAVE ${preview.wave}: ${preview.label}` : `LAUNCH WAVE ${preview.wave}`}
+          </span>
           <span className="btn__sub">
             {preview.count} enemies · {preview.armies.join(' + ')}
             {preview.boss ? ' · BOSS' : ''}

@@ -31,8 +31,11 @@ rams, golems, wraiths and the necromancers raising more of them.
    0 HP and you re-fight the same wave. Either way **every credit you earned is
    yours** and the wall is rebuilt to full.
 
-Your soldiers charge the nearest enemy, and fall back to the muster point in
-mid-field when nothing is left to fight. Enemies charge your soldiers, and press
+Your soldiers charge the nearest enemy, and fall back to **the ground your
+towers can cover** when nothing is left to fight — a scalloped line drawn on the
+field that moves up as you upgrade the towers. They will not chase past it
+(unless the enemy refuses to come to them). Shield bearers hold in front of it,
+rocketeers behind. Enemies charge your soldiers, and press
 the wall when there are none — except siege engines, which ignore your soldiers
 entirely and drive straight for the wall.
 

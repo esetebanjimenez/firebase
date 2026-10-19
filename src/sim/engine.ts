@@ -17,7 +17,9 @@ import type { GameConfig } from './config';
 import {
   applyArmor,
   chargeMax,
+  coverLineY,
   incomePerSec,
+  musterLineY,
   rechargeSec,
   towerDamage,
   towerPeriod,
@@ -37,12 +39,24 @@ import type {
 } from './types';
 import { createEnemyUnit, createPlayerUnit, createRaisedUnit, planWave } from './waves';
 
-/** Re-apply level-derived caps after an upgrade. Safe to call any time. */
+/** Re-apply config- and level-derived values. Safe to call any time. */
 export function syncDerived(state: SimState, cfg: GameConfig): void {
   state.wall.maxHp = wallMaxHp(cfg, state.wall.level);
   if (state.wall.hp > state.wall.maxHp) state.wall.hp = state.wall.maxHp;
   state.charges.max = chargeMax(cfg, state.upgrades.charges);
   if (state.charges.current > state.charges.max) state.charges.current = state.charges.max;
+
+  // Emplacements are field geometry, not player progress, so they are rebuilt
+  // from config rather than trusted from a save. A save written against a
+  // different field would otherwise restore its own coordinates and leave the
+  // guns standing in the middle of the map — shooting from there, too, since
+  // the engine measures tower range from these same positions.
+  state.towers = cfg.field.towerX.map((x, i) => ({
+    id: i + 1,
+    x,
+    y: cfg.field.towerY,
+    cooldown: state.towers[i]?.cooldown ?? 0,
+  }));
 }
 
 /** Wipe the battlefield and hand the player back a full wall and full charges. */
@@ -253,14 +267,47 @@ function attackWall(state: SimState, cfg: GameConfig, unit: Unit, events: SimEve
 // Movement
 // ---------------------------------------------------------------------------
 
-/** Where an idle soldier parks: a loose block around the gate, mid-field. */
-function musterPoint(cfg: GameConfig, unit: Unit): { x: number; y: number } {
+/**
+ * Where an idle soldier forms up: a loose block around the gate, held at the
+ * edge of what the towers can cover rather than at a fixed row. Upgrading the
+ * towers pushes this line — and the whole front — forward.
+ */
+function musterPoint(cfg: GameConfig, state: SimState, unit: Unit): { x: number; y: number } {
   const column = ((unit.id * 37) % 7) - 3;
   const row = ((unit.id * 17) % 3) - 1;
-  return {
-    x: cfg.field.gateX + column * 32,
-    y: cfg.field.musterY + row * 22,
-  };
+  const x = cfg.field.gateX + column * 32;
+  return { x, y: musterLineY(cfg, state.upgrades.towers, x) + unit.posture + row * 22 };
+}
+
+/**
+ * The leash. Soldiers fight wherever the enemy is, but will not *pursue* past
+ * the ground their towers can cover: chasing a straggler into the open is how a
+ * firing line dies. They stop advancing, never stop shooting.
+ *
+ * With one release valve, and it is not optional. An enemy that outranges the
+ * line can otherwise stand just beyond it and shoot with impunity — an archer
+ * does this by eight pixels, a catapult by a hundred — and neither side can
+ * ever resolve the wave. So a soldier pinned at the line with a target it
+ * cannot reach eventually pushes out anyway.
+ */
+function holdTheLine(
+  cfg: GameConfig,
+  state: SimState,
+  unit: Unit,
+  x: number,
+  y: number,
+  dt: number,
+): number {
+  if (unit.team !== 'player') return y;
+  // Posture moves a kind's own line: a shield bearer is allowed in front of
+  // the riflemen it is screening.
+  const line = coverLineY(cfg, state.upgrades.towers, x) + unit.posture;
+  if (y >= line) {
+    unit.heldAtLine = 0;
+    return y;
+  }
+  unit.heldAtLine += dt;
+  return unit.heldAtLine >= cfg.support.pushOutSec ? y : line;
 }
 
 function clampToField(cfg: GameConfig, unit: Unit): void {
@@ -425,13 +472,13 @@ export function step(state: SimState, dt: number, cfg: GameConfig): SimEvent[] {
         const stop = Math.max(1, reach * 0.9);
         const toward = stepToward(u.x, u.y, target.x, target.y, Math.min(u.speed * dt, d - stop));
         u.x = toward.x;
-        u.y = toward.y;
+        u.y = holdTheLine(cfg, state, u, toward.x, toward.y, dt);
         u.anim += u.speed * dt;
         u.aim = angleTo(u.x, u.y, target.x, target.y);
-      } else if (u.cooldown <= 0) {
-        attackUnit(state, cfg, u, target, events);
       } else {
-        u.aim = angleTo(u.x, u.y, target.x, target.y);
+        u.heldAtLine = 0;
+        if (u.cooldown <= 0) attackUnit(state, cfg, u, target, events);
+        else u.aim = angleTo(u.x, u.y, target.x, target.y);
       }
       clampToField(cfg, u);
       continue;
@@ -454,8 +501,9 @@ export function step(state: SimState, dt: number, cfg: GameConfig): SimEvent[] {
       continue;
     }
 
-    // Field is clear: your soldiers fall back to the muster point and hold.
-    const park = musterPoint(cfg, u);
+    // Field is clear: your soldiers fall back to the line and hold.
+    u.heldAtLine = 0;
+    const park = musterPoint(cfg, state, u);
     const d = dist(u.x, u.y, park.x, park.y);
     if (d > 2) {
       const toward = stepToward(u.x, u.y, park.x, park.y, u.speed * dt);

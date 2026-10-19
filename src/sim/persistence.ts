@@ -30,6 +30,8 @@ export function toSaveState(state: SimState): SimState {
     battleUnitsLost: 0,
     wall: { ...state.wall, hp: state.wall.maxHp },
     charges: { ...state.charges, current: state.charges.max },
+    // Positions come from config on load (syncDerived), so only the count is
+    // meaningful here.
     towers: state.towers.map((t) => ({ ...t, cooldown: 0 })),
     lastResult: null,
   };

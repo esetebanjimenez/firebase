@@ -48,6 +48,13 @@ export interface UnitStats {
 
 export interface PlayerUnitDef extends UnitStats {
   readonly id: PlayerUnitId;
+  /**
+   * Where this kind stands relative to the support line, in field pixels.
+   * Negative is forward. Shield bearers step out in front so they are the
+   * nearest target and soak the charge; rocketeers hang back out of it.
+   * Without this every kind holds the same row and a shield screens nothing.
+   */
+  readonly posture: number;
   /** Two-to-six characters, for the deployment chips. */
   readonly short: string;
   /** Deployment charges consumed per unit. */
@@ -85,6 +92,7 @@ export const PLAYER_UNITS: Readonly<Record<PlayerUnitId, PlayerUnitDef>> = {
   rifleman: {
     id: 'rifleman',
     name: 'Rifleman',
+    posture: 0,
     short: 'Rifle',
     blurb: 'Cheap, mobile, accurate. The backbone of the line.',
     hp: 60,
@@ -109,8 +117,9 @@ export const PLAYER_UNITS: Readonly<Record<PlayerUnitId, PlayerUnitDef>> = {
   shield: {
     id: 'shield',
     name: 'Shield Bearer',
+    posture: -20,
     short: 'Shield',
-    blurb: 'Riot shield and armour. Soaks the charge so the rifles keep firing.',
+    blurb: 'Riot shield and armour. Steps in front and soaks the charge so the rifles keep firing.',
     hp: 240,
     damage: 8,
     attackPeriod: 1.1,
@@ -124,7 +133,7 @@ export const PLAYER_UNITS: Readonly<Record<PlayerUnitId, PlayerUnitDef>> = {
     siegeBonus: 1,
     radius: 9,
     chargeCost: 1,
-    unlockCost: 120,
+    unlockCost: 80,
     upgradeCost: 45,
     silhouette: 'armored',
     mark: 'shield',
@@ -133,6 +142,7 @@ export const PLAYER_UNITS: Readonly<Record<PlayerUnitId, PlayerUnitDef>> = {
   gunner: {
     id: 'gunner',
     name: 'Machine Gunner',
+    posture: 8,
     short: 'MG',
     blurb: 'Belt-fed and brutal against crowds, but slow to reposition.',
     hp: 90,
@@ -157,6 +167,7 @@ export const PLAYER_UNITS: Readonly<Record<PlayerUnitId, PlayerUnitDef>> = {
   rocketeer: {
     id: 'rocketeer',
     name: 'Rocketeer',
+    posture: 20,
     short: 'Rocket',
     blurb: 'Anti-armour rockets with splash. Answer to golems, rams and giants.',
     hp: 75,
@@ -246,6 +257,29 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     silhouette: 'grunt',
     mark: 'blade',
     colors: ['#7a4a30', '#a86b40', '#d9a885', '#4a2a1c', '#5d3824'],
+  },
+  skirmisher: {
+    id: 'skirmisher',
+    faction: 'kingdom',
+    name: 'Skirmisher',
+    cost: 2,
+    fromWave: 5,
+    bounty: 7,
+    hp: 26,
+    damage: 14,
+    attackPeriod: 0.8,
+    range: 18,
+    speed: 70,
+    armor: 0,
+    style: 'melee',
+    projectile: 'arrow',
+    projectileSpeed: 0,
+    splashRadius: 0,
+    siegeBonus: 1,
+    radius: 6,
+    silhouette: 'grunt',
+    mark: 'blade',
+    colors: ['#8a3b3b', '#bf5a4e', '#d9a885', '#4a1d1d', '#6a2b2b'],
   },
   archer: {
     id: 'archer',

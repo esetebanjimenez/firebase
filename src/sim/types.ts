@@ -25,6 +25,7 @@ export type PlayerUnitId = 'rifleman' | 'shield' | 'gunner' | 'rocketeer';
 export type EnemyUnitId =
   // Kingdom — mundane medieval muscle: numerous, armored, and good at sieges.
   | 'militia'
+  | 'skirmisher'
   | 'archer'
   | 'knight'
   | 'ram'
@@ -100,6 +101,8 @@ export interface Unit {
   readonly rank: Rank;
   /** Siege engines push for the wall and ignore your soldiers entirely. */
   readonly wallFocused: boolean;
+  /** Offset from the support line this kind holds at; negative is forward. */
+  readonly posture: number;
   /** Seconds between raising a minion; 0 for everything that can't. */
   readonly spawnPeriod: number;
   spawnIn: number;
@@ -116,6 +119,11 @@ export interface Unit {
   flash: number;
   /** Seconds of firing recoil left: the kick after an attack. Render-only. */
   recoil: number;
+  /**
+   * Seconds this unit has been held at the support line with a target it
+   * cannot reach. Past the configured limit it pushes out regardless.
+   */
+  heldAtLine: number;
 }
 
 export interface Projectile {

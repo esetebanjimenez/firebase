@@ -29,6 +29,10 @@ export const PALETTE = {
   towerBody: '#555c52',
   towerBarrel: '#2f3330',
 
+  /** The edge of the ground the towers can cover. */
+  coverLine: '#7f9a74',
+  coverGround: '#2f4a34',
+
   // Readouts drawn on the field.
   wallGaugeGood: '#49a86a',
   wallGaugeFrame: '#1b1d1a',
