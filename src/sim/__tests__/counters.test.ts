@@ -175,6 +175,10 @@ describe('shapes differ in what they field, not in what the dice gave them', () 
     for (let seed = 1; seed <= 25; seed++) {
       for (let wave = 12; wave <= 40; wave++) {
         const plan = planWave(cfg, wave, seed);
+        // A boss is not shaped — it is worth what `bossThreat` says whatever
+        // the wave around it rolled — so it would pool into whichever shape it
+        // happened to land on and read as that shape being heavy.
+        if (plan.boss) continue;
         const bucket = (totals[plan.shape] ??= { hp: 0, n: 0 });
         // Normalised by wave so different waves can be pooled.
         bucket.hp += plan.totalHp / Math.pow(1.2, wave);

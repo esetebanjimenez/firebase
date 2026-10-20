@@ -167,6 +167,18 @@ function pickUnits(
   return picks;
 }
 
+/**
+ * What a boss wave teaches, shown if you lose one.
+ *
+ * It is the opposite lesson to siege: siege parks where the guns cannot reach
+ * and has to be answered by infantry, a boss walks straight past your infantry
+ * and has to be answered by the guns.
+ */
+const BOSS_HINT =
+  'A boss walks past your soldiers without stopping — a shield wall will not hold it, ' +
+  'and it hits the wall far harder than anything in its escort. The parapet is the answer: ' +
+  'it has to be shot down before it arrives, or soon after.';
+
 /** The open-ended kinds a wave has left to spend on, shared by its armies. */
 interface WaveSlots {
   siege: number;
@@ -189,7 +201,10 @@ export function planWave(cfg: GameConfig, wave: number, seed: number): WavePlan 
     ? [...new Set(scripted.entries.map((e) => ENEMY_UNITS[e.kind].faction))]
     : factionsForWave(cfg, wave);
   const isBossWave = wave % cfg.waves.bossEvery === 0 && !scriptedWave(wave);
-  const budget = waveBudget(cfg, wave) * (isBossWave ? cfg.waves.bossBudgetFactor : 1);
+  // The full budget is what the wave is worth; a boss wave spends less of it
+  // on rank and file, because the boss is where the rest of it went.
+  const fullBudget = waveBudget(cfg, wave);
+  const budget = fullBudget * (isBossWave ? cfg.waves.bossBudgetFactor : 1);
   const baseHpScale = waveHpScale(cfg, wave);
   const damageScale = waveDamageScale(cfg, wave);
   const bountyScale = waveBountyScale(cfg, wave);
@@ -259,7 +274,12 @@ export function planWave(cfg: GameConfig, wave: number, seed: number): WavePlan 
 
   /** Every body in the wave, with the hit-point scale it fights at. */
   const bodies: Array<{ def: EnemyUnitDef; hpScale: number }> = defs.map((def) => ({ def, hpScale }));
-  if (bossDef) bodies.push({ def: bossDef, hpScale: baseHpScale });
+  if (bossDef) {
+    // Held to the curve like everything else, against the wave's full budget:
+    // left on its roster line it was 7% of the wave that bears its name.
+    const bossHp = fullBudget * cfg.waves.hpPerPoint * cfg.waves.bossThreat * baseHpScale;
+    bodies.push({ def: bossDef, hpScale: bossHp / bossDef.hp });
+  }
 
   // Schedule: clumps of up to groupSize walk on together, spread over the
   // spawn window, each clump arriving around a shared x so they read as a squad.
@@ -343,8 +363,10 @@ export function planWave(cfg: GameConfig, wave: number, seed: number): WavePlan 
     wave,
     shape,
     classMix,
-    label: scripted?.label ?? null,
-    hint: scripted?.hint ?? null,
+    // A boss wave names itself. It is the one wave that is scheduled rather
+    // than rolled, so there is nothing to give away by saying what is coming.
+    label: scripted?.label ?? (bossDef ? bossDef.name.toUpperCase() : null),
+    hint: scripted?.hint ?? (bossDef ? BOSS_HINT : null),
     factions,
     spawns,
     composition,

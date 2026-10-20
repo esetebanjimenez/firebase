@@ -184,6 +184,18 @@ export interface GameConfig {
     readonly bossEvery: number;
     /** Boss waves spend less on rank-and-file, since the boss is the wave. */
     readonly bossBudgetFactor: number;
+    /**
+     * What the boss itself is worth, as a multiple of a normal wave's hit
+     * points at the same wave.
+     *
+     * It used to be worth whatever its roster line happened to say times the
+     * campaign curve, which came to about 7% of the wave it was the name of —
+     * so a boss wave, with its rank and file cut to 60%, was a *dip*. The
+     * tenth wave should be the one you do not clear on the first go, or the
+     * second: an event to invest against rather than a wave with a bigger
+     * sprite in it.
+     */
+    readonly bossThreat: number;
     /** From this wave on, a wave can draw from two armies at once. */
     readonly mixFromWave: number;
     /**
@@ -441,7 +453,8 @@ export const defaultConfig: GameConfig = {
     clumpGapSec: 5,
     groupSize: 4,
     bossEvery: 10,
-    bossBudgetFactor: 0.6,
+    bossBudgetFactor: 0.8,
+    bossThreat: 0.8,
     mixFromWave: 16,
     shapeFromWave: 8,
     shapeBias: 8,
