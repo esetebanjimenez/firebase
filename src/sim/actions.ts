@@ -22,7 +22,7 @@ import {
 } from './derive';
 import { startBattle, syncDerived } from './engine';
 import { PLAYER_UNITS } from './roster';
-import { createPlayerUnit } from './waves';
+import { createPlayerSquad } from './waves';
 import type {
   AbilityId,
   AutomationState,
@@ -200,9 +200,13 @@ export function deployUnit(
 ): boolean {
   if (!canDeploy(state, cfg, id)) return false;
   state.charges.current -= chargeCost(id);
-  const unit = createPlayerUnit(state, cfg, id);
-  state.units.push(unit);
-  events?.push({ type: 'spawn', team: 'player', kind: unit.kind, x: unit.x, y: unit.y });
+  // One charge buys a squad. It is the same amount of soldier a charge always
+  // bought — the roster line is the squad's and each body takes a share — so
+  // the charge economy does not move; the gate just pushes out a fire team.
+  for (const unit of createPlayerSquad(state, cfg, id)) {
+    state.units.push(unit);
+    events?.push({ type: 'spawn', team: 'player', kind: unit.kind, x: unit.x, y: unit.y });
+  }
   return true;
 }
 

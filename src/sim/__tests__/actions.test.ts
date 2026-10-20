@@ -145,7 +145,11 @@ describe('deployment charges', () => {
     for (let i = 0; i < max; i++) expect(deployUnit(state, cfg, 'rifleman')).toBe(true);
     expect(state.charges.current).toBe(0);
     expect(deployUnit(state, cfg, 'rifleman')).toBe(false);
-    expect(state.units.filter((u) => u.team === 'player')).toHaveLength(max);
+    // A charge buys a squad, so the pool's worth of charges is that many fire
+    // teams on the field — not that many men.
+    expect(state.units.filter((u) => u.team === 'player')).toHaveLength(
+      max * (PLAYER_UNITS.rifleman.squad ?? 1),
+    );
   });
 
   it('charges one charge for every kind, whatever it is', () => {

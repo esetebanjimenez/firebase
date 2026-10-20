@@ -147,6 +147,22 @@ export interface GameConfig {
     readonly maxUnits: number;
     readonly hpScaleGrowth: number;
     readonly damageScaleGrowth: number;
+    /**
+     * How much harder everything hits your *soldiers* than its stat block
+     * says. Nothing to do with what it does to the wall.
+     *
+     * It exists because squads moved the balance between your infantry and
+     * everything else: a charge used to buy one soldier and now buys four, so
+     * the line became four times as hard to get through and almost nothing
+     * reached the wall. Tripling the enemy's hit points barely slowed a run
+     * down — what makes a line consumable is how fast the bodies in it die,
+     * not how long the bodies in front of it take to kill.
+     *
+     * Kept off the wall deliberately: a flat multiplier on enemy damage also
+     * multiplied siege, which would have cut a breach from a minute and a
+     * half to half a minute and undone the siege clock.
+     */
+    readonly troopDamageMult: number;
     readonly bountyScaleGrowth: number;
     /**
      * The clock the enemy's stats compound on: the exponent is
@@ -443,6 +459,7 @@ export const defaultConfig: GameConfig = {
     maxUnits: 90,
     hpScaleGrowth: 1.18,
     damageScaleGrowth: 1.1,
+    troopDamageMult: 3.2,
     bountyScaleGrowth: 1.16,
     statScalePower: 0.7,
     // Straight geometric, deliberately: prices compound per *level* and a
@@ -458,7 +475,7 @@ export const defaultConfig: GameConfig = {
     mixFromWave: 16,
     shapeFromWave: 8,
     shapeBias: 8,
-    hpPerPoint: 52,
+    hpPerPoint: 110,
     shapeThreat: { column: 0.65, horde: 1, skirmish: 1, mixed: 1 },
     siegeBase: 1,
     siegePerWaves: 12,

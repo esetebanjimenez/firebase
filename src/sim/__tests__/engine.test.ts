@@ -172,8 +172,13 @@ describe('unit behaviour', () => {
     const late = formed.slice(-Math.floor(formed.length / 2));
     const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
     // Lower y is further up the field: the late front must not be meaningfully
-    // more advanced than the early one.
-    expect(mean(late)).toBeGreaterThan(mean(early) - cfg.field.height * 0.05);
+    // more advanced than the early one. The allowance is a twelfth of the
+    // field rather than a twentieth because soldiers go out in squads now: the
+    // pressure valve releases four bodies at a time, so the front moves in
+    // squad-sized steps. What this still catches is a line that keeps walking
+    // — and `fights at the line rather than out in the open`, below, is what
+    // keeps it from living in the strip.
+    expect(mean(late)).toBeGreaterThan(mean(early) - cfg.field.height * 0.085);
   });
 
   it('fights at the line rather than out in the open', () => {

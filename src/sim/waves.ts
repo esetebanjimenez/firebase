@@ -109,18 +109,28 @@ function pickUnits(
 ): EnemyUnitDef[] {
   const picks: EnemyUnitDef[] = [];
   if (roster.length === 0) return picks;
-  const cheapest = roster[0].cost;
   let left = budget;
+  // Both of these count bodies, not line items. A squad of four archers costs
+  // four archers and fills four of the slots the field can hold, so grouping
+  // the roster into squads changes how a wave is *arranged* and not how much
+  // of it there is — same bodies, same price, same threat, in formations.
+  const sizeOf = (d: EnemyUnitDef) => d.squad ?? 1;
+  const priceOf = (d: EnemyUnitDef) => d.cost * sizeOf(d);
+  const cheapest = Math.min(...roster.map(priceOf));
+  let bodies = 0;
   const breacher = (d: EnemyUnitDef) => d.wallFocused === true && d.standoff !== true;
   const allowed = () =>
     roster.filter(
       (d) =>
         (slots.siege > 0 || !d.standoff) &&
         (slots.summoners > 0 || d.spawnKind === undefined) &&
-        (slots.breachers > 0 || !breacher(d)),
+        (slots.breachers > 0 || !breacher(d)) &&
+        // A squad is taken whole or not at all, so it has to fit.
+        bodies + sizeOf(d) <= maxUnits,
     );
   const take = (def: EnemyUnitDef) => {
     picks.push(def);
+    bodies += sizeOf(def);
     if (def.standoff) slots.siege -= 1;
     if (def.spawnKind !== undefined) slots.summoners -= 1;
     if (breacher(def)) slots.breachers -= 1;
@@ -129,8 +139,8 @@ function pickUnits(
   // Heavies first, from the costliest two affordable kinds, up to a share of
   // the budget — this is what keeps late waves from being pure chaff.
   let heavyLeft = budget * 0.45;
-  while (heavyLeft >= cheapest && picks.length < maxUnits) {
-    const affordable = allowed().filter((d) => d.cost <= Math.min(heavyLeft, left));
+  while (heavyLeft >= cheapest && bodies < maxUnits) {
+    const affordable = allowed().filter((d) => priceOf(d) <= Math.min(heavyLeft, left));
     if (affordable.length === 0) break;
     // A shaped wave takes its heavies from its own class most of the time.
     // Most, not always: a column of nothing but armour is a monoculture the
@@ -141,15 +151,17 @@ function pickUnits(
     const top = pool.slice(-2);
     const def = rng.pick(top);
     take(def);
-    heavyLeft -= def.cost;
-    left -= def.cost;
+    heavyLeft -= priceOf(def);
+    left -= priceOf(def);
   }
 
   // The rest goes on numbers, weighted toward cheap kinds.
-  while (left >= cheapest && picks.length < maxUnits) {
-    const affordable = allowed().filter((d) => d.cost <= left);
+  while (left >= cheapest && bodies < maxUnits) {
+    const affordable = allowed().filter((d) => priceOf(d) <= left);
     if (affordable.length === 0) break;
-    const weights = affordable.map((d) => (1 / d.cost) * (favours && d.bodyClass === favours ? bias : 1));
+    const weights = affordable.map(
+      (d) => (1 / priceOf(d)) * (favours && d.bodyClass === favours ? bias : 1),
+    );
     const total = weights.reduce((a, b) => a + b, 0);
     let roll = rng.float() * total;
     let def = affordable[affordable.length - 1];
@@ -161,7 +173,7 @@ function pickUnits(
       }
     }
     take(def);
-    left -= def.cost;
+    left -= priceOf(def);
   }
 
   return picks;
@@ -209,11 +221,20 @@ export function planWave(cfg: GameConfig, wave: number, seed: number): WavePlan 
   const damageScale = waveDamageScale(cfg, wave);
   const bountyScale = waveBountyScale(cfg, wave);
 
-  const defs: EnemyUnitDef[] = [];
+  /** A unit of the wave: a kind, and how many bodies of it come on together. */
+  const defs: Array<{ def: EnemyUnitDef; size: number }> = [];
+
   if (scripted) {
-    // A written wave is its own composition; the budget does not apply.
+    // A written wave brings its own composition, and it counts bodies: five
+    // skirmishers means five. They are grouped into squads of the kind's size
+    // with the last one short if the count does not divide — wave 6 teaches
+    // with five and would have fielded twenty the moment they came in fours.
     for (const entry of scripted.entries) {
-      for (let i = 0; i < entry.count; i++) defs.push(ENEMY_UNITS[entry.kind]);
+      const def = ENEMY_UNITS[entry.kind];
+      const size = Math.max(1, def.squad ?? 1);
+      for (let left = entry.count; left > 0; left -= size) {
+        defs.push({ def, size: Math.min(size, left) });
+      }
     }
   } else {
     // Split the budget when two armies attack together. The open-ended
@@ -228,17 +249,17 @@ export function planWave(cfg: GameConfig, wave: number, seed: number): WavePlan 
     for (let i = 0; i < factions.length; i++) {
       const roster = rosterFor(factions[i], wave);
       const bodyCap = Math.max(1, Math.floor(cfg.waves.maxUnits / factions.length));
-      defs.push(
-        ...pickUnits(
-          roster,
-          budget * shares[i],
-          bodyCap,
-          rng,
-          openSlots,
-          SHAPES[shape].favours,
-          cfg.waves.shapeBias,
-        ),
-      );
+      for (const def of pickUnits(
+        roster,
+        budget * shares[i],
+        bodyCap,
+        rng,
+        openSlots,
+        SHAPES[shape].favours,
+        cfg.waves.shapeBias,
+      )) {
+        defs.push({ def, size: Math.max(1, def.squad ?? 1) });
+      }
     }
   }
 
@@ -268,17 +289,21 @@ export function planWave(cfg: GameConfig, wave: number, seed: number): WavePlan 
    * it carries the plain curve and the rank and file around it is what gets
    * held.
    */
-  const rawHp = defs.reduce((sum, d) => sum + d.hp, 0);
+  const rawHp = defs.reduce((sum, d) => sum + d.def.hp * d.size, 0);
   const targetHp = budget * cfg.waves.hpPerPoint * cfg.waves.shapeThreat[shape];
   const hpScale = rawHp > 0 ? (targetHp / rawHp) * baseHpScale : baseHpScale;
 
-  /** Every body in the wave, with the hit-point scale it fights at. */
-  const bodies: Array<{ def: EnemyUnitDef; hpScale: number }> = defs.map((def) => ({ def, hpScale }));
+  /** Every squad in the wave, with the hit-point scale its bodies fight at. */
+  const bodies: Array<{ def: EnemyUnitDef; hpScale: number; size: number }> = defs.map((d) => ({
+    def: d.def,
+    hpScale,
+    size: d.size,
+  }));
   if (bossDef) {
     // Held to the curve like everything else, against the wave's full budget:
     // left on its roster line it was 7% of the wave that bears its name.
     const bossHp = fullBudget * cfg.waves.hpPerPoint * cfg.waves.bossThreat * baseHpScale;
-    bodies.push({ def: bossDef, hpScale: bossHp / bossDef.hp });
+    bodies.push({ def: bossDef, hpScale: bossHp / bossDef.hp, size: 1 });
   }
 
   // Schedule: clumps of up to groupSize walk on together, spread over the
@@ -299,7 +324,27 @@ export function planWave(cfg: GameConfig, wave: number, seed: number): WavePlan 
   const escort = bodies.filter((b) => b.def.standoff !== true);
   const engines = bodies.filter((b) => b.def.standoff === true);
 
-  const groups = Math.max(1, Math.ceil(escort.length / waves.groupSize));
+  /**
+   * Clumps, measured in bodies rather than line items: a squad of four is a
+   * clump on its own, and loners are gathered up to `groupSize`. Counting
+   * line items put a thirteen-body wave into one clump — the boss among them,
+   * walking on at second zero with its own escort.
+   */
+  const clumps: Array<Array<{ def: EnemyUnitDef; hpScale: number; size: number }>> = [];
+  let filling: Array<{ def: EnemyUnitDef; hpScale: number; size: number }> = [];
+  let filled = 0;
+  for (const body of escort) {
+    if (filling.length > 0 && filled + body.size > waves.groupSize) {
+      clumps.push(filling);
+      filling = [];
+      filled = 0;
+    }
+    filling.push(body);
+    filled += body.size;
+  }
+  if (filling.length > 0) clumps.push(filling);
+
+  const groups = Math.max(1, clumps.length);
   // Evenly across the window, but never further apart than clumpGapSec: a
   // five-body wave should not be spread over the same eighteen seconds as a
   // ninety-body one.
@@ -312,23 +357,46 @@ export function planWave(cfg: GameConfig, wave: number, seed: number): WavePlan 
   const near = (anchorX: number) =>
     Math.min(field.width - field.sideMargin, Math.max(field.sideMargin, anchorX + rng.spread(36)));
 
-  const push = (body: { def: EnemyUnitDef; hpScale: number }, at: number, anchorX: number) => {
-    spawns.push({
-      kind: body.def.id,
-      x: near(anchorX),
-      // The opening clump walks on the instant the wave is launched; the rest
-      // are staggered a little inside their clump so a squad does not appear
-      // in one frame.
-      at: at === 0 ? 0 : at + rng.float() * 0.4,
-      hpScale: body.hpScale,
-      damageScale,
-      bountyScale,
-    });
+  /**
+   * Queue one unit — which is one body, or a squad's worth of them.
+   *
+   * A squad walks on together, abreast and at the same moment: staggering a
+   * squad would undo the thing it is for. The clump it belongs to is still
+   * staggered against the clumps around it.
+   */
+  let nextSquadId = 1;
+  const push = (
+    body: { def: EnemyUnitDef; hpScale: number; size: number },
+    at: number,
+    anchorX: number,
+  ) => {
+    const size = Math.max(1, body.size);
+    const squadId = size > 1 ? nextSquadId++ : 0;
+    const when = at === 0 ? 0 : at + rng.float() * 0.4;
+    const x = near(anchorX);
+    const spread = body.def.radius * 2.2;
+    for (let slot = 0; slot < size; slot++) {
+      // Abreast of each other, centred on where the unit would have stood.
+      const offset = (slot - (size - 1) / 2) * spread;
+      spawns.push({
+        kind: body.def.id,
+        x: Math.min(
+          field.width - field.sideMargin,
+          Math.max(field.sideMargin, x + offset),
+        ),
+        at: when,
+        hpScale: body.hpScale,
+        damageScale,
+        bountyScale,
+        squadId,
+        squadSlot: slot,
+        squadSize: size,
+      });
+    }
   };
 
-  for (let g = 0; g < groups; g++) {
-    const members = escort.slice(g * waves.groupSize, (g + 1) * waves.groupSize);
-    for (const body of members) push(body, groupAt(g), anchors[g]);
+  for (let g = 0; g < clumps.length; g++) {
+    for (const body of clumps[g]) push(body, groupAt(g), anchors[g]);
   }
 
   // Spread the engines over the clumps after the first. A wave too small to
@@ -346,14 +414,16 @@ export function planWave(cfg: GameConfig, wave: number, seed: number): WavePlan 
   const classMix: Record<BodyClass, number> = { armored: 0, swarm: 0, elusive: 0 };
   let totalHp = 0;
   let totalBounty = 0;
-  for (const { def, hpScale: scale } of bodies) {
-    counts.set(def.id, (counts.get(def.id) ?? 0) + 1);
+  for (const { def, hpScale: scale, size } of bodies) {
+    // Counted in bodies: "archers x8" is what the player will see walk on,
+    // whether that is two squads of four or eight loners.
+    counts.set(def.id, (counts.get(def.id) ?? 0) + size);
     // Weighted by hit points, not bodies. A column is 15 knights behind 39
     // skeletons by headcount, which makes "armoured column" read as a lie;
     // by threat it is overwhelmingly armour, which is what the player meets.
-    classMix[def.bodyClass] += def.hp * scale;
-    totalHp += def.hp * scale;
-    totalBounty += def.bounty * bountyScale;
+    classMix[def.bodyClass] += def.hp * scale * size;
+    totalHp += def.hp * scale * size;
+    totalBounty += def.bounty * bountyScale * size;
   }
   const composition = [...counts.entries()]
     .map(([kind, count]) => ({ kind, count }))
@@ -394,6 +464,8 @@ interface MakeUnitArgs {
   readonly spawnPeriod: number;
   readonly spawnKind: EnemyUnitId | null;
   readonly rank: Rank;
+  readonly squadId?: number;
+  readonly squadSlot?: number;
 }
 
 function makeUnit(args: MakeUnitArgs, stats: typeof PLAYER_UNITS[PlayerUnitId] | EnemyUnitDef): Unit {
@@ -426,6 +498,8 @@ function makeUnit(args: MakeUnitArgs, stats: typeof PLAYER_UNITS[PlayerUnitId] |
     spawnPeriod: args.spawnPeriod,
     spawnIn: args.spawnPeriod,
     spawnKind: args.spawnKind,
+    squadId: args.squadId ?? 0,
+    squadSlot: args.squadSlot ?? 0,
     targetId: null,
     retargetIn: 0,
     aim: args.aim,
@@ -436,19 +510,54 @@ function makeUnit(args: MakeUnitArgs, stats: typeof PLAYER_UNITS[PlayerUnitId] |
   };
 }
 
-/** Deploy one of your soldiers in the gate mouth. Mutates the id counter. */
-export function createPlayerUnit(state: SimState, cfg: GameConfig, kind: PlayerUnitId): Unit {
+/**
+ * Deploy one of your soldiers in the gate mouth: a squad's worth of bodies for
+ * one charge, abreast in the gate. Mutates the id counter.
+ *
+ * A charge buys a squad rather than a man, and every body in it is a whole
+ * soldier with the stats its level paid for. That is a real increase in what
+ * a charge is worth, and it is meant to be: the wave budget buys squads too,
+ * at a squad's price, so both sides field the same bodies they always did,
+ * arranged into fire teams. What it does change is the balance between your
+ * infantry and your parapet, which the threat curve is tuned against.
+ */
+export function createPlayerSquad(state: SimState, cfg: GameConfig, kind: PlayerUnitId): Unit[] {
+  const size = Math.max(1, PLAYER_UNITS[kind].squad ?? 1);
+  const squadId = size > 1 ? state.nextId++ : 0;
+  const rng = new RngStream(state.rngState);
+  const centre = cfg.field.gateX + rng.spread(cfg.field.gateHalfWidth * 0.4);
+  state.rngState = rng.state;
+  const spread = PLAYER_UNITS[kind].radius * 2.2;
+  const squad: Unit[] = [];
+  for (let slot = 0; slot < size; slot++) {
+    const offset = (slot - (size - 1) / 2) * spread;
+    squad.push(createPlayerUnit(state, cfg, kind, centre + offset, squadId, slot));
+  }
+  return squad;
+}
+
+/** One body of a squad (or a lone soldier, when a kind has no squad). */
+export function createPlayerUnit(
+  state: SimState,
+  cfg: GameConfig,
+  kind: PlayerUnitId,
+  x = cfg.field.gateX,
+  squadId = 0,
+  squadSlot = 0,
+): Unit {
   const def = PLAYER_UNITS[kind];
   const stats = playerUnitStats(cfg, state.unitLevels, kind);
-  const rng = new RngStream(state.rngState);
-  const x = cfg.field.gateX + rng.spread(cfg.field.gateHalfWidth * 0.6);
-  state.rngState = rng.state;
   return makeUnit(
     {
       id: state.nextId++,
       team: 'player',
       kind,
-      x,
+      squadId,
+      squadSlot,
+      x: Math.min(
+        cfg.field.width - cfg.field.sideMargin,
+        Math.max(cfg.field.sideMargin, x),
+      ),
       y: cfg.field.wallTop - cfg.sim.gateSpawnOffset,
       hp: stats.hp,
       damage: stats.damage,
@@ -483,6 +592,8 @@ export function createEnemyUnit(state: SimState, cfg: GameConfig, q: QueuedSpawn
       aim: Math.PI / 2,
       spawnPeriod: def.spawnPeriod ?? 0,
       spawnKind: def.spawnKind ?? null,
+      squadId: q.squadId ?? 0,
+      squadSlot: q.squadSlot ?? 0,
       // From the wave's own curve, not from `q.hpScale`: that carries the
       // normalisation that holds a wave's total to the curve, which can be
       // several times the campaign's scaling on a wave whose composition came

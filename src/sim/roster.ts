@@ -38,6 +38,28 @@ export interface UnitStats {
   readonly projectileSpeed: number;
   readonly splashRadius: number;
   /**
+   * How many bodies this kind arrives as.
+   *
+   * Every one of your kinds fields four, deliberately the same number: a
+   * charge used to buy one soldier whatever it was, because pricing the
+   * counter above the generalist swamped the counter triangle, and four
+   * riflemen against two rocketeers for the same charge would be that same
+   * mistake wearing a different hat. The enemy's sizes vary, because its
+   * squads are bought by the budget at a price per body.
+   *
+   * The stat block here is one body's, and a squad is that many of them: the
+   * wave budget pays a squad's price and the field's body cap counts a
+   * squad's bodies, so a wave fields the same soldiers it always did, in
+   * fire teams instead of as loners. They pick their target together and form
+   * up together, which is the whole point — an engagement reads as two lines
+   * meeting rather than a cloud of dots converging.
+   *
+   * Left unset for anything that is one thing: a siege engine is one engine,
+   * a boss is one boss, and a necromancer is a rate rather than a body — four
+   * of them would be four times the stream of skeletons.
+   */
+  readonly squad?: number;
+  /**
    * Damage multiplier against the wall.
    *
    * Worth keeping in proportion to a standoff engine's: a ram at triple damage
@@ -225,6 +247,7 @@ export const PLAYER_UNITS: Readonly<Record<PlayerUnitId, PlayerUnitDef>> = {
     projectile: 'bullet',
     projectileSpeed: 420,
     splashRadius: 0,
+    squad: 4,
     role: 'vs Skirmishers',
     damageClass: 'kinetic',
     siegeBonus: 1,
@@ -252,6 +275,7 @@ export const PLAYER_UNITS: Readonly<Record<PlayerUnitId, PlayerUnitDef>> = {
     projectile: 'bullet',
     projectileSpeed: 0,
     splashRadius: 0,
+    squad: 4,
     role: 'Screens',
     damageClass: 'kinetic',
     siegeBonus: 1,
@@ -279,6 +303,7 @@ export const PLAYER_UNITS: Readonly<Record<PlayerUnitId, PlayerUnitDef>> = {
     projectile: 'bullet',
     projectileSpeed: 480,
     splashRadius: 0,
+    squad: 4,
     role: 'vs Hordes',
     damageClass: 'sustained',
     siegeBonus: 1,
@@ -306,6 +331,7 @@ export const PLAYER_UNITS: Readonly<Record<PlayerUnitId, PlayerUnitDef>> = {
     projectile: 'rocket',
     projectileSpeed: 240,
     splashRadius: 22,
+    squad: 4,
     role: 'vs Armour',
     damageClass: 'explosive',
     siegeBonus: 1,
@@ -387,6 +413,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     projectile: 'arrow',
     projectileSpeed: 0,
     splashRadius: 0,
+    squad: 4,
     bodyClass: 'swarm',
     siegeBonus: 1,
     radius: 7,
@@ -411,6 +438,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     projectile: 'arrow',
     projectileSpeed: 0,
     splashRadius: 0,
+    squad: 4,
     bodyClass: 'swarm',
     siegeBonus: 1,
     radius: 6,
@@ -435,6 +463,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     projectile: 'arrow',
     projectileSpeed: 260,
     splashRadius: 0,
+    squad: 4,
     bodyClass: 'elusive',
     siegeBonus: 1,
     radius: 7,
@@ -459,6 +488,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     projectile: 'arrow',
     projectileSpeed: 0,
     splashRadius: 0,
+    squad: 2,
     bodyClass: 'armored',
     siegeBonus: 1,
     radius: 9,
@@ -562,6 +592,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     projectile: 'bolt',
     projectileSpeed: 0,
     splashRadius: 0,
+    squad: 4,
     bodyClass: 'swarm',
     siegeBonus: 1,
     radius: 5,
@@ -586,6 +617,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     projectile: 'bolt',
     projectileSpeed: 240,
     splashRadius: 0,
+    squad: 4,
     bodyClass: 'elusive',
     siegeBonus: 1,
     radius: 7,
@@ -610,6 +642,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     projectile: 'bolt',
     projectileSpeed: 200,
     splashRadius: 26,
+    squad: 2,
     bodyClass: 'elusive',
     siegeBonus: 1,
     radius: 7,
@@ -712,6 +745,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     projectile: 'drain',
     projectileSpeed: 0,
     splashRadius: 0,
+    squad: 4,
     bodyClass: 'swarm',
     siegeBonus: 1,
     radius: 5,
@@ -736,6 +770,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     projectile: 'drain',
     projectileSpeed: 0,
     splashRadius: 0,
+    squad: 4,
     bodyClass: 'swarm',
     siegeBonus: 1,
     radius: 7,
@@ -760,6 +795,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     projectile: 'drain',
     projectileSpeed: 0,
     splashRadius: 0,
+    squad: 4,
     bodyClass: 'swarm',
     siegeBonus: 1,
     radius: 7,
@@ -784,6 +820,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     projectile: 'drain',
     projectileSpeed: 190,
     splashRadius: 0,
+    squad: 3,
     bodyClass: 'elusive',
     siegeBonus: 1,
     radius: 7,

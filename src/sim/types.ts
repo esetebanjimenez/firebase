@@ -131,6 +131,19 @@ export interface Unit {
   readonly siegeBonus: number;
   /** Body radius: used for spacing, melee reach, and splash hit tests. */
   readonly radius: number;
+  /**
+   * Which squad this body belongs to, or 0 if it fights alone.
+   *
+   * Most kinds arrive as a squad: one charge puts out a fire team of four
+   * riflemen, and an "archer" in a wave plan is four archers bought and
+   * counted as four. They are separate bodies — they take hits, die and get
+   * shoved apart one at a time — but they pick their target together and form
+   * up together, so an engagement reads as two lines meeting rather than a
+   * cloud of dots converging.
+   */
+  readonly squadId: number;
+  /** Its place in the squad's line, which decides its formation offset. */
+  readonly squadSlot: number;
   /** Credits paid out when this unit dies (enemies only). */
   readonly bounty: number;
   /**
@@ -230,6 +243,14 @@ export interface Tower {
 
 /** Enemy reinforcements still owed to the field this wave. */
 export interface QueuedSpawn {
+  /**
+   * The squad this body walks on with, its place in that squad's line, and how
+   * many bodies the squad has. All three are absent on a spawn that is simply
+   * one body.
+   */
+  readonly squadId?: number;
+  readonly squadSlot?: number;
+  readonly squadSize?: number;
   readonly kind: EnemyUnitId;
   readonly x: number;
   /** Battle clock, seconds, at which this one walks on. */

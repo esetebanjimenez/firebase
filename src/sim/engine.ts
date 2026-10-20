@@ -40,7 +40,7 @@ import type {
   Unit,
   WaveResult,
 } from './types';
-import { createEnemyUnit, createPlayerUnit, createRaisedUnit, planWave } from './waves';
+import { createEnemyUnit, createPlayerSquad, createRaisedUnit, planWave } from './waves';
 
 /** Re-apply config- and level-derived values. Safe to call any time. */
 export function syncDerived(state: SimState, cfg: GameConfig): void {
@@ -176,7 +176,11 @@ function hurtUnit(
   events: SimEvent[],
 ): void {
   if (unit.hp <= 0) return;
-  const matched = amount * counterMultiplier(cfg, damageClass, unit.bodyClass);
+  // Everything that lands on one of your soldiers lands this much harder: the
+  // counterweight to a charge buying four of them. Your own fire is unchanged
+  // — nothing you control is ever the thing being hit here.
+  const incoming = unit.team === 'player' ? amount * cfg.waves.troopDamageMult : amount;
+  const matched = incoming * counterMultiplier(cfg, damageClass, unit.bodyClass);
   const dealt = applyArmor(cfg, matched, unit.armor);
   unit.hp -= dealt;
   unit.flash = cfg.sim.flashSec;
@@ -240,13 +244,84 @@ function nearestEnemyOf(state: SimState, unit: Unit): Unit | null {
   return best;
 }
 
+/**
+ * Who decides for each squad this tick: the living member with the lowest id.
+ *
+ * A squad has no record of its own — it is just a number its bodies carry —
+ * so there is nothing to keep in step when one of them dies. The rule picks
+ * the same body for everyone, and the moment that body falls the next one
+ * takes over without anything having to notice.
+ */
+function squadLeaders(state: SimState): Map<number, Unit> {
+  const leaders = new Map<number, Unit>();
+  for (const unit of state.units) {
+    if (unit.squadId === 0 || unit.hp <= 0) continue;
+    const held = leaders.get(unit.squadId);
+    if (!held || unit.id < held.id) leaders.set(unit.squadId, unit);
+  }
+  return leaders;
+}
+
+/** How many of each squad are still standing, for the width of its line. */
+function squadStrength(state: SimState): Map<number, number> {
+  const strength = new Map<number, number>();
+  for (const unit of state.units) {
+    if (unit.squadId === 0 || unit.hp <= 0) continue;
+    strength.set(unit.squadId, (strength.get(unit.squadId) ?? 0) + 1);
+  }
+  return strength;
+}
+
+/**
+ * Where a body should stand to engage: beside its squadmates rather than on
+ * top of them.
+ *
+ * Four bodies walking at the same enemy converge on one point and arrive as a
+ * knot that the separation pass then shoves apart. Offsetting each one across
+ * the line of approach makes the squad close as a line and engage as a line,
+ * which is the whole reason for grouping them.
+ */
+function approachPoint(unit: Unit, target: Unit, width: number): { x: number; y: number } {
+  if (unit.squadId === 0 || width <= 1) return { x: target.x, y: target.y };
+  // Across the field, never up or down it. Offsetting along the true
+  // perpendicular pushed the outside of a diagonal approach forward by up to
+  // twenty-five pixels, which walked the whole line up the field over a wave;
+  // and both sides face along the y axis anyway, so a line abreast is a line
+  // in x.
+  const offset = (unit.squadSlot - (width - 1) / 2) * unit.radius * 2.4;
+  return { x: target.x + offset, y: target.y };
+}
+
+/** The target its squad is already on, if this body is not the one choosing. */
+function squadTarget(
+  unit: Unit,
+  leaders: Map<number, Unit>,
+  byId: Map<number, Unit>,
+): Unit | null | undefined {
+  if (unit.squadId === 0) return undefined;
+  const leader = leaders.get(unit.squadId);
+  if (!leader || leader.id === unit.id) return undefined;
+  if (leader.targetId === null) return null;
+  const target = byId.get(leader.targetId);
+  return target && target.hp > 0 ? target : null;
+}
+
 function resolveTarget(
   state: SimState,
   cfg: GameConfig,
   unit: Unit,
   byId: Map<number, Unit>,
+  leaders: Map<number, Unit>,
   dt: number,
 ): Unit | null {
+  // Follow the squad rather than choosing for yourself: four bodies picking
+  // the nearest enemy each are four bodies walking off in four directions the
+  // moment the nearest one differs between them.
+  const shared = squadTarget(unit, leaders, byId);
+  if (shared !== undefined) {
+    unit.targetId = shared ? shared.id : null;
+    return shared;
+  }
   unit.retargetIn -= dt;
   const current = unit.targetId === null ? null : byId.get(unit.targetId) ?? null;
   if (current && current.hp > 0 && unit.retargetIn > 0) return current;
@@ -355,9 +430,13 @@ function attackWall(state: SimState, cfg: GameConfig, unit: Unit, events: SimEve
  * where the next fight will be.
  */
 function musterPoint(cfg: GameConfig, unit: Unit): { x: number; y: number } {
-  const column = ((unit.id * 37) % 7) - 3;
-  const row = ((unit.id * 17) % 3) - 1;
-  const x = cfg.field.gateX + column * 32;
+  // Keyed on the squad, so a squad falls back to one place and stands in its
+  // own line there; a lone body still gets its own spot off its id.
+  const key = unit.squadId || unit.id;
+  const column = ((key * 37) % 7) - 3;
+  const row = ((key * 17) % 3) - 1;
+  const slot = unit.squadSlot - 1;
+  const x = cfg.field.gateX + column * 32 + slot * unit.radius * 2.2;
   return { x, y: musterLineY(cfg) + unit.posture + row * 22 };
 }
 
@@ -409,8 +488,29 @@ interface PlayerOrders {
   readonly limit: number;
 }
 
-function playerTarget(state: SimState, cfg: GameConfig, unit: Unit, dt: number): PlayerOrders {
+function playerTarget(
+  state: SimState,
+  cfg: GameConfig,
+  unit: Unit,
+  byId: Map<number, Unit>,
+  leaders: Map<number, Unit>,
+  dt: number,
+): PlayerOrders {
   const coverEdge = coverEdgeY(cfg, state.upgrades.towers);
+
+  // A squad advances on one enemy, and goes into the strip together or not at
+  // all: the limit comes from the leader as well, or three of them would hold
+  // the edge of cover while the fourth walked out alone.
+  const shared = squadTarget(unit, leaders, byId);
+  if (shared !== undefined) {
+    const leader = leaders.get(unit.squadId)!;
+    unit.targetId = shared ? shared.id : null;
+    unit.advancePressure = leader.advancePressure;
+    return {
+      target: shared,
+      limit: leader.advancePressure >= cfg.support.pushOutSec ? 0 : coverEdge,
+    };
+  }
 
   let nearest: Unit | null = null;
   let nearestD2 = Infinity;
@@ -422,6 +522,12 @@ function playerTarget(state: SimState, cfg: GameConfig, unit: Unit, dt: number):
       nearest = other;
     }
   }
+
+  // The one that chooses writes its choice down, because the rest of its
+  // squad reads it. Your soldiers used to leave `targetId` alone entirely —
+  // the player branch works off the returned object — so there was nothing
+  // for a squadmate to follow.
+  unit.targetId = nearest ? nearest.id : null;
 
   if (!nearest) {
     unit.advancePressure = 0;
@@ -543,9 +649,10 @@ export function step(state: SimState, dt: number, cfg: GameConfig): SimEvent[] {
       guard-- > 0
     ) {
       charges.current -= cost;
-      const unit = createPlayerUnit(state, cfg, state.selectedUnit);
-      state.units.push(unit);
-      events.push({ type: 'spawn', team: 'player', kind: unit.kind, x: unit.x, y: unit.y });
+      for (const unit of createPlayerSquad(state, cfg, state.selectedUnit)) {
+        state.units.push(unit);
+        events.push({ type: 'spawn', team: 'player', kind: unit.kind, x: unit.x, y: unit.y });
+      }
     }
   }
 
@@ -576,6 +683,8 @@ export function step(state: SimState, dt: number, cfg: GameConfig): SimEvent[] {
   // --- Unit AI: target, close the distance, attack.
   const byId = new Map<number, Unit>();
   for (const u of state.units) byId.set(u.id, u);
+  const leaders = squadLeaders(state);
+  const squadWidth = squadStrength(state);
 
   const wallLine = cfg.field.wallTop;
   const raised: Unit[] = [];
@@ -599,7 +708,10 @@ export function step(state: SimState, dt: number, cfg: GameConfig): SimEvent[] {
       }
     }
 
-    const orders = u.team === 'player' && !u.wallFocused ? playerTarget(state, cfg, u, dt) : null;
+    const orders =
+      u.team === 'player' && !u.wallFocused
+        ? playerTarget(state, cfg, u, byId, leaders, dt)
+        : null;
 
     if (orders) {
       // --- Your soldiers.
@@ -629,7 +741,8 @@ export function step(state: SimState, dt: number, cfg: GameConfig): SimEvent[] {
         // Charge it. The step stops just inside reach so the firing line forms
         // at weapons range rather than piling onto the target.
         const stop = Math.max(1, reach * 0.9);
-        const toward = stepToward(u.x, u.y, target.x, target.y, Math.min(u.speed * dt, d - stop));
+        const aim = approachPoint(u, target, squadWidth.get(u.squadId) ?? 1);
+        const toward = stepToward(u.x, u.y, aim.x, aim.y, Math.min(u.speed * dt, d - stop));
         u.x = toward.x;
         u.y = Math.max(toward.y, limit);
         u.anim += u.speed * dt;
@@ -649,7 +762,7 @@ export function step(state: SimState, dt: number, cfg: GameConfig): SimEvent[] {
       continue;
     }
 
-    const target = u.wallFocused ? null : resolveTarget(state, cfg, u, byId, dt);
+    const target = u.wallFocused ? null : resolveTarget(state, cfg, u, byId, leaders, dt);
 
     if (target) {
       const d = dist(u.x, u.y, target.x, target.y);
@@ -657,7 +770,8 @@ export function step(state: SimState, dt: number, cfg: GameConfig): SimEvent[] {
       if (d > reach) {
         // Close in, stopping just inside reach so the firing line holds.
         const stop = Math.max(1, reach * 0.9);
-        const toward = stepToward(u.x, u.y, target.x, target.y, Math.min(u.speed * dt, d - stop));
+        const aim = approachPoint(u, target, squadWidth.get(u.squadId) ?? 1);
+        const toward = stepToward(u.x, u.y, aim.x, aim.y, Math.min(u.speed * dt, d - stop));
         u.x = toward.x;
         u.y = toward.y;
         u.anim += u.speed * dt;
