@@ -182,7 +182,7 @@ describe('unit behaviour', () => {
     expect(mean(late)).toBeGreaterThan(mean(early) - cfg.field.height * 0.085);
   });
 
-  it('fights at the line rather than out in the open', () => {
+  it('fights on ground the guns cover, not out in the strip', () => {
     const state = freshState();
     state.wave = 9;
     state.credits = 5000;
@@ -194,14 +194,22 @@ describe('unit behaviour', () => {
       }
       step(state, DT, cfg);
     }
+    // Where the line forms is where the enemy is met, and against a wave of
+    // thirty bodies arriving in clumps that is a good way up the field — it
+    // used to be within a body's length of the muster line, back when a wave
+    // was a dozen bodies trickling in and the nearest one was always close.
+    //
+    // So what is pinned here is the leash rather than a row: the line as a
+    // whole stands on ground the guns cover, and the few the pressure valve
+    // sends after something pinned in the strip go a little way in, not up
+    // the field. Measured at wave 9: eighteen soldiers, four of them in the
+    // strip, the deepest twelve pixels inside it.
+    const edge = coverEdgeY(cfg, state.upgrades.towers);
     const soldiers = state.units.filter((u) => u.team === 'player');
-    if (soldiers.length > 0) {
-      for (const soldier of soldiers) {
-        const line = holdLineY(cfg);
-        // Within a body's length of the post, on either side of it.
-        expect(soldier.y).toBeGreaterThan(line - 40);
-      }
-    }
+    expect(soldiers.length).toBeGreaterThan(0);
+    const mean = soldiers.reduce((sum, u) => sum + u.y, 0) / soldiers.length;
+    expect(mean).toBeGreaterThan(edge);
+    for (const soldier of soldiers) expect(soldier.y).toBeGreaterThan(edge / 2);
   });
 
   it('marches on siege parked in the strip the guns cannot reach', () => {

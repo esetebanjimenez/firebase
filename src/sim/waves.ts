@@ -228,7 +228,11 @@ export function planWave(cfg: GameConfig, wave: number, seed: number): WavePlan 
   const isBossWave = wave % cfg.waves.bossEvery === 0 && !scriptedWave(wave);
   // The full budget is what the wave is worth; a boss wave spends less of it
   // on rank and file, because the boss is where the rest of it went.
-  const fullBudget = waveBudget(cfg, wave);
+  // The opening's extra weight is spent on *bodies*: it multiplies the budget,
+  // not the hit points that budget is held to. Applied to the target instead
+  // it bought the same eight militia at six times their roster hit points,
+  // which is the weakest thing in the game arriving as a brick.
+  const fullBudget = waveBudget(cfg, wave) * (scripted ? 1 : openingThreatMult(cfg, wave));
   const budget = fullBudget * (isBossWave ? cfg.waves.bossBudgetFactor : 1);
   const baseHpScale = waveHpScale(cfg, wave);
   const damageScale = waveDamageScale(cfg, wave);
@@ -303,13 +307,10 @@ export function planWave(cfg: GameConfig, wave: number, seed: number): WavePlan 
    * held.
    */
   const rawHp = defs.reduce((sum, d) => sum + d.def.hp * d.size, 0);
+  // A written wave says what it weighs; a rolled one takes its weight from the
+  // budget, the opening's extra points included.
   const targetHp =
-    budget *
-    cfg.waves.hpPerPoint *
-    cfg.waves.shapeThreat[shape] *
-    // A written wave says what it weighs; a rolled one gets the opening's
-    // extra weight while that is still fading.
-    (scripted ? scripted.threat ?? 1 : openingThreatMult(cfg, wave));
+    budget * cfg.waves.hpPerPoint * cfg.waves.shapeThreat[shape] * (scripted?.threat ?? 1);
   const hpScale = rawHp > 0 ? (targetHp / rawHp) * baseHpScale : baseHpScale;
 
   /** Every squad in the wave, with the hit-point scale its bodies fight at. */

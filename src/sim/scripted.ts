@@ -38,16 +38,21 @@ export const SCRIPTED_WAVES: Readonly<Record<number, ScriptedWave>> = {
     //
     // Counts alone stopped being able to carry it once squads arrived. A
     // charge buys four riflemen now, so the rifles-only defence is four times
-    // as thick, and piling on skirmishers does not answer that: the wave's
-    // hit points are held to the curve either way, so more of them is only
-    // thinner ones. Hence the weight below. At twice the curve, with a charge
-    // of eight skirmishers behind five militia, the sweep is clean on all
-    // eight seeds both ways — rifles alone lose every one, rifles with a
-    // Shield Bearer in front win every one.
-    threat: 2,
+    // as thick, and piling on skirmishers does not answer that on its own:
+    // the wave's hit points are held to the curve either way, so more of them
+    // is only thinner ones. Hence the weight, swept together with the counts.
+    //
+    // The pair below is the one that both teaches and reads right: thirteen
+    // bodies at twice the curve made each skirmisher a three-hundred-hit-point
+    // brick, which is not what a charge of light infantry looks like. Twenty
+    // and twelve at 1.2 spreads the same lesson over thirty-two bodies at
+    // seventy-odd each, and the sweep is clean on all eight seeds both ways —
+    // rifles alone lose every one, rifles with a Shield Bearer in front win
+    // every one.
+    threat: 1.2,
     entries: [
-      { kind: 'skirmisher', count: 8 },
-      { kind: 'militia', count: 5 },
+      { kind: 'skirmisher', count: 20 },
+      { kind: 'militia', count: 12 },
     ],
   },
 };

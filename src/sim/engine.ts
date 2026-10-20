@@ -498,28 +498,22 @@ function playerTarget(
 ): PlayerOrders {
   const coverEdge = coverEdgeY(cfg, state.upgrades.towers);
 
-  // A squad advances on one enemy, and goes into the strip together or not at
-  // all: the limit comes from the leader as well, or three of them would hold
-  // the edge of cover while the fourth walked out alone.
+  // A squad advances on one enemy: a follower takes the target its squad is
+  // already on rather than picking the one nearest itself. It still judges the
+  // step past cover for itself, from where it is standing — inheriting the
+  // leader's verdict as well sent whole squads to the edge of cover on one
+  // body's reading of one target.
   const shared = squadTarget(unit, leaders, byId);
-  if (shared !== undefined) {
-    const leader = leaders.get(unit.squadId)!;
-    unit.targetId = shared ? shared.id : null;
-    unit.advancePressure = leader.advancePressure;
-    return {
-      target: shared,
-      limit: leader.advancePressure >= cfg.support.pushOutSec ? 0 : coverEdge,
-    };
-  }
-
-  let nearest: Unit | null = null;
-  let nearestD2 = Infinity;
-  for (const other of state.units) {
-    if (other.team !== 'enemy' || other.hp <= 0) continue;
-    const d2 = distSq(unit.x, unit.y, other.x, other.y);
-    if (d2 < nearestD2) {
-      nearestD2 = d2;
-      nearest = other;
+  let nearest: Unit | null = shared ?? null;
+  if (shared === undefined) {
+    let nearestD2 = Infinity;
+    for (const other of state.units) {
+      if (other.team !== 'enemy' || other.hp <= 0) continue;
+      const d2 = distSq(unit.x, unit.y, other.x, other.y);
+      if (d2 < nearestD2) {
+        nearestD2 = d2;
+        nearest = other;
+      }
     }
   }
 

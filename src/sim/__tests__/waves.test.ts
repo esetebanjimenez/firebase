@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { defaultConfig as cfg } from '../config';
 import { ENEMY_UNITS, FACTIONS } from '../roster';
 import { availableFactions, factionsForWave, planWave } from '../waves';
-import { waveBudget } from '../derive';
+import { openingThreatMult, waveBudget } from '../derive';
 import { SEED } from './helpers';
 import { randomSeed } from '../rng';
 
@@ -83,11 +83,14 @@ describe('planWave', () => {
     expect(planWave(cfg, cfg.waves.bossEvery + 1, SEED).boss).toBe(false);
   });
 
-  it('opens wave 1 with a handful of the cheapest Kingdom troops', () => {
+  it('opens wave 1 with a crowd of the cheapest Kingdom troops', () => {
+    // A crowd, not a handful: a budget point buys about what a militia
+    // carries, so the opening's weight is spent on bodies at their roster
+    // strength rather than on a few of them at six times it.
     const plan = planWave(cfg, 1, SEED);
     expect(plan.factions).toEqual(['kingdom']);
-    expect(plan.spawns.length).toBeGreaterThanOrEqual(3);
-    expect(plan.spawns.length).toBeLessThanOrEqual(8);
+    expect(plan.spawns.length).toBeGreaterThanOrEqual(12);
+    expect(plan.spawns.length).toBeLessThanOrEqual(60);
     expect(plan.composition.every((c) => c.kind === 'militia')).toBe(true);
   });
 });
@@ -129,7 +132,8 @@ describe('a run has its own campaign', () => {
       const budgets = [randomSeed(), randomSeed(), randomSeed()].map(
         (seed) => planWave(cfg, wave, seed).composition.reduce((n, c) => n + c.count * ENEMY_UNITS[c.kind].cost, 0),
       );
-      for (const spent of budgets) expect(spent).toBeLessThanOrEqual(Math.ceil(waveBudget(cfg, wave)));
+      const purse = waveBudget(cfg, wave) * openingThreatMult(cfg, wave);
+      for (const spent of budgets) expect(spent).toBeLessThanOrEqual(Math.ceil(purse));
     }
   });
 });

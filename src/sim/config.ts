@@ -470,15 +470,21 @@ export const defaultConfig: GameConfig = {
   },
 
   waves: {
-    // The budget buys bodies, and a squad is four of them, so it doubled when
-    // squads landed: at the old base a wave could not afford a second squad
-    // until wave 5, and the opening was four waves of exactly one. Doubling
-    // the whole curve — base and cap together — and halving `hpPerPoint`
-    // against it leaves every wave's threat exactly where it was and only
-    // changes how many bodies it is spread over.
-    baseBudget: 10,
+    // The budget buys bodies, and `hpPerPoint` converts those points into hit
+    // points, so the pair of them is the exchange rate between how *many*
+    // enemies a wave fields and how *beefy* each one is. Threat is the
+    // product, so scaling one up and the other down leaves every wave's
+    // weight exactly where it was and only changes how it is spread.
+    //
+    // It has been scaled twice. Once because a squad costs four bodies and a
+    // wave could not afford a second one until wave 5. Then again because a
+    // point was worth far more hit points than the cheap kinds actually carry,
+    // so the weakest thing in the game was arriving at six times its roster
+    // line — a militia with two hundred hit points reads as a brick, not as
+    // chaff. A point is now worth about what a militia is.
+    baseBudget: 16,
     budgetGrowth: 1.17,
-    maxBudget: 1200,
+    maxBudget: 1890,
     maxUnits: 90,
     hpScaleGrowth: 1.18,
     damageScaleGrowth: 1.1,
@@ -498,8 +504,8 @@ export const defaultConfig: GameConfig = {
     mixFromWave: 16,
     shapeFromWave: 8,
     shapeBias: 8,
-    hpPerPoint: 55,
-    openingThreat: 3,
+    hpPerPoint: 35,
+    openingThreat: 2,
     openingFadeBy: 9,
     shapeThreat: { column: 0.65, horde: 1, skirmish: 1, mixed: 1 },
     siegeBase: 1,
