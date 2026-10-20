@@ -95,9 +95,35 @@ describe('siege', () => {
     // to hold across the campaign is the time one engine needs — long enough
     // to clear an escort and walk out, short enough to be a threat. It drifts
     // upward now, in the player's favour, which is the wall track paying off.
+    //
+    // Measured from launch, so it counts the clump the engines ride in with as
+    // well as the shelling. That is the number the player has: how long from
+    // the wave starting until the wall goes, if they never answer it.
     for (const c of clocks) expect(c).toBeGreaterThan(100);
     for (const c of clocks) expect(c).toBeLessThan(320);
   }, 60000);
+
+  /**
+   * The answer to siege is to clear the escort and walk out to it, so the
+   * escort has to arrive first. An engine in the opening clump is shelling the
+   * wall before there is anything on the field to kill.
+   */
+  it('rides in behind the troops, never with the opening clump', () => {
+    for (const seed of [1, 7, 23, 101]) {
+      for (let wave = 10; wave <= 60; wave++) {
+        const spawns = planWave(cfg, wave, seed).spawns;
+        const engines = spawns.filter((q) => SIEGE.includes(q.kind));
+        if (engines.length === 0) continue;
+        const firstEngine = Math.min(...engines.map((q) => q.at));
+        const firstBody = Math.min(...spawns.map((q) => q.at));
+        expect(firstEngine, `seed ${seed} wave ${wave}`).toBeGreaterThan(0);
+        expect(firstEngine, `seed ${seed} wave ${wave}`).toBeGreaterThan(firstBody);
+        // And something that can be shot walks on before it does.
+        const escortFirst = spawns.some((q) => !SIEGE.includes(q.kind) && q.at < firstEngine);
+        expect(escortFirst, `seed ${seed} wave ${wave}`).toBe(true);
+      }
+    }
+  });
 
   it('caps the summoners too, since a necromancer is a rate and not a body', () => {
     for (let wave = 10; wave <= 80; wave++) {

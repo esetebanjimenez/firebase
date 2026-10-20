@@ -265,27 +265,60 @@ export function planWave(cfg: GameConfig, wave: number, seed: number): WavePlan 
   // spawn window, each clump arriving around a shared x so they read as a squad.
   const { field, waves } = cfg;
   const spawns: QueuedSpawn[] = [];
-  const groups = Math.max(1, Math.ceil(bodies.length / waves.groupSize));
+
+  /**
+   * The standoff engines ride in behind the troops, never with the first clump.
+   *
+   * An engine that walks on at second zero is shelling the wall before the
+   * player has a target they can reach: the answer to siege is to clear the
+   * escort and walk out to it, and that answer needs the escort to have shown
+   * up first. Opening with the engines also started the breach clock before
+   * the wave had a shape to read, which turned the one mechanic the parapet
+   * cannot answer into the first thing that happens.
+   */
+  const escort = bodies.filter((b) => b.def.standoff !== true);
+  const engines = bodies.filter((b) => b.def.standoff === true);
+
+  const groups = Math.max(1, Math.ceil(escort.length / waves.groupSize));
+  // Evenly across the window, but never further apart than clumpGapSec: a
+  // five-body wave should not be spread over the same eighteen seconds as a
+  // ninety-body one.
+  const gap = Math.min(waves.clumpGapSec, waves.spawnWindowSec / Math.max(1, groups - 1));
+  const groupAt = (g: number) => g * gap;
+  const anchors = Array.from(
+    { length: groups },
+    () => field.sideMargin + rng.float() * (field.width - field.sideMargin * 2),
+  );
+  const near = (anchorX: number) =>
+    Math.min(field.width - field.sideMargin, Math.max(field.sideMargin, anchorX + rng.spread(36)));
+
+  const push = (body: { def: EnemyUnitDef; hpScale: number }, at: number, anchorX: number) => {
+    spawns.push({
+      kind: body.def.id,
+      x: near(anchorX),
+      // The opening clump walks on the instant the wave is launched; the rest
+      // are staggered a little inside their clump so a squad does not appear
+      // in one frame.
+      at: at === 0 ? 0 : at + rng.float() * 0.4,
+      hpScale: body.hpScale,
+      damageScale,
+      bountyScale,
+    });
+  };
+
   for (let g = 0; g < groups; g++) {
-    const members = bodies.slice(g * waves.groupSize, (g + 1) * waves.groupSize);
-    if (members.length === 0) continue;
-    const at = groups === 1 ? 0 : (g / (groups - 1 || 1)) * waves.spawnWindowSec;
-    const anchorX = field.sideMargin + rng.float() * (field.width - field.sideMargin * 2);
-    for (const body of members) {
-      const x = Math.min(
-        field.width - field.sideMargin,
-        Math.max(field.sideMargin, anchorX + rng.spread(36)),
-      );
-      spawns.push({
-        kind: body.def.id,
-        x,
-        at: at + rng.float() * 0.4,
-        hpScale: body.hpScale,
-        damageScale,
-        bountyScale,
-      });
-    }
+    const members = escort.slice(g * waves.groupSize, (g + 1) * waves.groupSize);
+    for (const body of members) push(body, groupAt(g), anchors[g]);
   }
+
+  // Spread the engines over the clumps after the first. A wave too small to
+  // have a second clump brings them up at the close of the spawn window.
+  for (let i = 0; i < engines.length; i++) {
+    const g = groups > 1 ? 1 + (i % (groups - 1)) : -1;
+    if (g < 0) push(engines[i], Math.max(gap, waves.clumpGapSec), anchors[0]);
+    else push(engines[i], groupAt(g), anchors[g]);
+  }
+
   spawns.sort((a, b) => a.at - b.at);
 
   // Preview data.

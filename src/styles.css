@@ -143,6 +143,36 @@ body {
   color: var(--danger);
 }
 
+.topbar__row--status {
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 5px;
+}
+
+.topbar__row--status .topbar__status {
+  margin-top: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* The countdown to the next clump: never elided, so it can be read at a
+   glance while the status line beside it truncates. */
+.inbound {
+  flex: 0 0 auto;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--ink-dim);
+  border: 1px solid var(--edge);
+  border-radius: 2px;
+  padding: 1px 5px;
+  white-space: nowrap;
+}
+
+.inbound--imminent {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
 /* ---------- Battlefield ---------- */
 
 .field {

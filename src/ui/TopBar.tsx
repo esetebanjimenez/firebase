@@ -13,10 +13,21 @@ export { compact };
 
 export function TopBar({ snapshot, onRestart }: { snapshot: UiSnapshot; onRestart: () => void }) {
   const { credits, incomePerSec, wave, bestWave, phase, battle, wall } = snapshot;
+  // "inbound" counts what is still queued *beyond* the next clump; the clump
+  // itself is the chip on the right, and saying "1 inbound · +1 in 4s" twice
+  // over reads like two different things are coming.
+  const later = battle.incoming - battle.nextCount;
   const status =
     phase === 'battle'
-      ? `${battle.enemiesLeft} on the field${battle.incoming > 0 ? ` · ${battle.incoming} inbound` : ''}`
+      ? `${battle.enemiesLeft} on the field${later > 0 ? ` · ${later} more inbound` : ''}`
       : `Next: wave ${wave} · ${snapshot.preview.armies.join(' + ')}`;
+  // A wave arrives in clumps, and when the next one lands decides whether you
+  // spend a charge now or hold it. Rounded up, so it reads 1 right until it
+  // reads 0 and they are on the field.
+  const reinforcements =
+    phase === 'battle' && battle.nextInSec !== null
+      ? { seconds: Math.ceil(battle.nextInSec), count: battle.nextCount }
+      : null;
 
   return (
     <header className="topbar">
@@ -37,7 +48,17 @@ export function TopBar({ snapshot, onRestart }: { snapshot: UiSnapshot; onRestar
           </button>
         </div>
       </div>
-      <div className={`topbar__status ${wall.pct < 0.3 ? 'topbar__status--alert' : ''}`}>{status}</div>
+      <div className="topbar__row topbar__row--status">
+        <div className={`topbar__status ${wall.pct < 0.3 ? 'topbar__status--alert' : ''}`}>{status}</div>
+        {reinforcements && (
+          <div
+            className={`inbound ${reinforcements.seconds <= 3 ? 'inbound--imminent' : ''}`}
+            title="Next enemy group"
+          >
+            +{reinforcements.count} in {reinforcements.seconds}s
+          </div>
+        )}
+      </div>
     </header>
   );
 }

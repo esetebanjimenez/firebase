@@ -167,8 +167,17 @@ export interface GameConfig {
      * what the next level costs, not with how hard the wave hits.
      */
     readonly bountyScalePower: number;
-    /** Seconds over which a wave's spawns are spread. */
+    /** Seconds over which a wave's spawns are spread, at most. */
     readonly spawnWindowSec: number;
+    /**
+     * Longest gap between two clumps. A wave spreads its clumps evenly across
+     * the spawn window, which is right for a wave of ninety and absurd for a
+     * wave of five: wave 1 put four bodies on the field at once and the fifth
+     * eighteen seconds later, so the opening wave was ten seconds of fighting
+     * and eight of standing about. Small waves use this cadence instead, and
+     * big ones still pack into the window.
+     */
+    readonly clumpGapSec: number;
     /** Enemies walk on in clumps of up to this many at the same moment. */
     readonly groupSize: number;
     /** A boss joins every Nth wave. */
@@ -429,6 +438,7 @@ export const defaultConfig: GameConfig = {
     // leave the late game earning for a shop it can never reach.
     bountyScalePower: 1,
     spawnWindowSec: 18,
+    clumpGapSec: 5,
     groupSize: 4,
     bossEvery: 10,
     bossBudgetFactor: 0.6,

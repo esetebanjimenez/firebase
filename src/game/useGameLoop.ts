@@ -194,7 +194,16 @@ export interface UiSnapshot {
     autoDeploy: { unlocked: boolean; enabled: boolean; cost: number; affordable: boolean };
     autoLaunch: { unlocked: boolean; enabled: boolean; cost: number; affordable: boolean };
   };
-  battle: { enemiesLeft: number; soldiers: number; timeSec: number; incoming: number };
+  battle: {
+    enemiesLeft: number;
+    soldiers: number;
+    timeSec: number;
+    incoming: number;
+    /** Seconds until the next clump walks on; null once nothing is left to come. */
+    nextInSec: number | null;
+    /** How many bodies are in that clump. */
+    nextCount: number;
+  };
   preview: WavePreview;
   result: WaveResult | null;
   /** What a lost wave was teaching, if it was teaching anything. */
@@ -364,6 +373,24 @@ function buildPreview(state: SimState, cfg: GameConfig): WavePreview {
   };
 }
 
+/**
+ * When the next clump walks on, and how big it is.
+ *
+ * The queue is kept in arrival order and shifted as it fires, so the head of
+ * it is the next thing to happen. Everything within half a second of that is
+ * the same clump: a group shares one arrival time plus a little jitter, so
+ * counting by the gap is counting the squad.
+ */
+function nextArrival(state: SimState): { nextInSec: number | null; nextCount: number } {
+  const queue = state.spawnQueue;
+  if (queue.length === 0) return { nextInSec: null, nextCount: 0 };
+  const soonest = queue[0].at;
+  return {
+    nextInSec: Math.max(0, soonest - state.battleTime),
+    nextCount: queue.filter((q) => q.at <= soonest + 0.5).length,
+  };
+}
+
 function buildSnapshot(state: SimState, cfg: GameConfig): UiSnapshot {
   const rechargeTotal = rechargeSec(cfg, state.upgrades.recharge);
   return {
@@ -440,6 +467,7 @@ function buildSnapshot(state: SimState, cfg: GameConfig): UiSnapshot {
       soldiers: state.units.filter((u) => u.team === 'player').length,
       timeSec: state.battleTime,
       incoming: state.spawnQueue.length,
+      ...nextArrival(state),
     },
     preview: buildPreview(state, cfg),
     result: state.lastResult,
