@@ -7,7 +7,7 @@
  */
 
 import type { AbilityConfig, GameConfig } from './config';
-import { PLAYER_UNITS, TOWER_WEAPONS } from './roster';
+import { PLAYER_UNITS, PLAYER_UNIT_ORDER, TOWER_WEAPONS, TOWER_WEAPON_ORDER } from './roster';
 import type {
   AbilityId,
   BodyClass,
@@ -298,6 +298,22 @@ export function incomePerSec(cfg: GameConfig, bestWave: number): number {
 /** Convenience: the cost of a player unit's unlock. */
 export function unitUnlockCost(id: PlayerUnitId): number {
   return PLAYER_UNITS[id].unlockCost;
+}
+
+/**
+ * Every level the player has bought, across every track.
+ *
+ * The headline number for how far a run has come, and the one the price curve
+ * is tuned against: on the flat curve this reached 411 by wave 30, which was
+ * more than one level on every track every wave.
+ */
+export function totalUpgradeLevels(state: SimState): number {
+  const u = state.upgrades;
+  let total = u.wall + u.towers + u.charges + u.recharge + u.intel;
+  for (const weapon of TOWER_WEAPON_ORDER) total += u.weapons[weapon];
+  for (const id of PLAYER_UNIT_ORDER) total += state.unitLevels[id];
+  for (const ability of Object.values(state.abilities)) total += ability.level;
+  return total;
 }
 
 /** Total DPS of the static defense line, for the UI. */

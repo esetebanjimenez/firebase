@@ -2,11 +2,11 @@
 
 import type { GameConfig } from './config';
 import { chargeMax, rechargeSec, towerPositions, wallMaxHp } from './derive';
-import { PLAYER_UNITS, PLAYER_UNIT_ORDER } from './roster';
+import { ABILITY_ORDER, PLAYER_UNITS, PLAYER_UNIT_ORDER } from './roster';
 import { seedState } from './rng';
-import type { AbilityId, PlayerUnitId, SimState, Tower } from './types';
+import type { PlayerUnitId, SimState, Tower } from './types';
 
-const ABILITY_IDS: AbilityId[] = ['artillery', 'barrage', 'napalm'];
+
 
 function initialTowers(cfg: GameConfig, level: number): Tower[] {
   return towerPositions(cfg, level).map((x, i) => ({
@@ -30,7 +30,7 @@ export function createInitialState(cfg: GameConfig, seed: number = cfg.seed): Si
   }
 
   const abilities = {} as SimState['abilities'];
-  for (const id of ABILITY_IDS) abilities[id] = { level: 0, cooldown: 0 };
+  for (const id of ABILITY_ORDER) abilities[id] = { level: 0, cooldown: 0 };
 
   return {
     version: cfg.version,
@@ -77,6 +77,7 @@ export function createInitialState(cfg: GameConfig, seed: number = cfg.seed): Si
 
     autoLaunchIn: cfg.idle.autoLaunchDelaySec,
     lastResult: null,
+    history: [],
     stats: { totalKills: 0, totalCreditsEarned: 0, wavesWon: 0, wavesLost: 0 },
   };
 }

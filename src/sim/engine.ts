@@ -22,6 +22,7 @@ import {
   incomePerSec,
   musterLineY,
   rechargeSec,
+  totalUpgradeLevels,
   weaponDamage,
   towerPositions,
   towerRange,
@@ -94,6 +95,35 @@ export function startBattle(state: SimState, cfg: GameConfig, events?: SimEvent[
 }
 
 /**
+ * How many finished waves a run keeps. Enough to see the shape of a session —
+ * where the attempts piled up and what the fights cost — without a save that
+ * grows without bound.
+ */
+const HISTORY_MAX = 80;
+
+/** File the wave that just ended in the run's record. */
+function recordWave(state: SimState, cfg: GameConfig, result: WaveResult): void {
+  const plan = planWave(cfg, result.wave, state.seed);
+  state.history.push({
+    wave: result.wave,
+    attempt: state.history.filter((h) => h.wave === result.wave).length + 1,
+    won: result.won,
+    seconds: Math.round(result.durationSec * 10) / 10,
+    credits: result.credits,
+    kills: result.kills,
+    unitsLost: result.unitsLost,
+    wallLeft:
+      result.wallMaxHp > 0 ? Math.round((result.wallHpLeft / result.wallMaxHp) * 1000) / 1000 : 0,
+    shape: plan.shape,
+    threat: Math.round(plan.totalHp),
+    bodies: plan.spawns.length,
+    bank: Math.floor(state.credits),
+    levels: totalUpgradeLevels(state),
+  });
+  if (state.history.length > HISTORY_MAX) state.history.splice(0, state.history.length - HISTORY_MAX);
+}
+
+/**
  * Resolve the wave. A win advances to a tougher wave; a loss re-arms the same
  * one. Credits earned are kept either way, and the wall returns to full.
  */
@@ -109,6 +139,7 @@ function endBattle(state: SimState, cfg: GameConfig, won: boolean, events: SimEv
     durationSec: state.battleTime,
   };
   events.push({ type: 'waveEnded', wave: state.wave, won });
+  recordWave(state, cfg, result);
 
   if (won) {
     state.stats.wavesWon += 1;

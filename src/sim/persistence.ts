@@ -90,5 +90,9 @@ export function deserialize(raw: string, cfg: GameConfig): SaveEnvelope | null {
     if (typeof (upgrades.weapons as Record<string, unknown>)[id] !== 'number') return null;
   }
 
+  // The run's record is additive: a save written before it existed is still a
+  // good save, it just has nothing to tell about the waves behind it.
+  if (!Array.isArray(candidate.history)) candidate.history = [];
+
   return { savedAt, state: candidate as unknown as SimState };
 }

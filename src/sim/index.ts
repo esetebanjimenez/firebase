@@ -13,6 +13,7 @@ export { defaultConfig } from './config';
 export type { AbilityConfig, GameConfig } from './config';
 
 export {
+  ABILITY_ORDER,
   ENEMY_UNITS,
   FACTIONS,
   FACTION_ORDER,
@@ -37,6 +38,8 @@ export {
 export type { Rank } from './ranks';
 
 export { createInitialState } from './state';
+export { buildDebugReport, debugReportName } from './debug';
+export type { DebugReport } from './debug';
 export { startBattle, step, syncDerived } from './engine';
 export { applyOfflineProgress } from './offline';
 export { canCast, castAbility } from './abilities';
@@ -51,6 +54,7 @@ export {
   chargeMaxCost,
   coverEdgeY,
   levelCost,
+  totalUpgradeLevels,
   holdLineY,
   musterLineY,
   uncoveredStrip,

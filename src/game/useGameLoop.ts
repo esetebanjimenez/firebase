@@ -9,6 +9,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ABILITY_ORDER,
   ENEMY_UNITS,
   FACTIONS,
   INTEL_MAX,
@@ -22,12 +23,14 @@ import {
   abilityTotalDamage,
   applyOfflineProgress,
   automationCost,
+  buildDebugReport,
   buyAbility,
   buyUpgrade,
   buyWeaponLevel,
   canCast,
   canDeploy,
   castAbility,
+  debugReportName,
   chargeMax,
   clearResult,
   createInitialState,
@@ -229,6 +232,8 @@ export interface GameActions {
   toggle: (id: AutomationId) => void;
   dismissResult: () => void;
   hardReset: () => void;
+  /** Download the run as JSON, for balance work and bug reports. */
+  exportDebug: () => void;
 }
 
 /** What each class of gun is for, in the player's words. */
@@ -328,7 +333,7 @@ function buildUnits(state: SimState, cfg: GameConfig): UnitView[] {
 }
 
 function buildAbilities(state: SimState, cfg: GameConfig): AbilityView[] {
-  const ids: AbilityId[] = ['artillery', 'barrage', 'napalm'];
+  const ids = ABILITY_ORDER;
   return ids.map((id) => {
     const ac = cfg.abilities[id];
     const level = state.abilities[id].level;
@@ -608,6 +613,20 @@ export function useGameLoop(cfg: GameConfig = defaultConfig): UseGameLoop {
         fxRef.current = [];
         setIdleReport(null);
         publish();
+      },
+      exportDebug: () => {
+        // The report is the sim's to build; the download is the browser's.
+        const now = Date.now();
+        const report = buildDebugReport(stateRef.current, cfg, now);
+        const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = debugReportName(stateRef.current, now);
+        link.click();
+        // Revoke on the next turn of the loop: Safari needs the URL to outlive
+        // the click that started the download.
+        setTimeout(() => URL.revokeObjectURL(url), 10_000);
       },
     }),
     [cfg, publish],

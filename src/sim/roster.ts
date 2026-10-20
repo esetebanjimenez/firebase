@@ -8,6 +8,7 @@
  */
 
 import type {
+  AbilityId,
   AttackStyle,
   BodyClass,
   DamageClass,
@@ -319,6 +320,13 @@ export const PLAYER_UNITS: Readonly<Record<PlayerUnitId, PlayerUnitDef>> = {
 };
 
 export const PLAYER_UNIT_ORDER: readonly PlayerUnitId[] = ['rifleman', 'shield', 'gunner', 'rocketeer'];
+
+/**
+ * The abilities, cheapest first. They are configured in `config.ts` rather
+ * than here, but the order they are offered in is roster data like any other,
+ * and it was being written out by hand in three places.
+ */
+export const ABILITY_ORDER: readonly AbilityId[] = ['artillery', 'barrage', 'napalm'];
 
 // ---------------------------------------------------------------------------
 // The three invading armies.

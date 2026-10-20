@@ -280,6 +280,15 @@ export function Panel({ snapshot, actions, onRestart }: Props) {
             <button className="reset" onClick={onRestart}>
               Restart the run from wave 1
             </button>
+
+            <p className="panel__note">Debug</p>
+            <button className="reset reset--quiet" onClick={actions.exportDebug}>
+              Download this run as JSON
+            </button>
+            <p className="panel__hint">
+              Levels, costs, the waves behind you and the one in front. Hand it over when
+              something needs balancing or looks wrong.
+            </p>
           </>
         )}
       </div>

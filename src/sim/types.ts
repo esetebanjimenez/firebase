@@ -280,6 +280,35 @@ export interface AutomationState {
 
 export type Phase = 'prep' | 'battle';
 
+/**
+ * One finished wave, kept so a run can account for itself.
+ *
+ * Balance work needs the shape of a run, not its endpoint: where the attempts
+ * piled up, how long the fights ran, what the wall paid, and what the player
+ * owned at the time. None of that can be reconstructed from the final state,
+ * so it is recorded as it happens and carried in the save.
+ */
+export interface WaveRecord {
+  readonly wave: number;
+  /** 1 on the first go at this wave, 2 on the retry, and so on. */
+  readonly attempt: number;
+  readonly won: boolean;
+  readonly seconds: number;
+  /** Credits taken during the fight (kills only; idle income is elsewhere). */
+  readonly credits: number;
+  readonly kills: number;
+  readonly unitsLost: number;
+  /** Share of the wall still standing at the end, 0 to 1. */
+  readonly wallLeft: number;
+  readonly shape: WaveShape;
+  /** The hit points the wave was planned to carry. */
+  readonly threat: number;
+  readonly bodies: number;
+  /** Credits in the bank and levels owned when it ended. */
+  readonly bank: number;
+  readonly levels: number;
+}
+
 export interface SimStats {
   totalKills: number;
   totalCreditsEarned: number;
@@ -340,6 +369,8 @@ export interface SimState {
   autoLaunchIn: number;
 
   lastResult: WaveResult | null;
+  /** Every wave fought this run, oldest first, capped at the most recent few dozen. */
+  history: WaveRecord[];
   stats: SimStats;
 }
 
