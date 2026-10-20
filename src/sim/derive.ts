@@ -17,9 +17,19 @@ import type {
   TowerWeaponId,
 } from './types';
 
-/** The standard idle-game price curve: base * growth^(level-1). */
-export function geometricCost(base: number, growth: number, level: number): number {
-  return Math.round(base * Math.pow(growth, Math.max(0, level - 1)));
+/**
+ * What the next level of a track costs.
+ *
+ * Not the flat geometric curve (`base * growth^(level-1)`) an idle game
+ * usually prices with: the growth rate itself grows. Step L to L+1 costs
+ * `growth * escalation^(L-1)` times the step before it, so the exponent is
+ * quadratic in the level and a wave's compounding takings buy levels on a
+ * square-root curve rather than a straight line. Pass `escalation` 1 for the
+ * plain geometric curve.
+ */
+export function levelCost(base: number, growth: number, escalation: number, level: number): number {
+  const n = Math.max(0, level - 1);
+  return Math.round(base * Math.pow(growth, n) * Math.pow(escalation, (n * (n - 1)) / 2));
 }
 
 // --- The wall ---------------------------------------------------------------
@@ -29,7 +39,7 @@ export function wallMaxHp(cfg: GameConfig, level: number): number {
 }
 
 export function wallUpgradeCost(cfg: GameConfig, level: number): number {
-  return geometricCost(cfg.wall.baseCost, cfg.wall.costGrowth, level);
+  return levelCost(cfg.wall.baseCost, cfg.wall.costGrowth, cfg.economy.costEscalation, level);
 }
 
 // --- Towers ----------------------------------------------------------------
@@ -60,9 +70,9 @@ export function weaponDps(weapon: TowerWeaponId, level: number): number {
 }
 
 /** Credits for this gun's next level. Level 0 means it is not researched yet. */
-export function weaponUpgradeCost(weapon: TowerWeaponId, level: number): number {
+export function weaponUpgradeCost(cfg: GameConfig, weapon: TowerWeaponId, level: number): number {
   const def = TOWER_WEAPONS[weapon];
-  return geometricCost(def.baseCost, def.costGrowth, level + 1);
+  return levelCost(def.baseCost, def.costGrowth, cfg.economy.costEscalation, level + 1);
 }
 
 export function towerDamage(cfg: GameConfig, level: number): number {
@@ -118,7 +128,7 @@ export function towerDps(cfg: GameConfig, level: number): number {
  * the first gun costs the base price and every level after it compounds.
  */
 export function towerUpgradeCost(cfg: GameConfig, level: number): number {
-  return geometricCost(cfg.towers.baseCost, cfg.towers.costGrowth, level + 1);
+  return levelCost(cfg.towers.baseCost, cfg.towers.costGrowth, cfg.economy.costEscalation, level + 1);
 }
 
 // --- Soldiers -------------------------------------------------------------
@@ -141,7 +151,7 @@ export function unitSpeedMult(cfg: GameConfig, level: number): number {
 
 /** Credits to take a kind from `level` to the next one. */
 export function unitUpgradeCost(cfg: GameConfig, id: PlayerUnitId, level: number): number {
-  return geometricCost(PLAYER_UNITS[id].upgradeCost, cfg.soldiers.costGrowth, level);
+  return levelCost(PLAYER_UNITS[id].upgradeCost, cfg.soldiers.costGrowth, cfg.economy.costEscalation, level);
 }
 
 /** A player unit's stats at its current level. */
@@ -168,7 +178,7 @@ export function playerUnitStats(
 export const INTEL_MAX = 4;
 
 export function intelUpgradeCost(cfg: GameConfig, level: number): number {
-  return geometricCost(cfg.intel.baseCost, cfg.intel.costGrowth, level + 1);
+  return levelCost(cfg.intel.baseCost, cfg.intel.costGrowth, cfg.economy.costEscalation, level + 1);
 }
 
 // --- Deployment charges ----------------------------------------------------
@@ -183,11 +193,11 @@ export function rechargeSec(cfg: GameConfig, level: number): number {
 }
 
 export function chargeMaxCost(cfg: GameConfig, level: number): number {
-  return geometricCost(cfg.charges.maxCost, cfg.charges.maxCostGrowth, level);
+  return levelCost(cfg.charges.maxCost, cfg.charges.maxCostGrowth, cfg.economy.costEscalation, level);
 }
 
 export function rechargeCost(cfg: GameConfig, level: number): number {
-  return geometricCost(cfg.charges.rechargeCost, cfg.charges.rechargeCostGrowth, level);
+  return levelCost(cfg.charges.rechargeCost, cfg.charges.rechargeCostGrowth, cfg.economy.costEscalation, level);
 }
 
 // --- Abilities -------------------------------------------------------------
@@ -212,7 +222,7 @@ export function abilityCooldown(cfg: GameConfig, id: AbilityId, level: number): 
 /** Credits to unlock (level 0) or to buy the next level. */
 export function abilityCost(cfg: GameConfig, id: AbilityId, level: number): number {
   const a = cfg.abilities[id];
-  return Math.round(a.unlockCost * Math.pow(a.costGrowth, level));
+  return levelCost(a.unlockCost, a.costGrowth, cfg.economy.costEscalation, level + 1);
 }
 
 /** Total damage a cast puts on the ground, for the UI. */
@@ -226,35 +236,24 @@ export function abilityTotalDamage(cfg: GameConfig, id: AbilityId, level: number
 // --- Enemy scaling ---------------------------------------------------------
 
 /**
- * Two-stage growth: gentle while the player is still assembling a force, then
- * steeper from `lateFromWave` on, where their upgrade tracks start compounding.
+ * Decelerating growth: `growth^((wave-1)^power)`. At power 1 this is the plain
+ * geometric curve; below it every wave adds a smaller multiple than the one
+ * before, which is the shape the player's own power now has.
  */
-function stagedScale(wave: number, early: number, late: number, from: number): number {
-  const w = Math.max(1, wave);
-  if (w <= from) return Math.pow(early, w - 1);
-  return Math.pow(early, from - 1) * Math.pow(late, w - from);
+function decayingScale(wave: number, growth: number, power: number): number {
+  return Math.pow(growth, Math.pow(Math.max(0, wave - 1), power));
 }
 
 export function waveHpScale(cfg: GameConfig, wave: number): number {
-  return stagedScale(wave, cfg.waves.hpScaleGrowth, cfg.waves.lateHpScaleGrowth, cfg.waves.lateFromWave);
+  return decayingScale(wave, cfg.waves.hpScaleGrowth, cfg.waves.statScalePower);
 }
 
 export function waveDamageScale(cfg: GameConfig, wave: number): number {
-  return stagedScale(
-    wave,
-    cfg.waves.damageScaleGrowth,
-    cfg.waves.lateDamageScaleGrowth,
-    cfg.waves.lateFromWave,
-  );
+  return decayingScale(wave, cfg.waves.damageScaleGrowth, cfg.waves.statScalePower);
 }
 
 export function waveBountyScale(cfg: GameConfig, wave: number): number {
-  return stagedScale(
-    wave,
-    cfg.waves.bountyScaleGrowth,
-    cfg.waves.lateBountyScaleGrowth,
-    cfg.waves.lateFromWave,
-  );
+  return decayingScale(wave, cfg.waves.bountyScaleGrowth, cfg.waves.bountyScalePower);
 }
 
 export function waveBudget(cfg: GameConfig, wave: number): number {

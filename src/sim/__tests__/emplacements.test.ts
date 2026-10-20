@@ -22,7 +22,7 @@ function withPads(count: number) {
   const state = freshState();
   state.credits = 10_000_000;
   for (let i = 0; i < count * cfg.towers.emplacementEvery; i++) buyUpgrade(state, cfg, 'towers');
-  for (const weapon of TOWER_WEAPON_ORDER) buyWeaponLevel(state, weapon);
+  for (const weapon of TOWER_WEAPON_ORDER) buyWeaponLevel(state, cfg, weapon);
   state.credits = 10_000_000;
   return state;
 }
@@ -77,7 +77,7 @@ describe('typed emplacements', () => {
     fitTowerWeapon(state, 0, 'mg');
     fitTowerWeapon(state, 1, 'mg');
     const before = weaponDps('mg', state.upgrades.weapons.mg);
-    expect(buyWeaponLevel(state, 'mg')).toBe(true);
+    expect(buyWeaponLevel(state, cfg, 'mg')).toBe(true);
     expect(weaponDps('mg', state.upgrades.weapons.mg)).toBeGreaterThan(before);
     // The other guns are untouched: levels are per type, not per pad.
     expect(state.upgrades.weapons.rocket).toBe(1);
@@ -108,9 +108,9 @@ describe('typed emplacements', () => {
 
   it('prices the first level of a gun at its base cost, then compounds', () => {
     for (const id of TOWER_WEAPON_ORDER) {
-      expect(weaponUpgradeCost(id, 0)).toBe(TOWER_WEAPONS[id].baseCost);
+      expect(weaponUpgradeCost(cfg, id, 0)).toBe(TOWER_WEAPONS[id].baseCost);
       for (let level = 0; level < 6; level++) {
-        expect(weaponUpgradeCost(id, level + 1)).toBeGreaterThan(weaponUpgradeCost(id, level));
+        expect(weaponUpgradeCost(cfg, id, level + 1)).toBeGreaterThan(weaponUpgradeCost(cfg, id, level));
       }
     }
   });
@@ -158,7 +158,7 @@ describe('the parapet is part of the triangle', () => {
     const damageOver = (weapon: TowerWeaponId, against: 'knight' | 'skeleton') => {
       const state = withPads(1);
       fitTowerWeapon(state, 0, weapon);
-      for (let i = 0; i < 12; i++) buyWeaponLevel(state, weapon);
+      for (let i = 0; i < 12; i++) buyWeaponLevel(state, cfg, weapon);
       startBattle(state, cfg);
       state.spawnQueue = [];
       state.units = [];

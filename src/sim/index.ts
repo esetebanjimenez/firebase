@@ -50,7 +50,7 @@ export {
   chargeMax,
   chargeMaxCost,
   coverEdgeY,
-  geometricCost,
+  levelCost,
   holdLineY,
   musterLineY,
   uncoveredStrip,

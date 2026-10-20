@@ -155,7 +155,7 @@ describe('the multiplier reaches real damage', () => {
   });
 });
 
-describe('shapes differ in what they field, not how hard they hit', () => {
+describe('shapes differ in what they field, not in what the dice gave them', () => {
   /**
    * A point of budget buys far more hit points as armour than as skirmishers,
    * so at a flat budget a column carried 121% of a mixed wave's threat and a
@@ -163,11 +163,14 @@ describe('shapes differ in what they field, not how hard they hit', () => {
    * one: a horde was a breather whatever you brought, and a column was
    * dangerous whatever you brought.
    *
-   * Threat is scaled per shape rather than the budget, because the field caps
-   * how many bodies a wave can hold — buying more of them moved the threat
-   * from 60% to only 64%.
+   * A wave's hit points are now held to the curve, so what a shape is worth is
+   * `shapeThreat`'s to say and nothing else's. It is not 1 everywhere: equal
+   * hit points are not equal difficulty, because armour also soaks flat damage
+   * and a column walks rams at the wall. What this pins is that the figure in
+   * the config is the figure the planner delivers, within the noise of what a
+   * budget can be spent on.
    */
-  it('keeps every shape within reach of a mixed wave', () => {
+  it('lands each shape where its threat multiplier says it should', () => {
     const totals: Record<string, { hp: number; n: number }> = {};
     for (let seed = 1; seed <= 25; seed++) {
       for (let wave = 12; wave <= 40; wave++) {
@@ -181,8 +184,9 @@ describe('shapes differ in what they field, not how hard they hit', () => {
     const mixed = totals.mixed.hp / totals.mixed.n;
     for (const shape of ['column', 'horde', 'skirmish'] as WaveShape[]) {
       const relative = totals[shape].hp / totals[shape].n / mixed;
-      expect(relative, `${shape} vs mixed`).toBeGreaterThan(0.8);
-      expect(relative, `${shape} vs mixed`).toBeLessThan(1.25);
+      const wanted = cfg.waves.shapeThreat[shape] / cfg.waves.shapeThreat.mixed;
+      expect(relative / wanted, `${shape} vs mixed`).toBeGreaterThan(0.9);
+      expect(relative / wanted, `${shape} vs mixed`).toBeLessThan(1.1);
     }
   });
 });

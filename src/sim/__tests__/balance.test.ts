@@ -7,7 +7,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { defaultConfig as cfg } from '../config';
-import { towerUpgradeCost } from '../derive';
+import { towerUpgradeCost, waveBudget, waveHpScale } from '../derive';
 import { planWave } from '../waves';
 import { SEED, autoFight, autoRun, autoShop, freshState, runWave } from './helpers';
 
@@ -122,6 +122,54 @@ describe('no wave can stall', () => {
 });
 
 describe('threat curve', () => {
+  /**
+   * A budget buys very different amounts of beef depending on what it is spent
+   * on, so the roll used to decide a wave's difficulty as much as the curve
+   * did: an armoured column came in at nearly twice a mixed force's hit points
+   * on the same budget. The composition is still rolled; what it adds up to is
+   * not.
+   */
+  it('holds a wave to the curve, whatever the dice rolled', () => {
+    for (const seed of [1, 7, 23, 101]) {
+      for (let wave = 8; wave <= 60; wave++) {
+        const plan = planWave(cfg, wave, seed);
+        if (plan.boss || plan.label) continue;
+        const target =
+          waveBudget(cfg, wave) *
+          cfg.waves.hpPerPoint *
+          cfg.waves.shapeThreat[plan.shape] *
+          waveHpScale(cfg, wave);
+        expect(plan.totalHp / target, `seed ${seed} wave ${wave}`).toBeCloseTo(1, 2);
+      }
+    }
+  });
+
+  /**
+   * No cliffs. On the escalating price curve a level deep in a run is worth
+   * several waves of income, so a wave that lands at twice its neighbour is
+   * not a spike the player out-levels next wave — it is a stop.
+   */
+  it('never jumps by more than half again from one wave to the next', () => {
+    // Against the curve, not against the raw total: a wave's shape is a
+    // deliberate step up or down in threat (`shapeThreat`), so a column
+    // followed by a horde is supposed to differ, and a boss wave spends less
+    // of its budget on rank and file because the boss is the wave. Both are
+    // design; what must not jump is where the curve itself goes.
+    const onCurve = (wave: number, seed: number) => {
+      const plan = planWave(cfg, wave, seed);
+      if (plan.boss || plan.label) return null;
+      return plan.totalHp / cfg.waves.shapeThreat[plan.shape];
+    };
+    for (const seed of [1, 7, 23, 101]) {
+      for (let wave = 8; wave < 60; wave++) {
+        const here = onCurve(wave, seed);
+        const next = onCurve(wave + 1, seed);
+        if (here === null || next === null) continue;
+        expect(next / here, `seed ${seed} wave ${wave} to ${wave + 1}`).toBeLessThan(1.5);
+      }
+    }
+  });
+
   it('grows every ten waves', () => {
     for (let wave = 1; wave + 10 <= 60; wave += 10) {
       expect(planWave(cfg, wave + 10, SEED).totalHp).toBeGreaterThan(planWave(cfg, wave, SEED).totalHp);

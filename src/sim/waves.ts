@@ -91,18 +91,19 @@ export function factionsForWave(cfg: GameConfig, wave: number): FactionId[] {
 /**
  * Spend a point budget on one army's roster: a few heavies, then a crowd.
  *
- * `siegeSlots` is shared across the armies in a wave and is what keeps siege
- * rare. Standoff engines are the costliest kinds in every roster, so the heavy
- * pass bought almost nothing else once the budget grew: wave 35 fielded
- * twenty-six of them. A handful of engines is a problem to go and solve; a
- * field of them is just a loss.
+ * `slots` is shared across the armies in a wave and is what keeps the two
+ * open-ended kinds rare. Standoff engines are the costliest kinds in every
+ * roster, so the heavy pass bought almost nothing else once the budget grew:
+ * wave 35 fielded twenty-six of them. A handful of engines is a problem to go
+ * and solve; a field of them is just a loss. Summoners are capped for the same
+ * reason — see `summonerMax`.
  */
 function pickUnits(
   roster: EnemyUnitDef[],
   budget: number,
   maxUnits: number,
   rng: RngStream,
-  siegeSlots: { left: number },
+  slots: WaveSlots,
   favours: BodyClass | null,
   bias: number,
 ): EnemyUnitDef[] {
@@ -110,10 +111,19 @@ function pickUnits(
   if (roster.length === 0) return picks;
   const cheapest = roster[0].cost;
   let left = budget;
-  const allowed = () => (siegeSlots.left > 0 ? roster : roster.filter((d) => !d.wallFraction));
+  const breacher = (d: EnemyUnitDef) => d.wallFocused === true && d.standoff !== true;
+  const allowed = () =>
+    roster.filter(
+      (d) =>
+        (slots.siege > 0 || !d.standoff) &&
+        (slots.summoners > 0 || d.spawnKind === undefined) &&
+        (slots.breachers > 0 || !breacher(d)),
+    );
   const take = (def: EnemyUnitDef) => {
     picks.push(def);
-    if (def.wallFraction) siegeSlots.left -= 1;
+    if (def.standoff) slots.siege -= 1;
+    if (def.spawnKind !== undefined) slots.summoners -= 1;
+    if (breacher(def)) slots.breachers -= 1;
   };
 
   // Heavies first, from the costliest two affordable kinds, up to a share of
@@ -157,6 +167,13 @@ function pickUnits(
   return picks;
 }
 
+/** The open-ended kinds a wave has left to spend on, shared by its armies. */
+interface WaveSlots {
+  siege: number;
+  summoners: number;
+  breachers: number;
+}
+
 /** How many standoff siege engines a wave may field. */
 export function siegeAllowance(cfg: GameConfig, wave: number): number {
   const w = cfg.waves;
@@ -173,7 +190,7 @@ export function planWave(cfg: GameConfig, wave: number, seed: number): WavePlan 
     : factionsForWave(cfg, wave);
   const isBossWave = wave % cfg.waves.bossEvery === 0 && !scriptedWave(wave);
   const budget = waveBudget(cfg, wave) * (isBossWave ? cfg.waves.bossBudgetFactor : 1);
-  const hpScale = waveHpScale(cfg, wave) * cfg.waves.shapeThreat[shape];
+  const baseHpScale = waveHpScale(cfg, wave);
   const damageScale = waveDamageScale(cfg, wave);
   const bountyScale = waveBountyScale(cfg, wave);
 
@@ -184,20 +201,25 @@ export function planWave(cfg: GameConfig, wave: number, seed: number): WavePlan 
       for (let i = 0; i < entry.count; i++) defs.push(ENEMY_UNITS[entry.kind]);
     }
   } else {
-    // Split the budget when two armies attack together. The siege allowance is
-    // shared between them: it is a property of the wave, not of each army.
+    // Split the budget when two armies attack together. The open-ended
+    // allowances are shared between them: they are properties of the wave, not
+    // of each army.
     const shares = factions.length === 2 ? [0.65, 0.35] : [1];
-    const siegeSlots = { left: siegeAllowance(cfg, wave) };
+    const openSlots: WaveSlots = {
+      siege: siegeAllowance(cfg, wave),
+      summoners: cfg.waves.summonerMax,
+      breachers: cfg.waves.breacherMax,
+    };
     for (let i = 0; i < factions.length; i++) {
       const roster = rosterFor(factions[i], wave);
-      const slots = Math.max(1, Math.floor(cfg.waves.maxUnits / factions.length));
+      const bodyCap = Math.max(1, Math.floor(cfg.waves.maxUnits / factions.length));
       defs.push(
         ...pickUnits(
           roster,
           budget * shares[i],
-          slots,
+          bodyCap,
           rng,
-          siegeSlots,
+          openSlots,
           SHAPES[shape].favours,
           cfg.waves.shapeBias,
         ),
@@ -205,31 +227,63 @@ export function planWave(cfg: GameConfig, wave: number, seed: number): WavePlan 
     }
   }
 
-  let boss = false;
+  let bossDef: EnemyUnitDef | null = null;
   if (isBossWave) {
     const b = bossFor(factions[0]);
-    if (b && b.fromWave <= wave) {
-      defs.push(b);
-      boss = true;
-    }
+    if (b && b.fromWave <= wave) bossDef = b;
   }
+  const boss = bossDef !== null;
+
+  /**
+   * Hold the wave to its place on the curve.
+   *
+   * A budget buys wildly different amounts of hit points depending on what it
+   * is spent on — a point of armour is worth about twice a point of swarm —
+   * so at a flat budget an armoured column rolled up at 30 hit points per
+   * point against a mixed force's 16. While upgrade levels arrived twenty to
+   * a wave that was texture: you out-levelled the spike on the next wave. On
+   * the escalating price curve a level is worth several waves of income, so
+   * the same roll is a brick wall you grind at for fifty attempts. The shape
+   * is still what the wave *is*; how hard it hits is `shapeThreat`'s to say,
+   * not the dice's.
+   *
+   * A written wave is held to the curve too: it is a composition, chosen to
+   * teach something, not an exemption from the campaign's scaling. A boss is
+   * the exception — it *is* the wave rather than a line item in its budget, so
+   * it carries the plain curve and the rank and file around it is what gets
+   * held.
+   */
+  const rawHp = defs.reduce((sum, d) => sum + d.hp, 0);
+  const targetHp = budget * cfg.waves.hpPerPoint * cfg.waves.shapeThreat[shape];
+  const hpScale = rawHp > 0 ? (targetHp / rawHp) * baseHpScale : baseHpScale;
+
+  /** Every body in the wave, with the hit-point scale it fights at. */
+  const bodies: Array<{ def: EnemyUnitDef; hpScale: number }> = defs.map((def) => ({ def, hpScale }));
+  if (bossDef) bodies.push({ def: bossDef, hpScale: baseHpScale });
 
   // Schedule: clumps of up to groupSize walk on together, spread over the
   // spawn window, each clump arriving around a shared x so they read as a squad.
   const { field, waves } = cfg;
   const spawns: QueuedSpawn[] = [];
-  const groups = Math.max(1, Math.ceil(defs.length / waves.groupSize));
+  const groups = Math.max(1, Math.ceil(bodies.length / waves.groupSize));
   for (let g = 0; g < groups; g++) {
-    const members = defs.slice(g * waves.groupSize, (g + 1) * waves.groupSize);
+    const members = bodies.slice(g * waves.groupSize, (g + 1) * waves.groupSize);
     if (members.length === 0) continue;
     const at = groups === 1 ? 0 : (g / (groups - 1 || 1)) * waves.spawnWindowSec;
     const anchorX = field.sideMargin + rng.float() * (field.width - field.sideMargin * 2);
-    for (const def of members) {
+    for (const body of members) {
       const x = Math.min(
         field.width - field.sideMargin,
         Math.max(field.sideMargin, anchorX + rng.spread(36)),
       );
-      spawns.push({ kind: def.id, x, at: at + rng.float() * 0.4, hpScale, damageScale, bountyScale });
+      spawns.push({
+        kind: body.def.id,
+        x,
+        at: at + rng.float() * 0.4,
+        hpScale: body.hpScale,
+        damageScale,
+        bountyScale,
+      });
     }
   }
   spawns.sort((a, b) => a.at - b.at);
@@ -239,13 +293,13 @@ export function planWave(cfg: GameConfig, wave: number, seed: number): WavePlan 
   const classMix: Record<BodyClass, number> = { armored: 0, swarm: 0, elusive: 0 };
   let totalHp = 0;
   let totalBounty = 0;
-  for (const def of defs) {
+  for (const { def, hpScale: scale } of bodies) {
     counts.set(def.id, (counts.get(def.id) ?? 0) + 1);
     // Weighted by hit points, not bodies. A column is 15 knights behind 39
     // skeletons by headcount, which makes "armoured column" read as a lie;
     // by threat it is overwhelmingly armour, which is what the player meets.
-    classMix[def.bodyClass] += def.hp * hpScale;
-    totalHp += def.hp * hpScale;
+    classMix[def.bodyClass] += def.hp * scale;
+    totalHp += def.hp * scale;
     totalBounty += def.bounty * bountyScale;
   }
   const composition = [...counts.entries()]
@@ -314,7 +368,6 @@ function makeUnit(args: MakeUnitArgs, stats: typeof PLAYER_UNITS[PlayerUnitId] |
     damageClass: 'damageClass' in stats ? stats.damageClass : 'kinetic',
     bodyClass: 'bodyClass' in stats ? stats.bodyClass : null,
     wallFocused: 'wallFocused' in stats ? stats.wallFocused === true : false,
-    wallFraction: 'wallFraction' in stats ? stats.wallFraction ?? 0 : 0,
     spawnPeriod: args.spawnPeriod,
     spawnIn: args.spawnPeriod,
     spawnKind: args.spawnKind,
@@ -375,7 +428,12 @@ export function createEnemyUnit(state: SimState, cfg: GameConfig, q: QueuedSpawn
       aim: Math.PI / 2,
       spawnPeriod: def.spawnPeriod ?? 0,
       spawnKind: def.spawnKind ?? null,
-      rank: rankOfScale(q.hpScale),
+      // From the wave's own curve, not from `q.hpScale`: that carries the
+      // normalisation that holds a wave's total to the curve, which can be
+      // several times the campaign's scaling on a wave whose composition came
+      // in light. A chevron is meant to say how deep into the campaign a
+      // soldier is, not how thin the roll behind it was.
+      rank: rankOfScale(waveHpScale(cfg, state.wave)),
     },
     def,
   );

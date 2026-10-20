@@ -6,7 +6,7 @@ import {
   abilityDamage,
   applyArmor,
   chargeMax,
-  geometricCost,
+  levelCost,
   incomePerSec,
   playerUnitStats,
   rechargeSec,
@@ -26,9 +26,20 @@ import { freshState } from './helpers';
 
 describe('cost curves', () => {
   it('charges the base price for the first level and grows geometrically', () => {
-    expect(geometricCost(100, 1.5, 1)).toBe(100);
-    expect(geometricCost(100, 1.5, 2)).toBe(150);
-    expect(geometricCost(100, 1.5, 3)).toBe(225);
+    expect(levelCost(100, 1.5, 1, 1)).toBe(100);
+    expect(levelCost(100, 1.5, 1, 2)).toBe(150);
+    expect(levelCost(100, 1.5, 1, 3)).toBe(225);
+  });
+
+  it('grows the growth itself when levels escalate', () => {
+    // Step L to L+1 costs growth * escalation^(L-1) times the step before it.
+    expect(levelCost(100, 1.5, 1.2, 1)).toBe(100);
+    expect(levelCost(100, 1.5, 1.2, 2)).toBe(150);
+    expect(levelCost(100, 1.5, 1.2, 3)).toBe(270);
+    expect(levelCost(100, 1.5, 1.2, 4)).toBe(583);
+    // And the ratio between consecutive levels keeps climbing.
+    const ratio = (l: number) => levelCost(100, 1.5, 1.2, l + 1) / levelCost(100, 1.5, 1.2, l);
+    expect(ratio(5)).toBeGreaterThan(ratio(2));
   });
 
   it('prices an ability unlock at its base cost and each level above it', () => {

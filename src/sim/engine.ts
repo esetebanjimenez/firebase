@@ -249,7 +249,6 @@ function fireProjectile(
     splashRadius: unit.splashRadius,
     siegeBonus: unit.siegeBonus,
     damageClass: unit.damageClass,
-    wallFraction: unit.wallFraction,
     targetId,
     tx,
     ty,
@@ -289,12 +288,16 @@ function attackUnit(state: SimState, cfg: GameConfig, unit: Unit, target: Unit, 
 }
 
 /**
- * What one hit takes off the wall. Standoff siege removes a share of the
- * wall's maximum instead of flat damage, so its clock does not drift as the
- * campaign scales; everything else hits for what it hits for.
+ * What one hit takes off the wall: flat damage, for siege and infantry alike.
+ *
+ * Standoff siege used to remove a share of the wall's *maximum* instead, to
+ * stop its clock drifting as the campaign scaled — and that made the wall
+ * track worthless against the one threat the guns cannot reach. It is not
+ * needed any more: wall levels and enemy damage now compound on the same
+ * decelerating clock, which holds a breach a minute or two out at every wave
+ * on its own. See `EnemyUnitDef.standoff`.
  */
-function wallDamage(state: SimState, damage: number, siegeBonus: number, wallFraction: number): number {
-  if (wallFraction > 0) return state.wall.maxHp * wallFraction;
+function wallDamage(damage: number, siegeBonus: number): number {
   return damage * siegeBonus;
 }
 
@@ -308,7 +311,7 @@ function attackWall(state: SimState, cfg: GameConfig, unit: Unit, events: SimEve
     fireProjectile(state, unit, unit.x, wallY, null, true, events);
     return;
   }
-  hurtWall(state, cfg, wallDamage(state, unit.damage, unit.siegeBonus, unit.wallFraction), unit.x, events);
+  hurtWall(state, cfg, wallDamage(unit.damage, unit.siegeBonus), unit.x, events);
 }
 
 // ---------------------------------------------------------------------------
@@ -728,7 +731,6 @@ export function step(state: SimState, dt: number, cfg: GameConfig): SimEvent[] {
       splashRadius: gun.splashRadius,
       siegeBonus: 1,
       damageClass: gun.damageClass,
-      wallFraction: 0,
       targetId: best.id,
       tx: best.x,
       ty: best.y,
@@ -770,7 +772,7 @@ export function step(state: SimState, dt: number, cfg: GameConfig): SimEvent[] {
       p.x = p.tx;
       p.y = p.ty;
       if (p.atWall) {
-        hurtWall(state, cfg, wallDamage(state, p.damage, p.siegeBonus, p.wallFraction), p.x, events);
+        hurtWall(state, cfg, wallDamage(p.damage, p.siegeBonus), p.x, events);
         if (p.splashRadius > 0) {
           areaDamage(state, cfg, p.x, p.y, p.splashRadius, p.damage * 0.5, p.damageClass, 'player', events);
           events.push({ type: 'explosion', x: p.x, y: p.y, radius: p.splashRadius });

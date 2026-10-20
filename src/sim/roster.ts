@@ -36,7 +36,15 @@ export interface UnitStats {
   readonly projectile: ProjectileKind;
   readonly projectileSpeed: number;
   readonly splashRadius: number;
-  /** Damage multiplier against the wall. */
+  /**
+   * Damage multiplier against the wall.
+   *
+   * Worth keeping in proportion to a standoff engine's: a ram at triple damage
+   * on a 1.8s swing did the wall damage of nearly seven catapults, and a wave
+   * can roll a dozen rams against a hard cap of three engines. Ten arriving
+   * took a wave-36 wall down in under seven seconds, which is not a
+   * breakthrough to answer but a wave you either stop entirely or lose.
+   */
   readonly siegeBonus: number;
   readonly radius: number;
   /**
@@ -172,20 +180,22 @@ export interface EnemyUnitDef extends UnitStats {
   /** Siege engines drive for the wall and ignore your soldiers. */
   readonly wallFocused?: boolean;
   /**
-   * Standoff siege: the share of the wall's *maximum* hit points each hit takes
-   * off, instead of flat damage.
+   * Standoff siege: shells the wall from beyond anything the parapet can
+   * reach, so the only answer is to go up the field and kill it.
    *
-   * Flat damage cannot work for an engine that shells from outside tower reach.
-   * Its damage scales with the wave while the wall scales with what you buy,
-   * and a wave can field more engines as its budget grows, so the time a wall
-   * survives a bombardment kept *shrinking* as the campaign went on — 14
-   * seconds at wave 13, four by wave 35. A share of the wall makes that clock
-   * constant: a given number of engines always takes about the same time to
-   * breach, whatever the wave, so siege stays a problem you have to go and
-   * solve rather than an instant loss. Wall levels still answer everything
-   * else on the field.
+   * Its shots are flat damage, like every other attack. That used to be
+   * impossible: engine damage scaled geometrically per wave while the wall
+   * scaled with levels bought at a flat price, so the time a wall survived a
+   * bombardment kept shrinking as the campaign went on — 14 seconds at wave
+   * 13, four by wave 35 — and the mechanic had to be rewritten as a share of
+   * the wall's maximum to hold that clock still. On the escalating price curve
+   * it holds itself: wall levels compound on a square-root clock and so does
+   * enemy damage, which leaves a breach around a minute and a half away at
+   * wave 12, wave 30 and wave 60 alike. A share of the wall is now the worse
+   * model, because it made the wall track worthless against the one threat the
+   * towers cannot touch.
    */
-  readonly wallFraction?: number;
+  readonly standoff?: boolean;
   /** Seconds between raising a minion (necromancers). */
   readonly spawnPeriod?: number;
   readonly spawnKind?: EnemyUnitId;
@@ -466,7 +476,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     projectileSpeed: 0,
     splashRadius: 0,
     bodyClass: 'armored',
-    siegeBonus: 3,
+    siegeBonus: 1.5,
     radius: 12,
     wallFocused: true,
     silhouette: 'engine',
@@ -481,7 +491,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     fromWave: 10,
     bounty: 60,
     hp: 150,
-    damage: 46,
+    damage: 36,
     attackPeriod: 3.6,
     range: 390,
     speed: 16,
@@ -491,10 +501,10 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     projectileSpeed: 140,
     splashRadius: 28,
     bodyClass: 'armored',
-    siegeBonus: 2,
+    siegeBonus: 1,
     radius: 10,
     wallFocused: true,
-    wallFraction: 0.022,
+    standoff: true,
     silhouette: 'engine',
     mark: 'wheels',
     colors: ['#5d4428', '#8a6a38', '#9aa0a8', '#33230f', '#46321d'],
@@ -630,7 +640,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     fromWave: 11,
     bounty: 64,
     hp: 170,
-    damage: 40,
+    damage: 32,
     attackPeriod: 3.2,
     range: 390,
     speed: 14,
@@ -640,10 +650,10 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     projectileSpeed: 150,
     splashRadius: 24,
     bodyClass: 'armored',
-    siegeBonus: 2,
+    siegeBonus: 1,
     radius: 11,
     wallFocused: true,
-    wallFraction: 0.02,
+    standoff: true,
     silhouette: 'engine',
     mark: 'staff',
     colors: ['#4a3b8c', '#7a66d0', '#b9f0ff', '#241a52', '#352a68'],
@@ -805,7 +815,7 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     fromWave: 12,
     bounty: 58,
     hp: 140,
-    damage: 38,
+    damage: 30,
     attackPeriod: 3,
     range: 390,
     speed: 15,
@@ -815,10 +825,10 @@ export const ENEMY_UNITS: Readonly<Record<EnemyUnitId, EnemyUnitDef>> = {
     projectileSpeed: 120,
     splashRadius: 20,
     bodyClass: 'armored',
-    siegeBonus: 2,
+    siegeBonus: 1,
     radius: 10,
     wallFocused: true,
-    wallFraction: 0.018,
+    standoff: true,
     silhouette: 'engine',
     mark: 'wheels',
     colors: ['#6b6a58', '#9a9880', '#d8dcc4', '#3a3a30', '#52513f'],

@@ -17,7 +17,7 @@ import { planWave, siegeAllowance } from '../waves';
 import { DT, SEED, freshState } from './helpers';
 import type { EnemyUnitId, SimState } from '../types';
 
-const SIEGE = (Object.keys(ENEMY_UNITS) as EnemyUnitId[]).filter((k) => (ENEMY_UNITS[k].wallFraction ?? 0) > 0);
+const SIEGE = (Object.keys(ENEMY_UNITS) as EnemyUnitId[]).filter((k) => ENEMY_UNITS[k].standoff === true);
 
 /** A player who has upgraded steadily to the given wave. */
 function readyAt(wave: number, wallLevels: number, towerLevels: number, chargeLevels = 0): SimState {
@@ -30,7 +30,7 @@ function readyAt(wave: number, wallLevels: number, towerLevels: number, chargeLe
   // The `towers` track buys pads, not firepower — the guns bolted into them
   // carry that now, so a build without gun levels is an empty parapet.
   for (let i = 0; i < towerLevels; i++) {
-    for (const weapon of TOWER_WEAPON_ORDER) buyWeaponLevel(state, weapon);
+    for (const weapon of TOWER_WEAPON_ORDER) buyWeaponLevel(state, cfg, weapon);
   }
   state.credits = 10_000_000;
   return state;
@@ -56,12 +56,19 @@ describe('siege', () => {
   /**
    * The clock used to *shrink* as the campaign went on — 14 seconds at wave
    * 13, four by wave 35 — because engine count and per-engine damage both
-   * scaled while the wall only grew with what you bought. A share of the wall
-   * per hit, plus a cap on engines per wave, makes it roughly constant.
+   * scaled while the wall only grew with what you bought on a flat price
+   * curve. It needed a share of the wall per hit to hold still. On the
+   * escalating curve it holds itself: wall levels compound on a square-root
+   * clock and so does enemy damage, so flat shots plus a cap on engines leave
+   * a breach a minute or two out at every wave — which is what lets the wall
+   * track mean something against the one threat the guns cannot touch.
+   *
+   * The builds below are what a player actually owns at that wave on this
+   * curve, about 2.4 levels per square root of the wave.
    */
   it('gives you about the same time to answer it, whatever the wave', () => {
     const clocks: number[] = [];
-    for (const [from, towers, wall] of [[13, 6, 8], [18, 9, 12], [25, 13, 17], [35, 18, 24]] as const) {
+    for (const [from, towers, wall] of [[13, 8, 8], [18, 10, 10], [25, 12, 12], [35, 14, 14]] as const) {
       // Not every wave fields siege any more: a horde or a skirmish line may
       // field none at all, which is the shape system working. Take the next
       // wave from here that does, since the claim is about the clock.
@@ -83,13 +90,23 @@ describe('siege', () => {
       expect(state.lastResult?.wallHpLeft, `wave ${wave} breaches eventually`).toBe(0);
       clocks.push(seconds * engines);
     }
-    // The constant is the clock *per engine*, not the clock: a wave may field
-    // one engine or four depending on its shape, and four breach four times as
-    // fast. Engine-seconds is what should hold steady across the campaign —
-    // long enough to clear an escort and walk out, short enough to be a threat.
-    for (const c of clocks) expect(c).toBeGreaterThan(110);
-    for (const c of clocks) expect(c).toBeLessThan(230);
+    // Engine-seconds rather than seconds: a wave may field one engine or three
+    // depending on its shape, and three breach three times as fast. What has
+    // to hold across the campaign is the time one engine needs — long enough
+    // to clear an escort and walk out, short enough to be a threat. It drifts
+    // upward now, in the player's favour, which is the wall track paying off.
+    for (const c of clocks) expect(c).toBeGreaterThan(100);
+    for (const c of clocks) expect(c).toBeLessThan(320);
   }, 60000);
+
+  it('caps the summoners too, since a necromancer is a rate and not a body', () => {
+    for (let wave = 10; wave <= 80; wave++) {
+      const summoners = planWave(cfg, wave, SEED)
+        .composition.filter((c) => ENEMY_UNITS[c.kind].spawnKind !== undefined)
+        .reduce((n, c) => n + c.count, 0);
+      expect(summoners, `wave ${wave}`).toBeLessThanOrEqual(cfg.waves.summonerMax);
+    }
+  });
 
   it('stays a handful of engines however rich the wave gets', () => {
     for (let wave = 10; wave <= 60; wave++) {

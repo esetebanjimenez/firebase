@@ -129,11 +129,6 @@ export interface Unit {
   readonly bodyClass: BodyClass | null;
   /** Damage multiplier against the wall. */
   readonly siegeBonus: number;
-  /**
-   * Standoff siege only: the share of the wall's *maximum* hit points one hit
-   * takes off, in place of flat damage. See `EnemyUnitDef.wallFraction`.
-   */
-  readonly wallFraction: number;
   /** Body radius: used for spacing, melee reach, and splash hit tests. */
   readonly radius: number;
   /** Credits paid out when this unit dies (enemies only). */
@@ -183,8 +178,6 @@ export interface Projectile {
   readonly siegeBonus: number;
   /** Carried from the firer, so a shell counters what the firer counters. */
   readonly damageClass: DamageClass;
-  /** Carried from the firer, for shots aimed at the wall. */
-  readonly wallFraction: number;
   /** Homing target; falls back to (tx, ty) once the target is gone. */
   targetId: number | null;
   /** Last known target position — also the aim point for wall shots. */

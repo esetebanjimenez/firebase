@@ -80,8 +80,8 @@ export function fitTowerWeapon(
  * Level a gun type, which lifts every pad fitted with it. Level 0 means the
  * gun has not been researched yet, so the first purchase unlocks it.
  */
-export function buyWeaponLevel(state: SimState, weapon: TowerWeaponId): boolean {
-  const cost = weaponUpgradeCost(weapon, state.upgrades.weapons[weapon]);
+export function buyWeaponLevel(state: SimState, cfg: GameConfig, weapon: TowerWeaponId): boolean {
+  const cost = weaponUpgradeCost(cfg, weapon, state.upgrades.weapons[weapon]);
   if (state.credits < cost) return false;
   state.credits -= cost;
   state.upgrades.weapons[weapon] += 1;

@@ -157,9 +157,11 @@ export function autoShop(state: SimState, cfg: GameConfig = defaultConfig): void
     // scripted player that never researched the guns would measure a parapet
     // nobody fields.
     const cheapestGun = [...TOWER_WEAPON_ORDER].sort(
-      (a, b) => weaponUpgradeCost(a, state.upgrades.weapons[a]) - weaponUpgradeCost(b, state.upgrades.weapons[b]),
+      (a, b) =>
+        weaponUpgradeCost(cfg, a, state.upgrades.weapons[a]) -
+        weaponUpgradeCost(cfg, b, state.upgrades.weapons[b]),
     )[0];
-    const gunPrice = weaponUpgradeCost(cheapestGun, state.upgrades.weapons[cheapestGun]);
+    const gunPrice = weaponUpgradeCost(cfg, cheapestGun, state.upgrades.weapons[cheapestGun]);
 
     const cheapestTrack = [...TRACKS].sort((a, b) => trackCost(cfg, state, a) - trackCost(cfg, state, b))[0];
     const cheapestUnit = PLAYER_UNIT_ORDER.filter((id) => state.unlocked[id]).sort(
@@ -172,7 +174,7 @@ export function autoShop(state: SimState, cfg: GameConfig = defaultConfig): void
     if (best === unitPrice && state.credits >= unitPrice * 1.1) {
       acted = upgradeUnit(state, cfg, cheapestUnit) || acted;
     } else if (best === gunPrice && state.credits >= gunPrice * 1.1) {
-      acted = buyWeaponLevel(state, cheapestGun) || acted;
+      acted = buyWeaponLevel(state, cfg, cheapestGun) || acted;
     } else if (state.credits >= trackPrice * 1.1) {
       acted = buyUpgrade(state, cfg, cheapestTrack) || acted;
     }
@@ -245,22 +247,63 @@ export function autoFight(
   return { won: state.lastResult?.won ?? false, seconds: elapsed };
 }
 
+/**
+ * Shop, and if nothing was affordable, wait for the garrison's income until
+ * something is.
+ *
+ * The idle layer is not a side show: on the escalating price curve a level
+ * deep in a run is worth several waves of income, so a player who has hit a
+ * wave they cannot beat waits for the credits rather than throwing bodies at
+ * it. A scripted player who never waits measures this game with its economy
+ * switched off, and reports a stall wherever a human would report an evening.
+ *
+ * Returns the seconds waited.
+ */
+export function shopAndWait(
+  state: SimState,
+  cfg: GameConfig = defaultConfig,
+  maxSec = 3600,
+): number {
+  const before = state.credits;
+  autoShop(state, cfg);
+  let waited = 0;
+  while (state.credits >= before && waited < maxSec) {
+    // Prep ticks nothing but income and cooldowns, so one long step is the
+    // same as sixty short ones and far cheaper.
+    step(state, 60, cfg);
+    waited += 60;
+    autoShop(state, cfg);
+  }
+  return waited;
+}
+
 /** Play from wave 1 until the run stalls or `waveGoal` is cleared. */
 export function autoRun(
   waveGoal: number,
   cfg: GameConfig = defaultConfig,
   maxAttempts = 200,
-): { state: SimState; attempts: number; stalledAt: number | null } {
+): { state: SimState; attempts: number; stalledAt: number | null; idleSec: number } {
   const state = freshState(cfg);
   let attempts = 0;
   let consecutiveLosses = 0;
+  let idleSec = 0;
   while (state.bestWave < waveGoal && attempts < maxAttempts) {
-    autoShop(state, cfg);
+    idleSec += shopAndWait(state, cfg);
     const { won } = autoFight(state, cfg);
     attempts += 1;
     consecutiveLosses = won ? 0 : consecutiveLosses + 1;
-    // 12 losses in a row with no new upgrades affordable means a hard wall.
-    if (consecutiveLosses >= 12) return { state, attempts, stalledAt: state.wave };
+    // Twenty-five losses in a row, each with up to an hour of waiting behind
+    // it, is a hard wall rather than a grind. The bar used to be twelve, which
+    // was fair when a wave's bounty bought a dozen levels; on the escalating
+    // price curve the walls at a chapter boundary — the budget cap at wave 32
+    // is the worst — take a measured eighteen attempts to grind out, and
+    // calling that a dead end reports an evening's play as a stall.
+    if (consecutiveLosses >= 25) return { state, attempts, stalledAt: state.wave, idleSec };
   }
-  return { state, attempts, stalledAt: state.bestWave < waveGoal ? state.wave : null };
+  return {
+    state,
+    attempts,
+    idleSec,
+    stalledAt: state.bestWave < waveGoal ? state.wave : null,
+  };
 }

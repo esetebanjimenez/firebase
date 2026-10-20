@@ -149,15 +149,24 @@ export interface GameConfig {
     readonly damageScaleGrowth: number;
     readonly bountyScaleGrowth: number;
     /**
-     * Your power compounds across seven upgrade tracks; the enemy only has
-     * stats and numbers, and numbers are capped. So from this wave on the
-     * armies scale on a steeper curve, which is what keeps a wave-40 fight a
-     * fight instead of a formality.
+     * The clock the enemy's stats compound on: the exponent is
+     * `(wave - 1)^statScalePower`, so at 1 this is the usual straight
+     * geometric curve and below it each wave adds a little less than the one
+     * before.
+     *
+     * It is below 1 because the player's side is: priced on an escalating
+     * curve, credits that compound per wave buy levels on a square-root
+     * clock, so an enemy compounding per wave straight would overtake any
+     * possible investment within a dozen waves. This keeps the two curves the
+     * same shape, with the enemy's exponent a shade higher — the gap is what
+     * makes a wave-40 fight a fight rather than a formality.
      */
-    readonly lateFromWave: number;
-    readonly lateHpScaleGrowth: number;
-    readonly lateDamageScaleGrowth: number;
-    readonly lateBountyScaleGrowth: number;
+    readonly statScalePower: number;
+    /**
+     * Bounty rides a clock of its own. What a wave pays has to keep pace with
+     * what the next level costs, not with how hard the wave hits.
+     */
+    readonly bountyScalePower: number;
     /** Seconds over which a wave's spawns are spread. */
     readonly spawnWindowSec: number;
     /** Enemies walk on in clumps of up to this many at the same moment. */
@@ -178,22 +187,52 @@ export interface GameConfig {
     /** How much a shape favours its own class when spending the budget. */
     readonly shapeBias: number;
     /**
-     * Threat multiplier per shape, so shapes differ in *what* they field
-     * rather than in how dangerous they are. A point of budget buys far more
-     * hit points as armour than as skirmishers, so at a flat budget a column
-     * carried 121% of a mixed wave's threat and a horde 60% — which made the
-     * shape a difficulty label rather than a tactical one, and left hordes and
-     * skirmish lines comfortable whatever you brought.
+     * Where a wave's hit points land: this many per point of budget, before the
+     * wave's own scaling. The roll decides what a wave is *made of*; this
+     * decides how much beef that composition carries, because a budget buys
+     * very different amounts of it depending on what it is spent on — a point
+     * of armour was worth about twice a point of swarm, so at a flat budget an
+     * armoured column rolled up at nearly double a mixed force's hit points.
      *
-     * This scales hit points rather than the budget: the budget is capped by
-     * how many bodies a field can hold, so buying more of them barely moved
-     * the threat at all (60% to 64%).
+     * While levels arrived twenty to a wave that was texture, something you
+     * out-levelled on the next wave. On the escalating price curve a level is
+     * worth several waves of income, so the same roll is a wall you grind at
+     * for fifty attempts. Holding the total to the curve is what lets the
+     * economy, rather than the dice, decide the pace.
+     */
+    readonly hpPerPoint: number;
+    /**
+     * Deliberate relative threat per shape, applied to that target. Equal hit
+     * points are not equal difficulty: armour also soaks flat damage, and a
+     * swarm spends its hit points on bodies that all have to be shot
+     * separately. This is where that is paid for — 1 means "right on the
+     * curve".
      */
     readonly shapeThreat: Readonly<Record<WaveShape, number>>;
     /** Standoff siege engines a wave may field: base, +1 every N waves, capped. */
     readonly siegeBase: number;
     readonly siegePerWaves: number;
     readonly siegeMax: number;
+    /**
+     * Summoners a wave may field. Capped for the same reason siege is: a
+     * necromancer raises a skeleton every few seconds for as long as it lives,
+     * so its contribution to a wave is a rate, not a line item, and the budget
+     * has no way to see that. Rolled freely, a late wave bought nineteen of
+     * them — four skeletons a second, for ever, which is not a wave but a tap
+     * you cannot turn off, and the clearest wall in a run. A handful is
+     * pressure to answer.
+     */
+    readonly summonerMax: number;
+    /**
+     * Wall-breakers — the melee kinds that ignore your soldiers and drive for
+     * the wall — a wave may field. Rationed for the same reason the standoff
+     * engines are, and in fact more urgently: a ram's whole contribution is
+     * wall damage on arrival, so ten of them do not make a wave 10% harder,
+     * they take the wall down in seconds and make the wave a pass-or-lose
+     * check on stopping every one. A handful that gets through should be a
+     * breach you feel, not the end of the run.
+     */
+    readonly breacherMax: number;
   };
 
   readonly abilities: {
@@ -238,6 +277,27 @@ export interface GameConfig {
     readonly strong: number;
     readonly weak: number;
     readonly matchups: Readonly<Record<DamageClass, { readonly strong: BodyClass; readonly weak: BodyClass }>>;
+  };
+
+  /**
+   * The shape of every price in the game.
+   *
+   * An idle game normally prices level L at base * growth^L: a straight
+   * geometric curve. Against income that also compounds per wave, that curve
+   * buys a *constant* number of levels per wave, and because a wave's takings
+   * grow with both bounty and head-count while a level's price grows with
+   * neither, it bought an accelerating number of them — 1 a wave at wave 3,
+   * 19 a wave at wave 20, 411 levels owned by wave 30.
+   *
+   * So the growth rate itself grows. The step from level L to L+1 costs
+   * `growth * costEscalation^(L-1)` times the step before it, which turns the
+   * exponent quadratic: credits compounding per wave then buy levels on a
+   * square-root curve, and the gap between what a wave pays and what the next
+   * level asks widens for as long as you keep playing. Early levels are still
+   * cheap; it is depth that is expensive.
+   */
+  readonly economy: {
+    readonly costEscalation: number;
   };
 
   /** Simulation details that are tuning, not rules. */
@@ -358,10 +418,11 @@ export const defaultConfig: GameConfig = {
     hpScaleGrowth: 1.18,
     damageScaleGrowth: 1.1,
     bountyScaleGrowth: 1.16,
-    lateFromWave: 12,
-    lateHpScaleGrowth: 1.3,
-    lateDamageScaleGrowth: 1.17,
-    lateBountyScaleGrowth: 1.21,
+    statScalePower: 0.7,
+    // Straight geometric, deliberately: prices compound per *level* and a
+    // level's price now climbs as well, so pay that decelerates too would
+    // leave the late game earning for a shop it can never reach.
+    bountyScalePower: 1,
     spawnWindowSec: 18,
     groupSize: 4,
     bossEvery: 10,
@@ -369,10 +430,13 @@ export const defaultConfig: GameConfig = {
     mixFromWave: 16,
     shapeFromWave: 8,
     shapeBias: 8,
-    shapeThreat: { column: 0.9, horde: 1.55, skirmish: 1.5, mixed: 1 },
+    hpPerPoint: 52,
+    shapeThreat: { column: 0.65, horde: 1, skirmish: 1, mixed: 1 },
     siegeBase: 1,
     siegePerWaves: 12,
-    siegeMax: 4,
+    siegeMax: 3,
+    summonerMax: 3,
+    breacherMax: 4,
   },
 
   abilities: {
@@ -453,6 +517,17 @@ export const defaultConfig: GameConfig = {
       sustained: { strong: 'swarm', weak: 'elusive' },
     },
   },
+  economy: {
+    // 1.04 per level: the price ratio starts at a track's own growth and is
+    // about 75% above it by level 15, which is roughly where a track sits
+    // after thirty waves. Swept against the difficulty curve — at 1.05 a
+    // straight run to wave 60 took 269 attempts and 174 hours of waiting
+    // against 86 attempts and under four hours here, because a player who
+    // cannot clear the wave in front of them earns the same credits every
+    // attempt, so every further level takes geometrically longer to afford.
+    costEscalation: 1.04,
+  },
+
   sim: {
     minDamageFraction: 0.3,
     retargetSec: 0.4,

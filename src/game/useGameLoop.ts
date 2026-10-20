@@ -388,7 +388,7 @@ function buildSnapshot(state: SimState, cfg: GameConfig): UiSnapshot {
     guns: TOWER_WEAPON_ORDER.map((id) => {
       const def = TOWER_WEAPONS[id];
       const level = state.upgrades.weapons[id];
-      const cost = weaponUpgradeCost(id, level);
+      const cost = weaponUpgradeCost(cfg, id, level);
       return {
         id,
         name: def.name,
@@ -532,7 +532,7 @@ export function useGameLoop(cfg: GameConfig = defaultConfig): UseGameLoop {
         if (buyUpgrade(stateRef.current, cfg, track)) publish();
       },
       buyGun: (id) => {
-        if (buyWeaponLevel(stateRef.current, id)) publish();
+        if (buyWeaponLevel(stateRef.current, cfg, id)) publish();
       },
       fitGun: (pad, id) => {
         if (fitTowerWeapon(stateRef.current, pad, id)) publish();
