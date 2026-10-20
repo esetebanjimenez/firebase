@@ -481,9 +481,16 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1px;
+  gap: 2px;
   font-size: 10px;
   letter-spacing: 0.04em;
+}
+
+/* The shell, the barrage and the flame are drawn at 15px square and scaled by
+   a whole number, so they stay crisp next to the battlefield's own pixels. */
+.abilityicon {
+  display: block;
+  image-rendering: pixelated;
 }
 
 .ability__text small {

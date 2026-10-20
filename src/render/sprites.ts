@@ -155,3 +155,103 @@ export function unitIcon(kind: UnitKindId, rank: Rank): UnitIconArt {
   iconCache.set(key, art);
   return art;
 }
+
+// --- Ability icons ---------------------------------------------------------
+//
+// The three support abilities are the only buttons in the game that had no
+// picture on them: a soldier's button shows the soldier, a gun pad shows the
+// gun, and the abilities were three words in a row. Each is drawn from the
+// same five-colour ramps as everything else, so they sit in the same world.
+
+/** One shell, nose down. Shared by the artillery and the barrage. */
+const SHELL: PixelGrid = [' 1 ', '121', '121', '121', '424'];
+
+/** A starburst: white-hot centre, orange body, red spikes thrown out. */
+const BURST: PixelGrid = [
+  '     3     ',
+  '   3 2 3   ',
+  '  3 212 3  ',
+  ' 3 21112 3 ',
+  '  3 212 3  ',
+  '   3 2 3   ',
+];
+
+const FLAME: PixelGrid = [
+  '   3   ',
+  '  323  ',
+  ' 32223 ',
+  ' 32223 ',
+  '3222223',
+  '3221223',
+  '3221223',
+  ' 32223 ',
+  '  333  ',
+];
+
+const SHELL_RAMP: Ramp = [
+  PALETTE.gateMetalLight,
+  PALETTE.gateMetal,
+  PALETTE.towerBarrel,
+  PALETTE.explosionMid,
+  PALETTE.explosionEdge,
+];
+
+const FIRE_RAMP: Ramp = [
+  PALETTE.explosionCore,
+  PALETTE.explosionMid,
+  PALETTE.explosionEdge,
+  PALETTE.burnDark,
+  PALETTE.flash,
+];
+
+const abilityIconCache = new Map<string, UnitIconArt>();
+
+/**
+ * The button picture for a support ability: what it drops, and what that does
+ * to the ground. One shell over a burst for the artillery, three shells walked
+ * across for the barrage, a flame over burning ground for napalm.
+ *
+ * These were the only buttons in the game with no picture on them — a
+ * soldier's button shows the soldier and a pad shows its gun, while fire
+ * support was three words in a row.
+ */
+export function abilityIcon(id: 'artillery' | 'barrage' | 'napalm'): UnitIconArt {
+  const cached = abilityIconCache.get(id);
+  if (cached) return cached;
+
+  const width = 15;
+  const height = 15;
+  const { canvas, ctx } = createLayer(width, height);
+  const shell = bake(SHELL, SHELL_RAMP);
+
+  if (id === 'napalm') {
+    const flame = bake(FLAME, FIRE_RAMP);
+    ctx.drawImage(flame.canvas, Math.round((width - flame.width) / 2), 1);
+    // Ground still burning under it: the part that is not an explosion.
+    ctx.fillStyle = PALETTE.burnDark;
+    for (const [x, w] of [[1, 4], [6, 3], [10, 4]] as const) ctx.fillRect(x, 12, w, 1);
+    ctx.fillStyle = PALETTE.explosionMid;
+    for (const x of [2, 7, 12]) ctx.fillRect(x, 13, 1, 1);
+  } else if (id === 'artillery') {
+    const burst = bake(BURST, FIRE_RAMP);
+    ctx.drawImage(shell.canvas, 6, 0);
+    ctx.drawImage(burst.canvas, Math.round((width - burst.width) / 2), 8);
+  } else {
+    // Walked across the ground: three shells, each a step further on and a
+    // step lower, with the first already coming down on its mark.
+    ctx.drawImage(shell.canvas, 1, 0);
+    ctx.drawImage(shell.canvas, 6, 2);
+    ctx.drawImage(shell.canvas, 11, 4);
+    ctx.fillStyle = PALETTE.explosionMid;
+    ctx.fillRect(1, 11, 3, 1);
+    ctx.fillRect(2, 10, 1, 1);
+    ctx.fillStyle = PALETTE.explosionEdge;
+    ctx.fillRect(0, 12, 5, 1);
+    ctx.fillRect(7, 13, 3, 1);
+    ctx.fillRect(12, 14, 3, 1);
+  }
+
+  const art: UnitIconArt = { url: canvas.toDataURL(), width, height };
+  abilityIconCache.set(id, art);
+  return art;
+}

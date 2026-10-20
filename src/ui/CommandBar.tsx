@@ -7,6 +7,7 @@
 import type { GameActions, UiSnapshot } from '../game/useGameLoop';
 import { UnitIcon } from './UnitIcon';
 import { compact } from './TopBar';
+import { AbilityIcon } from './AbilityIcon';
 
 interface Props {
   snapshot: UiSnapshot;
@@ -102,10 +103,12 @@ export function CommandBar({ snapshot, actions }: Props) {
                 key={ability.id}
                 className={`ability ${ability.selected ? 'ability--on' : ''} ${ability.ready ? 'ability--ready' : ''}`}
                 onClick={() => actions.armAbility(ability.selected ? null : ability.id)}
+                title={ability.name}
+                aria-label={ability.name}
               >
                 <span className="ability__fill" style={{ width: `${Math.round(progress * 100)}%` }} />
                 <span className="ability__text">
-                  {ability.name}
+                  <AbilityIcon id={ability.id} />
                   <small>
                     {ability.cooldown > 0.05
                       ? `${ability.cooldown.toFixed(1)}s`

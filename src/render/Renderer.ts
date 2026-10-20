@@ -21,6 +21,19 @@ import { createLayer, type Ramp } from './pixel';
 import { unitSprites } from './sprites';
 import { bakeTerrain, type TerrainLayer } from './terrain';
 
+/**
+ * A stable, well-mixed hash of a pixel position (and an optional step, for
+ * effects that crawl). A raw xor of two multiplies correlates along the
+ * diagonals and lays dithered patches down in stripes — which is exactly what
+ * the first crater looked like, and what the burning ground looked like before
+ * it was mixed properly. Learned twice; now it lives in one place.
+ */
+function hashPixel(x: number, y: number, step = 0): number {
+  let h = (Math.imul((x | 0) + step * 31, 374761393) ^ Math.imul((y | 0) - step * 17, 668265263)) >>> 0;
+  h = Math.imul(h ^ (h >>> 15), 2246822519) >>> 0;
+  return (h ^ (h >>> 13)) >>> 0;
+}
+
 interface Corpse {
   readonly kind: UnitKindId;
   readonly x: number;
@@ -30,7 +43,7 @@ interface Corpse {
 }
 
 interface Particle {
-  kind: 'spark' | 'puff' | 'ring' | 'coin' | 'flash' | 'smoke';
+  kind: 'spark' | 'puff' | 'ring' | 'coin' | 'flash' | 'smoke' | 'blast' | 'shock' | 'ember';
   x: number;
   y: number;
   vx: number;
@@ -39,6 +52,25 @@ interface Particle {
   maxLife: number;
   color: string;
   size: number;
+}
+
+/**
+ * The mark a blast leaves on the ground.
+ *
+ * Drawn with the terrain rather than with the particles, because a crater is
+ * under the fight: soldiers walk over it, bodies fall on it. It is also the
+ * part of an explosion that is still there a second later, which is most of
+ * what makes one feel like it happened.
+ */
+interface Scorch {
+  readonly x: number;
+  readonly y: number;
+  readonly radius: number;
+  /** Baked once on impact: redrawing the stipple every frame cost thousands
+   *  of pixel tests a crater, and a crater does not change shape. */
+  readonly canvas: HTMLCanvasElement;
+  life: number;
+  readonly maxLife: number;
 }
 
 /** Per-frame extras the UI wants drawn on the field itself. */
@@ -57,6 +89,7 @@ export class Renderer {
   private readonly fieldCanvas: HTMLCanvasElement;
   private terrain: TerrainLayer;
   private particles: Particle[] = [];
+  private scorches: Scorch[] = [];
   private corpses: Corpse[] = [];
   private shake = 0;
   private clock = 0;
@@ -120,6 +153,7 @@ export class Renderer {
     this.clock += dt;
     this.consume(fx);
     this.advanceParticles(dt);
+    this.advanceScorches(dt);
     this.advanceCorpses(dt);
     if (this.shake > 0) this.shake = Math.max(0, this.shake - dt * 14);
 
@@ -128,6 +162,7 @@ export class Renderer {
     ctx.drawImage(this.terrain.canvas, 0, 0);
 
     this.drawWallDamage(state);
+    this.drawScorches();
     this.drawCoverLine(state);
     this.drawHazards(state);
     this.drawCorpses();
@@ -210,12 +245,7 @@ export class Renderer {
           }
           break;
         case 'explosion':
-          this.push('ring', event.x, event.y, 0, 0, 0.32, PALETTE.explosionMid, event.radius);
-          for (let i = 0; i < 6; i++) {
-            const a = Math.random() * Math.PI * 2;
-            this.push('smoke', event.x, event.y, Math.cos(a) * 12, Math.sin(a) * 12, 0.7, PALETTE.smoke, 2);
-          }
-          this.shake = Math.min(3.5, this.shake + 1.6);
+          this.explode(event.x, event.y, event.radius);
           break;
         case 'wallHit':
           for (let i = 0; i < 4; i++) {
@@ -236,6 +266,90 @@ export class Renderer {
           break;
       }
     }
+  }
+
+  /**
+   * A blast, in layers, sized by its own radius.
+   *
+   * A grenade airburst and a 52-pixel artillery shell used to be the same
+   * effect: one expanding ring, six puffs of smoke and a fixed knock on the
+   * camera. The shell is the thing the player saved four hundred credits for,
+   * so it has to land like it. What sells it is the order — a white core that
+   * is gone in two frames, fire that swells and dies, a shockwave that outruns
+   * the fire, dirt thrown on an arc, and a crater still there afterwards —
+   * rather than any one of those being bigger.
+   */
+  private explode(x: number, y: number, radius: number): void {
+    // Everything below scales off this: 1 at a grenade's splash, 3 and a half
+    // at an artillery shell's.
+    const weight = Math.max(0.6, radius / 16);
+    const heavy = radius >= 24;
+
+    // The core: a white-hot disc, two frames long.
+    this.push('blast', x, y, 0, 0, 0.08 + 0.03 * weight, PALETTE.explosionCore, radius * 0.32);
+    // The fireball, swelling behind it. Deliberately short of the blast's own
+    // radius: the shockwave is what reaches the edge of what the shell kills.
+    this.push('blast', x, y, 0, 0, 0.2 + 0.06 * weight, PALETTE.explosionCore, radius * 0.6);
+    // The shockwave, thin and faster than the fire.
+    this.push('shock', x, y, 0, 0, 0.26 + 0.05 * weight, PALETTE.explosionEdge, radius * 1.15);
+
+    // Dirt and embers, thrown out and pulled back down.
+    const debris = Math.round(5 + 7 * weight);
+    for (let i = 0; i < debris; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const speed = (20 + Math.random() * 46) * Math.min(2, weight);
+      this.push(
+        'ember',
+        x,
+        y,
+        Math.cos(a) * speed,
+        Math.sin(a) * speed - 18 * weight,
+        0.35 + Math.random() * 0.4,
+        Math.random() < 0.45 ? PALETTE.explosionMid : PALETTE.dirtDark,
+        Math.random() < 0.3 ? 2 : 1,
+      );
+    }
+
+    // Smoke: more of it, rising, and it outlives the fire by a long way.
+    const puffs = Math.round(4 + 5 * weight);
+    for (let i = 0; i < puffs; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const drift = 10 + Math.random() * 14 * weight;
+      this.push(
+        'smoke',
+        x + Math.cos(a) * radius * 0.3,
+        y + Math.sin(a) * radius * 0.3,
+        Math.cos(a) * drift,
+        Math.sin(a) * drift - 10,
+        0.8 + Math.random() * 0.8 * weight,
+        PALETTE.smoke,
+        heavy ? 3 : 2,
+      );
+    }
+
+    if (heavy) this.scorch(x, y, radius * 0.6);
+    this.shake = Math.min(6, this.shake + 0.9 + 0.9 * weight);
+  }
+
+  /** Burn the ground where a heavy shell landed. */
+  private scorch(x: number, y: number, radius: number): void {
+    if (this.scorches.length > 14) this.scorches.shift();
+    const r = Math.max(2, Math.round(radius));
+    const { canvas, ctx } = createLayer(r * 2 + 1, r * 2 + 1);
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        const d2 = dx * dx + dy * dy;
+        if (d2 > r * r) continue;
+        // Hashed on where the pixel lands on the field, not on where it sits
+        // in this little canvas, so two craters never come out identical.
+        const hash = hashPixel(Math.round(x) + dx, Math.round(y) + dy);
+        const density = 0.85 - (Math.sqrt(d2) / r) * 0.7;
+        if ((hash % 1024) / 1024 > density) continue;
+        ctx.fillStyle = hash % 9 === 0 ? PALETTE.burnDark : PALETTE.dirtDark;
+        ctx.fillRect(dx + r, dy + r, 1, 1);
+      }
+    }
+    this.scorches.push({ x, y, radius: r, canvas, life: 6, maxLife: 6 });
   }
 
   private push(
@@ -290,16 +404,43 @@ export class Renderer {
         p.vx *= 0.9;
         p.vy *= 0.9;
       }
+      // Thrown dirt arcs: it slows sideways and falls, which is what separates
+      // debris from a puff of anything.
+      if (p.kind === 'ember') {
+        p.vx *= 0.94;
+        p.vy = p.vy * 0.94 + 150 * dt;
+      }
       live.push(p);
     }
     this.particles = live;
   }
 
-  // --- Layers --------------------------------------------------------------
+  private advanceScorches(dt: number): void {
+    if (this.scorches.length === 0) return;
+    const live: Scorch[] = [];
+    for (const scorch of this.scorches) {
+      scorch.life -= dt;
+      if (scorch.life > 0) live.push(scorch);
+    }
+    this.scorches = live;
+  }
 
-  private px(x: number, y: number, color: string, w = 1, h = 1): void {
-    this.field.fillStyle = color;
-    this.field.fillRect(Math.round(x), Math.round(y), w, h);
+  /**
+   * Craters, laid over the terrain and under everything alive — a stipple of
+   * burnt pixels rather than a solid disc, which would read as a hole cut in
+   * the canvas. They fade rather than thin out, because the shape is baked.
+   */
+  private drawScorches(): void {
+    for (const scorch of this.scorches) {
+      const t = scorch.life / scorch.maxLife;
+      this.field.globalAlpha = t > 0.6 ? 1 : t / 0.6;
+      this.field.drawImage(
+        scorch.canvas,
+        Math.round(scorch.x) - scorch.radius,
+        Math.round(scorch.y) - scorch.radius,
+      );
+      this.field.globalAlpha = 1;
+    }
   }
 
   /** Cracks and rubble that grow as the wall is worn down. */
@@ -373,16 +514,48 @@ export class Renderer {
         if (d2 > r2) continue;
         const x = Math.round(hazard.x) + dx;
         const y = Math.round(hazard.y) + dy;
-        // Mix the hash properly: the raw xor correlates along x and lays the
-        // flames down in stripes.
-        let hash = (Math.imul(x + tick * 31, 73856093) ^ Math.imul(y - tick * 17, 19349663)) >>> 0;
-        hash = Math.imul(hash ^ (hash >>> 15), 2246822519) >>> 0;
-        hash = (hash ^ (hash >>> 13)) >>> 0;
+        const hash = hashPixel(x, y, tick);
         const density = (0.26 + 0.26 * (1 - d2 / r2)) * fading;
         if ((hash % 1024) / 1024 > density) continue;
         this.px(x, y, hash % 3 === 0 ? PALETTE.burn : PALETTE.burnDark);
       }
     }
+  }
+
+  /**
+   * A filled circle in field pixels — scanline rows, so it stays square-edged.
+   *
+   * `ragged` knocks pixels out of the rim on a stable per-pixel hash, which is
+   * what keeps a fireball from reading as a perfect geometric circle. The hash
+   * is on position rather than random, so the edge does not crawl between
+   * frames while the disc grows.
+   */
+  private disc(x: number, y: number, radius: number, color: string, ragged = false): void {
+    const r = Math.round(radius);
+    const cx = Math.round(x);
+    const cy = Math.round(y);
+    for (let dy = -r; dy <= r; dy++) {
+      const half = Math.round(Math.sqrt(Math.max(0, r * r - dy * dy)));
+      if (half <= 0) continue;
+      if (!ragged) {
+        this.px(cx - half, cy + dy, color, half * 2 + 1, 1);
+        continue;
+      }
+      const solid = Math.round(half * 0.82);
+      this.px(cx - solid, cy + dy, color, solid * 2 + 1, 1);
+      for (const side of [-1, 1]) {
+        for (let i = solid; i <= half; i++) {
+          const x0 = cx + side * i;
+          if (hashPixel(x0, cy + dy) % 4 === 0) continue;
+          this.px(x0, cy + dy, color);
+        }
+      }
+    }
+  }
+
+  private px(x: number, y: number, color: string, w = 1, h = 1): void {
+    this.field.fillStyle = color;
+    this.field.fillRect(Math.round(x), Math.round(y), w, h);
   }
 
   private drawUnits(state: SimState): void {
@@ -533,6 +706,39 @@ export class Renderer {
           if (t > 0.6) this.px(p.x - 2, p.y - 2, PALETTE.explosionCore, 5, 5);
           break;
         }
+        case 'blast': {
+          // Fire, not a sticker: three bands from white-hot centre to dull
+          // red rim, a ragged edge, and a fade out rather than a vanish. A
+          // single flat disc at full opacity read as a circle pasted over the
+          // battlefield, which is exactly what it was.
+          const grow = 1 - t * t;
+          const r = Math.max(1, p.size * (0.4 + 0.6 * grow));
+          this.field.globalAlpha = t > 0.45 ? 1 : Math.max(0, t / 0.45);
+          this.disc(p.x, p.y, r, PALETTE.explosionEdge, true);
+          this.disc(p.x, p.y, r * 0.68, t > 0.3 ? PALETTE.explosionMid : PALETTE.explosionEdge);
+          if (t > 0.35) this.disc(p.x, p.y, r * 0.34, p.color);
+          this.field.globalAlpha = 1;
+          break;
+        }
+        case 'shock': {
+          // Outruns the fireball and thins to nothing: one pixel wide, always.
+          const r = p.size * (1 - t) + 2;
+          const color = t > 0.5 ? PALETTE.explosionMid : PALETTE.explosionEdge;
+          // Two pixels thick while it is young, one as it thins out — a
+          // single-pixel ring expanding this fast is gone before it registers.
+          const thickness = t > 0.5 ? 2 : 1;
+          const steps = Math.max(16, Math.round(r * 5));
+          this.field.globalAlpha = t > 0.3 ? 1 : t / 0.3;
+          for (let a = 0; a < steps; a++) {
+            const ang = (a / steps) * Math.PI * 2;
+            this.px(p.x + Math.cos(ang) * r, p.y + Math.sin(ang) * r, color, thickness, thickness);
+          }
+          this.field.globalAlpha = 1;
+          break;
+        }
+        case 'ember':
+          this.px(p.x, p.y, t > 0.45 ? p.color : PALETTE.dirtDark, p.size, p.size);
+          break;
         case 'coin':
           this.px(p.x, p.y, PALETTE.credit, 3, 3);
           break;
