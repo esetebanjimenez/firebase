@@ -165,7 +165,9 @@ export function buildDebugReport(state: SimState, cfg: GameConfig, now: number):
       siegeMax: cfg.waves.siegeMax,
       summonerMax: cfg.waves.summonerMax,
       breacherMax: cfg.waves.breacherMax,
-      clumpGapSec: cfg.waves.clumpGapSec,
+      arrivals: cfg.waves.arrivals,
+      arrivalGapSec: cfg.waves.arrivalGapSec,
+      squadsPerArrival: cfg.waves.squadsPerArrival,
     },
   };
 }

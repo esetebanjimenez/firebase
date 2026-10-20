@@ -383,8 +383,8 @@ function buildPreview(state: SimState, cfg: GameConfig): WavePreview {
  *
  * The queue is kept in arrival order and shifted as it fires, so the head of
  * it is the next thing to happen. Everything within half a second of that is
- * the same clump: a group shares one arrival time plus a little jitter, so
- * counting by the gap is counting the squad.
+ * the same arrival: every squad in one shares its arrival time plus a little
+ * jitter, so counting by the gap counts the whole force walking on.
  */
 function nextArrival(state: SimState): { nextInSec: number | null; nextCount: number } {
   const queue = state.spawnQueue;

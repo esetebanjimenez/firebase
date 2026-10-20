@@ -186,16 +186,25 @@ export interface GameConfig {
     /** Seconds over which a wave's spawns are spread, at most. */
     readonly spawnWindowSec: number;
     /**
-     * Longest gap between two clumps. A wave spreads its clumps evenly across
-     * the spawn window, which is right for a wave of ninety and absurd for a
-     * wave of five: wave 1 put four bodies on the field at once and the fifth
-     * eighteen seconds later, so the opening wave was ten seconds of fighting
-     * and eight of standing about. Small waves use this cadence instead, and
-     * big ones still pack into the window.
+     * How many moments a wave arrives in, at most: an opening force and up to
+     * two lots of reinforcements. Clumping by headcount instead put one squad
+     * in each clump, so a wave came on single file and the player fought the
+     * same small skirmish eight times over.
      */
-    readonly clumpGapSec: number;
-    /** Enemies walk on in clumps of up to this many at the same moment. */
-    readonly groupSize: number;
+    readonly arrivals: number;
+    /**
+     * Longest gap between two arrivals. A wave spreads its arrivals evenly
+     * across the spawn window, which is right for a wave of ninety and absurd
+     * for a wave of five, so small waves use this cadence instead and big ones
+     * still pack into the window.
+     */
+    readonly arrivalGapSec: number;
+    /**
+     * Fewest squads in an arrival. A wave only splits into a further arrival
+     * once it has this many squads to put in it, so a two-squad opening wave
+     * walks on all at once rather than in halves.
+     */
+    readonly squadsPerArrival: number;
     /** A boss joins every Nth wave. */
     readonly bossEvery: number;
     /** Boss waves spend less on rank-and-file, since the boss is the wave. */
@@ -250,6 +259,12 @@ export interface GameConfig {
      * what the player brings, which is why this fades rather than being folded
      * into `hpPerPoint` — measured, waves 1 to 3 cleared in ten seconds where
      * waves 6 to 8 took twenty-two.
+     *
+     * It was twice the curve while a wave trickled on four bodies at a time;
+     * condensing a wave into three arrivals put the same army on the field in
+     * lumps of twelve, and against three charges that was wave 3 lost on half
+     * the seeds. The extra weight stays, smaller: the opening is now dense
+     * rather than long.
      *
      * A written wave states its own weight and is left alone.
      */
@@ -496,8 +511,9 @@ export const defaultConfig: GameConfig = {
     // leave the late game earning for a shop it can never reach.
     bountyScalePower: 1,
     spawnWindowSec: 18,
-    clumpGapSec: 5,
-    groupSize: 4,
+    arrivals: 3,
+    arrivalGapSec: 8,
+    squadsPerArrival: 2,
     bossEvery: 10,
     bossBudgetFactor: 0.8,
     bossThreat: 0.8,
@@ -505,7 +521,7 @@ export const defaultConfig: GameConfig = {
     shapeFromWave: 8,
     shapeBias: 8,
     hpPerPoint: 35,
-    openingThreat: 2,
+    openingThreat: 1.2,
     openingFadeBy: 9,
     shapeThreat: { column: 0.65, horde: 1, skirmish: 1, mixed: 1 },
     siegeBase: 1,

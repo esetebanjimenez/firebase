@@ -326,8 +326,8 @@ export function planWave(cfg: GameConfig, wave: number, seed: number): WavePlan 
     bodies.push({ def: bossDef, hpScale: bossHp / bossDef.hp, size: 1 });
   }
 
-  // Schedule: clumps of up to groupSize walk on together, spread over the
-  // spawn window, each clump arriving around a shared x so they read as a squad.
+  // Schedule: a wave lands as an opening force and up to two lots of
+  // reinforcements, each of them several squads abreast across the field.
   const { field, waves } = cfg;
   const spawns: QueuedSpawn[] = [];
 
@@ -345,37 +345,47 @@ export function planWave(cfg: GameConfig, wave: number, seed: number): WavePlan 
   const engines = bodies.filter((b) => b.def.standoff === true);
 
   /**
-   * Clumps, measured in bodies rather than line items: a squad of four is a
-   * clump on its own, and loners are gathered up to `groupSize`. Counting
-   * line items put a thirteen-body wave into one clump — the boss among them,
-   * walking on at second zero with its own escort.
+   * Arrivals, not a trickle.
+   *
+   * Clumping by headcount put exactly one squad in each clump — a squad is
+   * four bodies and a clump held four — so a wave came on single file, a
+   * fresh squad every few seconds, and the player fought the same small
+   * skirmish over and over while the rest of the army queued offscreen. A
+   * wave now lands in at most `arrivals` moments, and every squad in a
+   * moment walks on together.
    */
-  const clumps: Array<Array<{ def: EnemyUnitDef; hpScale: number; size: number }>> = [];
-  let filling: Array<{ def: EnemyUnitDef; hpScale: number; size: number }> = [];
-  let filled = 0;
-  for (const body of escort) {
-    if (filling.length > 0 && filled + body.size > waves.groupSize) {
-      clumps.push(filling);
-      filling = [];
-      filled = 0;
-    }
-    filling.push(body);
-    filled += body.size;
+  const groups = Math.max(
+    1,
+    Math.min(waves.arrivals, Math.floor(escort.length / waves.squadsPerArrival)),
+  );
+  const clumps: Array<Array<{ def: EnemyUnitDef; hpScale: number; size: number }>> = Array.from(
+    { length: groups },
+    () => [],
+  );
+  for (let i = 0; i < escort.length; i++) {
+    // Contiguous blocks, so the composition's own order survives: what the
+    // roll put at the front opens, and its tail reinforces.
+    clumps[Math.min(groups - 1, Math.floor((i * groups) / escort.length))].push(escort[i]);
   }
-  if (filling.length > 0) clumps.push(filling);
 
-  const groups = Math.max(1, clumps.length);
-  // Evenly across the window, but never further apart than clumpGapSec: a
+  // Evenly across the window, but never further apart than arrivalGapSec: a
   // five-body wave should not be spread over the same eighteen seconds as a
   // ninety-body one.
-  const gap = Math.min(waves.clumpGapSec, waves.spawnWindowSec / Math.max(1, groups - 1));
+  const gap = Math.min(waves.arrivalGapSec, waves.spawnWindowSec / Math.max(1, groups - 1));
   const groupAt = (g: number) => g * gap;
-  const anchors = Array.from(
-    { length: groups },
-    () => field.sideMargin + rng.float() * (field.width - field.sideMargin * 2),
-  );
-  const near = (anchorX: number) =>
-    Math.min(field.width - field.sideMargin, Math.max(field.sideMargin, anchorX + rng.spread(36)));
+
+  /**
+   * Frontage inside one arrival: every squad gets its own stretch of the top
+   * edge, so six squads walking on at the same moment form a line across the
+   * field rather than a heap around one x.
+   */
+  const anchorsFor = (count: number) => {
+    const lane = (field.width - field.sideMargin * 2) / Math.max(1, count);
+    return Array.from(
+      { length: count },
+      (_, i) => field.sideMargin + lane * (i + 0.5) + rng.spread(lane * 0.25),
+    );
+  };
 
   /**
    * Queue one unit — which is one body, or a squad's worth of them.
@@ -393,7 +403,7 @@ export function planWave(cfg: GameConfig, wave: number, seed: number): WavePlan 
     const size = Math.max(1, body.size);
     const squadId = size > 1 ? nextSquadId++ : 0;
     const when = at === 0 ? 0 : at + rng.float() * 0.4;
-    const x = near(anchorX);
+    const x = anchorX;
     const spread = body.def.radius * 2.2;
     for (let slot = 0; slot < size; slot++) {
       // Abreast of each other, centred on where the unit would have stood.
@@ -415,16 +425,22 @@ export function planWave(cfg: GameConfig, wave: number, seed: number): WavePlan 
     }
   };
 
-  for (let g = 0; g < clumps.length; g++) {
-    for (const body of clumps[g]) push(body, groupAt(g), anchors[g]);
+  // The engines ride in with the reinforcements, spread over the arrivals
+  // after the first. A wave too small to have a second arrival brings them up
+  // on their own, one gap behind the troops.
+  const trailing: Array<{ def: EnemyUnitDef; hpScale: number; size: number }> = [];
+  for (let i = 0; i < engines.length; i++) {
+    if (groups > 1) clumps[1 + (i % (groups - 1))].push(engines[i]);
+    else trailing.push(engines[i]);
   }
 
-  // Spread the engines over the clumps after the first. A wave too small to
-  // have a second clump brings them up at the close of the spawn window.
-  for (let i = 0; i < engines.length; i++) {
-    const g = groups > 1 ? 1 + (i % (groups - 1)) : -1;
-    if (g < 0) push(engines[i], Math.max(gap, waves.clumpGapSec), anchors[0]);
-    else push(engines[i], groupAt(g), anchors[g]);
+  for (let g = 0; g < clumps.length; g++) {
+    const anchors = anchorsFor(clumps[g].length);
+    for (let i = 0; i < clumps[g].length; i++) push(clumps[g][i], groupAt(g), anchors[i]);
+  }
+  if (trailing.length > 0) {
+    const anchors = anchorsFor(trailing.length);
+    for (let i = 0; i < trailing.length; i++) push(trailing[i], gap, anchors[i]);
   }
 
   spawns.sort((a, b) => a.at - b.at);
