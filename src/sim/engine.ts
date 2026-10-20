@@ -290,7 +290,12 @@ interface Lane {
 function squadLanes(leaders: Map<number, Unit>): Map<number, Lane> {
   const byTarget = new Map<number, Unit[]>();
   for (const leader of leaders.values()) {
-    if (leader.targetId === null) continue;
+    // Your side only. Your squads all come out of one gate and converge from
+    // the same place, which is what makes a heap; a wave walks on spread
+    // across the top of the field and arrives in formation already. Giving
+    // the enemy lanes as well sent militia marching a hundred and thirty
+    // pixels sideways to stand in an assigned slot, away from the fight.
+    if (leader.team !== 'player' || leader.targetId === null) continue;
     const sharing = byTarget.get(leader.targetId) ?? [];
     sharing.push(leader);
     byTarget.set(leader.targetId, sharing);

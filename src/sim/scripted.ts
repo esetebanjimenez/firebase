@@ -49,12 +49,12 @@ export const SCRIPTED_WAVES: Readonly<Record<number, ScriptedWave>> = {
     // no weight at which rifles lost every seed and shields won every seed,
     // because spreading out made the rifles better too. Bodies are what
     // punishes a rifles-only line: more of them is more incoming, and that is
-    // what a Shield Bearer answers. Twenty-six and fifteen at 1.3 is clean on
-    // all eight seeds both ways.
-    threat: 1.3,
+    // what a Shield Bearer answers. Twenty-four and fourteen at 1.25 is clean
+    // on all eight seeds both ways.
+    threat: 1.25,
     entries: [
-      { kind: 'skirmisher', count: 26 },
-      { kind: 'militia', count: 15 },
+      { kind: 'skirmisher', count: 24 },
+      { kind: 'militia', count: 14 },
     ],
   },
 };
