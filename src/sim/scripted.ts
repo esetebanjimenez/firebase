@@ -44,15 +44,17 @@ export const SCRIPTED_WAVES: Readonly<Record<number, ScriptedWave>> = {
     //
     // The pair below is the one that both teaches and reads right: thirteen
     // bodies at twice the curve made each skirmisher a three-hundred-hit-point
-    // brick, which is not what a charge of light infantry looks like. Twenty
-    // and twelve at 1.2 spreads the same lesson over thirty-two bodies at
-    // seventy-odd each, and the sweep is clean on all eight seeds both ways —
-    // rifles alone lose every one, rifles with a Shield Bearer in front win
-    // every one.
-    threat: 1.2,
+    // brick, which is not what a charge of light infantry looks like. Weight
+    // alone cannot carry it either — once squads formed up properly there was
+    // no weight at which rifles lost every seed and shields won every seed,
+    // because spreading out made the rifles better too. Bodies are what
+    // punishes a rifles-only line: more of them is more incoming, and that is
+    // what a Shield Bearer answers. Twenty-six and fifteen at 1.3 is clean on
+    // all eight seeds both ways.
+    threat: 1.3,
     entries: [
-      { kind: 'skirmisher', count: 20 },
-      { kind: 'militia', count: 12 },
+      { kind: 'skirmisher', count: 26 },
+      { kind: 'militia', count: 15 },
     ],
   },
 };

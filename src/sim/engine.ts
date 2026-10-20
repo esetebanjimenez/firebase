@@ -272,6 +272,42 @@ function squadStrength(state: SimState): Map<number, number> {
   return strength;
 }
 
+/** Where a squad stands in the line of squads going for the same enemy. */
+interface Lane {
+  readonly index: number;
+  readonly of: number;
+}
+
+/**
+ * Give every squad attacking the same enemy its own frontage.
+ *
+ * Squads each pick the nearest enemy, so when a wave thins out they all pick
+ * the *same* enemy and walk to the same spot — twenty soldiers in a heap
+ * around one militia, which is the one thing a formation must never look
+ * like. Lanes are handed out left to right by where each squad already
+ * stands, so nobody crosses anybody to reach their place.
+ */
+function squadLanes(leaders: Map<number, Unit>): Map<number, Lane> {
+  const byTarget = new Map<number, Unit[]>();
+  for (const leader of leaders.values()) {
+    if (leader.targetId === null) continue;
+    const sharing = byTarget.get(leader.targetId) ?? [];
+    sharing.push(leader);
+    byTarget.set(leader.targetId, sharing);
+  }
+  const lanes = new Map<number, Lane>();
+  for (const sharing of byTarget.values()) {
+    // Ordered by where they stand, but on a coarse grid: sorting on raw x
+    // reshuffled the whole line every time two squads jostled, and a lane
+    // that moves is a lane nobody can walk to.
+    sharing.sort((a, b) => Math.round(a.x / 48) - Math.round(b.x / 48) || a.id - b.id);
+    for (let i = 0; i < sharing.length; i++) {
+      lanes.set(sharing[i].squadId, { index: i, of: sharing.length });
+    }
+  }
+  return lanes;
+}
+
 /**
  * Where a body should stand to engage: beside its squadmates rather than on
  * top of them.
@@ -281,15 +317,44 @@ function squadStrength(state: SimState): Map<number, number> {
  * the line of approach makes the squad close as a line and engage as a line,
  * which is the whole reason for grouping them.
  */
-function approachPoint(unit: Unit, target: Unit, width: number): { x: number; y: number } {
-  if (unit.squadId === 0 || width <= 1) return { x: target.x, y: target.y };
-  // Across the field, never up or down it. Offsetting along the true
-  // perpendicular pushed the outside of a diagonal approach forward by up to
-  // twenty-five pixels, which walked the whole line up the field over a wave;
-  // and both sides face along the y axis anyway, so a line abreast is a line
-  // in x.
-  const offset = (unit.squadSlot - (width - 1) / 2) * unit.radius * 2.4;
-  return { x: target.x + offset, y: target.y };
+function approachPoint(
+  cfg: GameConfig,
+  unit: Unit,
+  target: Unit,
+  width: number,
+  lane: Lane | undefined,
+): { x: number; y: number } {
+  if (unit.squadId === 0) return { x: target.x, y: target.y };
+  // A body's place in its squad's line: across the field, never up or down
+  // it. Offsetting along the true perpendicular pushed the outside of a
+  // diagonal approach forward by up to twenty-five pixels, which walked the
+  // whole line up the field over a wave; and both sides face along the y axis
+  // anyway, so a line abreast is a line in x.
+  const span = unit.radius * 2.4;
+  const inSquad = (unit.squadSlot - (width - 1) / 2) * span;
+  if (!lane) return { x: target.x + inSquad, y: target.y };
+
+  // And the squad's place in the force: squads abreast until the field runs
+  // out of frontage, then a rank behind. Without the wrap, ten squads on one
+  // enemy asked for seven hundred pixels of a field that is three hundred and
+  // eighty wide, every lane was clamped back to the middle, and the formation
+  // collapsed into the heap it was meant to prevent.
+  const frontage = (width + 1) * span;
+  const usable = cfg.field.width - cfg.field.sideMargin * 2;
+  const perRank = Math.max(1, Math.floor(usable / frontage));
+  const column = lane.index % perRank;
+  const rank = Math.floor(lane.index / perRank);
+  const abreast = Math.min(lane.of, perRank);
+  return {
+    x: target.x + inSquad + (column - (abreast - 1) / 2) * frontage,
+    // Ranks stand off behind the one in front, toward the wall — and posture
+    // moves a kind within that: a shield bearer steps out in front of the
+    // line it is screening, a rocketeer hangs back out of the fighting. Lanes
+    // without this put a shield squad *beside* the rifles instead of in front
+    // of them, screening nothing, which is most of what went missing from the
+    // wave-6 lesson when squads learned to form up.
+    y: target.y + rank * unit.radius * 3.4 + unit.posture,
+  };
 }
 
 /** The target its squad is already on, if this body is not the one choosing. */
@@ -488,12 +553,25 @@ interface PlayerOrders {
   readonly limit: number;
 }
 
+/**
+ * How many squads may pile onto one enemy before the next one looks elsewhere.
+ *
+ * Without a cap every squad picks the nearest enemy, which is the same enemy,
+ * so a thinning wave ends with the whole force shooting one militia. Two
+ * squads is eight soldiers, which is plenty for anything that is not a boss —
+ * and something with a lot of hit points draws proportionally more.
+ */
+function squadsAllowedOn(target: Unit): number {
+  return 2 + Math.floor(target.maxHp / 600);
+}
+
 function playerTarget(
   state: SimState,
   cfg: GameConfig,
   unit: Unit,
   byId: Map<number, Unit>,
   leaders: Map<number, Unit>,
+  claims: Map<number, number>,
   dt: number,
 ): PlayerOrders {
   const coverEdge = coverEdgeY(cfg, state.upgrades.towers);
@@ -506,14 +584,30 @@ function playerTarget(
   const shared = squadTarget(unit, leaders, byId);
   let nearest: Unit | null = shared ?? null;
   if (shared === undefined) {
-    let nearestD2 = Infinity;
+    // The nearest enemy that does not already have its share of the force on
+    // it, falling back to the nearest of all when everything is spoken for.
+    let bestD2 = Infinity;
+    let spareD2 = Infinity;
+    let spare: Unit | null = null;
     for (const other of state.units) {
       if (other.team !== 'enemy' || other.hp <= 0) continue;
       const d2 = distSq(unit.x, unit.y, other.x, other.y);
-      if (d2 < nearestD2) {
-        nearestD2 = d2;
+      if (d2 < spareD2) {
+        spareD2 = d2;
+        spare = other;
+      }
+      if ((claims.get(other.id) ?? 0) >= squadsAllowedOn(other)) continue;
+      if (d2 < bestD2) {
+        bestD2 = d2;
         nearest = other;
       }
+    }
+    // Nothing left unspoken for: this squad is a reserve. It forms up behind
+    // the line rather than queueing at the back of a scrum, and moves up as
+    // the squads in front take casualties or run out of enemy.
+    if (!nearest && unit.squadId === 0) nearest = spare;
+    if (nearest && unit.squadId !== 0) {
+      claims.set(nearest.id, (claims.get(nearest.id) ?? 0) + 1);
     }
   }
 
@@ -679,6 +773,10 @@ export function step(state: SimState, dt: number, cfg: GameConfig): SimEvent[] {
   for (const u of state.units) byId.set(u.id, u);
   const leaders = squadLeaders(state);
   const squadWidth = squadStrength(state);
+  const lanes = squadLanes(leaders);
+  // Rebuilt each tick: which enemies already have a squad on them, so the
+  // force fans out across a wave instead of queueing behind one body.
+  const claims = new Map<number, number>();
 
   const wallLine = cfg.field.wallTop;
   const raised: Unit[] = [];
@@ -704,7 +802,7 @@ export function step(state: SimState, dt: number, cfg: GameConfig): SimEvent[] {
 
     const orders =
       u.team === 'player' && !u.wallFocused
-        ? playerTarget(state, cfg, u, byId, leaders, dt)
+        ? playerTarget(state, cfg, u, byId, leaders, claims, dt)
         : null;
 
     if (orders) {
@@ -713,6 +811,9 @@ export function step(state: SimState, dt: number, cfg: GameConfig): SimEvent[] {
       if (target) u.aim = angleTo(u.x, u.y, target.x, target.y);
       const reach = target ? (u.style === 'melee' ? u.range + target.radius : u.range) : 0;
       const d = target ? dist(u.x, u.y, target.x, target.y) : Infinity;
+      const slot = target
+        ? approachPoint(cfg, u, target, squadWidth.get(u.squadId) ?? 1, lanes.get(u.squadId))
+        : null;
 
       if (!target) {
         // Nothing on the field: fall back into formation.
@@ -729,13 +830,17 @@ export function step(state: SimState, dt: number, cfg: GameConfig): SimEvent[] {
       } else if (d <= reach) {
         // Range ends the walk: plant and work. A soldier does not keep
         // strolling with a rifle going off, which is what this used to look
-        // like.
+        // like — and dressing the line *after* coming into range turned out
+        // to be the same bug wearing a uniform: the place a body was walking
+        // to moved every tick as its squad jostled, so it walked for ever and
+        // never fired. The formation is something soldiers take up on the way
+        // in, not something they keep adjusting under fire.
         if (u.cooldown <= 0) attackUnit(state, cfg, u, target, events);
       } else if (target.y >= limit) {
         // Charge it. The step stops just inside reach so the firing line forms
         // at weapons range rather than piling onto the target.
         const stop = Math.max(1, reach * 0.9);
-        const aim = approachPoint(u, target, squadWidth.get(u.squadId) ?? 1);
+        const aim = slot ?? target;
         const toward = stepToward(u.x, u.y, aim.x, aim.y, Math.min(u.speed * dt, d - stop));
         u.x = toward.x;
         u.y = Math.max(toward.y, limit);
@@ -764,7 +869,7 @@ export function step(state: SimState, dt: number, cfg: GameConfig): SimEvent[] {
       if (d > reach) {
         // Close in, stopping just inside reach so the firing line holds.
         const stop = Math.max(1, reach * 0.9);
-        const aim = approachPoint(u, target, squadWidth.get(u.squadId) ?? 1);
+        const aim = approachPoint(cfg, u, target, squadWidth.get(u.squadId) ?? 1, lanes.get(u.squadId));
         const toward = stepToward(u.x, u.y, aim.x, aim.y, Math.min(u.speed * dt, d - stop));
         u.x = toward.x;
         u.y = toward.y;
