@@ -5,6 +5,7 @@ import { buyUpgrade, deployUnit } from '../actions';
 import { coverEdgeY, holdLineY, towerRange } from '../derive';
 import { createEnemyUnit, planWave } from '../waves';
 import { DT, SEED, freshState, pin, runWave } from './helpers';
+import type { SimState } from '../types';
 
 /**
  * A field with no emplacements. Tower positions are rebuilt from config on
@@ -308,9 +309,18 @@ describe('towers', () => {
       fast.credits += 100000;
       buyUpgrade(fast, cfg, 'towers');
     }
-    const a = runWave(slow, { deploy: null });
-    const b = runWave(fast, { deploy: null });
-    expect(b.seconds).toBeLessThan(a.seconds);
+    // Measured over a fixed window rather than as time-to-resolve: a bare
+    // parapet loses wave 1 and a built one clears it, so the two durations
+    // are the lengths of two different outcomes, and the bare one can be the
+    // shorter of them.
+    const standing = (state: SimState) => {
+      startBattle(state, cfg);
+      for (let i = 0; i < 12 / DT; i++) step(state, DT, cfg);
+      return state.units
+        .filter((u) => u.team === 'enemy')
+        .reduce((hp, u) => hp + u.hp, 0);
+    };
+    expect(standing(fast)).toBeLessThan(standing(slow));
   });
 });
 

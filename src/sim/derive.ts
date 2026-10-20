@@ -256,6 +256,17 @@ export function waveBountyScale(cfg: GameConfig, wave: number): number {
   return decayingScale(wave, cfg.waves.bountyScaleGrowth, cfg.waves.bountyScalePower);
 }
 
+/**
+ * How much heavier an early wave is than the curve alone would make it. 1 from
+ * `openingFadeBy` on.
+ */
+export function openingThreatMult(cfg: GameConfig, wave: number): number {
+  const { openingThreat, openingFadeBy } = cfg.waves;
+  if (wave >= openingFadeBy) return 1;
+  const left = 1 - (Math.max(1, wave) - 1) / Math.max(1, openingFadeBy - 1);
+  return 1 + (openingThreat - 1) * left;
+}
+
 export function waveBudget(cfg: GameConfig, wave: number): number {
   const raw = cfg.waves.baseBudget * Math.pow(cfg.waves.budgetGrowth, Math.max(0, wave - 1));
   return Math.min(cfg.waves.maxBudget, raw);

@@ -14,7 +14,14 @@
  */
 
 import type { GameConfig } from './config';
-import { playerUnitStats, waveBountyScale, waveDamageScale, waveHpScale, waveBudget } from './derive';
+import {
+  openingThreatMult,
+  playerUnitStats,
+  waveBountyScale,
+  waveDamageScale,
+  waveHpScale,
+  waveBudget,
+} from './derive';
 import { rankOfLevel, rankOfScale, type Rank } from './ranks';
 import { RngStream, deriveSeed } from './rng';
 import { ENEMY_UNITS, FACTIONS, FACTION_ORDER, PLAYER_UNITS, bossFor, rosterFor } from './roster';
@@ -297,7 +304,12 @@ export function planWave(cfg: GameConfig, wave: number, seed: number): WavePlan 
    */
   const rawHp = defs.reduce((sum, d) => sum + d.def.hp * d.size, 0);
   const targetHp =
-    budget * cfg.waves.hpPerPoint * cfg.waves.shapeThreat[shape] * (scripted?.threat ?? 1);
+    budget *
+    cfg.waves.hpPerPoint *
+    cfg.waves.shapeThreat[shape] *
+    // A written wave says what it weighs; a rolled one gets the opening's
+    // extra weight while that is still fading.
+    (scripted ? scripted.threat ?? 1 : openingThreatMult(cfg, wave));
   const hpScale = rawHp > 0 ? (targetHp / rawHp) * baseHpScale : baseHpScale;
 
   /** Every squad in the wave, with the hit-point scale its bodies fight at. */

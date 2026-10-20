@@ -239,6 +239,23 @@ export interface GameConfig {
      */
     readonly hpPerPoint: number;
     /**
+     * Extra weight on the opening waves, fading to nothing by
+     * `openingFadeBy`.
+     *
+     * Squads multiplied what a charge is worth by four, and the opening is
+     * where that lands hardest: at wave 1 the player's whole force is three
+     * charges, so it went from three riflemen to twelve against a wave drawn
+     * for the old number. By the time the parapet and a dozen levels are doing
+     * most of the killing the same four soldiers are a much smaller share of
+     * what the player brings, which is why this fades rather than being folded
+     * into `hpPerPoint` — measured, waves 1 to 3 cleared in ten seconds where
+     * waves 6 to 8 took twenty-two.
+     *
+     * A written wave states its own weight and is left alone.
+     */
+    readonly openingThreat: number;
+    readonly openingFadeBy: number;
+    /**
      * Deliberate relative threat per shape, applied to that target. Equal hit
      * points are not equal difficulty: armour also soaks flat damage, and a
      * swarm spends its hit points on bodies that all have to be shot
@@ -482,6 +499,8 @@ export const defaultConfig: GameConfig = {
     shapeFromWave: 8,
     shapeBias: 8,
     hpPerPoint: 55,
+    openingThreat: 3,
+    openingFadeBy: 9,
     shapeThreat: { column: 0.65, horde: 1, skirmish: 1, mixed: 1 },
     siegeBase: 1,
     siegePerWaves: 12,

@@ -7,7 +7,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { defaultConfig as cfg } from '../config';
-import { towerUpgradeCost, waveBudget, waveHpScale } from '../derive';
+import { openingThreatMult, towerUpgradeCost, waveBudget, waveHpScale } from '../derive';
 import { planWave } from '../waves';
 import { SEED, autoFight, autoRun, autoShop, freshState, runWave } from './helpers';
 
@@ -138,6 +138,7 @@ describe('threat curve', () => {
           waveBudget(cfg, wave) *
           cfg.waves.hpPerPoint *
           cfg.waves.shapeThreat[plan.shape] *
+          openingThreatMult(cfg, wave) *
           waveHpScale(cfg, wave);
         expect(plan.totalHp / target, `seed ${seed} wave ${wave}`).toBeCloseTo(1, 2);
       }
