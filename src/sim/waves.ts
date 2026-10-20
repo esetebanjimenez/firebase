@@ -155,9 +155,15 @@ function pickUnits(
     left -= priceOf(def);
   }
 
-  // The rest goes on numbers, weighted toward cheap kinds.
+  // The rest goes on numbers, weighted toward cheap kinds — and only on kinds
+  // the wave could afford several of. The budget doubled when squads arrived
+  // (a squad costs four bodies), which put one knight squad inside a wave-5
+  // budget for the first time: two armoured bodies carrying most of a wave's
+  // hit points, against a player who has nothing but rifles at wave 5. Heavies
+  // are the heavy pass's business, and a crowd is made of what is common.
+  const crowdPrice = Math.max(cheapest, budget * 0.3);
   while (left >= cheapest && bodies < maxUnits) {
-    const affordable = allowed().filter((d) => priceOf(d) <= left);
+    const affordable = allowed().filter((d) => priceOf(d) <= Math.min(left, crowdPrice));
     if (affordable.length === 0) break;
     const weights = affordable.map(
       (d) => (1 / priceOf(d)) * (favours && d.bodyClass === favours ? bias : 1),
@@ -290,7 +296,8 @@ export function planWave(cfg: GameConfig, wave: number, seed: number): WavePlan 
    * held.
    */
   const rawHp = defs.reduce((sum, d) => sum + d.def.hp * d.size, 0);
-  const targetHp = budget * cfg.waves.hpPerPoint * cfg.waves.shapeThreat[shape];
+  const targetHp =
+    budget * cfg.waves.hpPerPoint * cfg.waves.shapeThreat[shape] * (scripted?.threat ?? 1);
   const hpScale = rawHp > 0 ? (targetHp / rawHp) * baseHpScale : baseHpScale;
 
   /** Every squad in the wave, with the hit-point scale its bodies fight at. */

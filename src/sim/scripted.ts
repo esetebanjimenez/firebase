@@ -17,6 +17,14 @@ export interface ScriptedWave {
   readonly label: string;
   /** Shown if the player loses it: what the wave was teaching. */
   readonly hint: string;
+  /**
+   * What this wave weighs, against what the curve says a wave of its number
+   * should. A lesson has to be a wave you cannot brute-force — that is the
+   * whole point of writing it by hand — and its composition alone cannot do
+   * that, because every wave's hit points are held to the curve: adding
+   * skirmishers to wave 6 only spreads the same hit points over more of them.
+   */
+  readonly threat?: number;
   readonly entries: readonly { readonly kind: EnemyUnitId; readonly count: number }[];
 }
 
@@ -26,15 +34,20 @@ export const SCRIPTED_WAVES: Readonly<Record<number, ScriptedWave>> = {
     hint: 'Skirmishers are fast enough to cross your riflemen’s field of fire and hit hard once they arrive. A Shield Bearer steps in front and soaks the charge while the rifles keep firing.',
     // Swept, not guessed, and re-swept every time the guns or the soldiers
     // changed — this is the most sensitive wave in the game, and three times
-    // a change elsewhere has quietly killed the lesson. The counts are bodies:
-    // they were five and four when a charge bought one rifleman, and squads
-    // made that defence four times as thick, so rifles alone started winning
-    // it on every seed. At thirteen and eight the sweep is clean again —
-    // rifles alone lose all eight seeds, rifles with a Shield Bearer in front
-    // win all eight.
+    // a change elsewhere has quietly killed the lesson.
+    //
+    // Counts alone stopped being able to carry it once squads arrived. A
+    // charge buys four riflemen now, so the rifles-only defence is four times
+    // as thick, and piling on skirmishers does not answer that: the wave's
+    // hit points are held to the curve either way, so more of them is only
+    // thinner ones. Hence the weight below. At twice the curve, with a charge
+    // of eight skirmishers behind five militia, the sweep is clean on all
+    // eight seeds both ways — rifles alone lose every one, rifles with a
+    // Shield Bearer in front win every one.
+    threat: 2,
     entries: [
-      { kind: 'skirmisher', count: 13 },
-      { kind: 'militia', count: 8 },
+      { kind: 'skirmisher', count: 8 },
+      { kind: 'militia', count: 5 },
     ],
   },
 };

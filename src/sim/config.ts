@@ -453,13 +453,19 @@ export const defaultConfig: GameConfig = {
   },
 
   waves: {
-    baseBudget: 5,
+    // The budget buys bodies, and a squad is four of them, so it doubled when
+    // squads landed: at the old base a wave could not afford a second squad
+    // until wave 5, and the opening was four waves of exactly one. Doubling
+    // the whole curve — base and cap together — and halving `hpPerPoint`
+    // against it leaves every wave's threat exactly where it was and only
+    // changes how many bodies it is spread over.
+    baseBudget: 10,
     budgetGrowth: 1.17,
-    maxBudget: 600,
+    maxBudget: 1200,
     maxUnits: 90,
     hpScaleGrowth: 1.18,
     damageScaleGrowth: 1.1,
-    troopDamageMult: 3.2,
+    troopDamageMult: 2.6,
     bountyScaleGrowth: 1.16,
     statScalePower: 0.7,
     // Straight geometric, deliberately: prices compound per *level* and a
@@ -475,7 +481,7 @@ export const defaultConfig: GameConfig = {
     mixFromWave: 16,
     shapeFromWave: 8,
     shapeBias: 8,
-    hpPerPoint: 110,
+    hpPerPoint: 55,
     shapeThreat: { column: 0.65, horde: 1, skirmish: 1, mixed: 1 },
     siegeBase: 1,
     siegePerWaves: 12,
