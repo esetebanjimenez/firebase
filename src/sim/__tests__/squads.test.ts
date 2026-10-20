@@ -11,7 +11,7 @@
 import { describe, expect, it } from 'vitest';
 import { defaultConfig as cfg } from '../config';
 import { deployUnit } from '../actions';
-import { startBattle, step } from '../engine';
+import { squadsAllowedOn, startBattle, step } from '../engine';
 import { ENEMY_UNITS, PLAYER_UNITS, PLAYER_UNIT_ORDER } from '../roster';
 import { createEnemyUnit, planWave } from '../waves';
 import { DT, SEED, freshState, pin } from './helpers';
@@ -81,6 +81,27 @@ describe('a squad', () => {
     const targets = new Set(mine(state).map((u) => u.targetId));
     expect(targets.size).toBe(1);
     expect([left.id, right.id]).toContain([...targets][0]);
+  });
+
+  /**
+   * Reported from a real wave 12: two catapults left on the field, every claim
+   * on them taken, and half the force standing in the middle of the map
+   * watching while the wall came down. The cap on how many squads may pile
+   * onto one enemy is there to spread the force out, not to bench it.
+   */
+  it('joins in anyway when there is less enemy left than force', () => {
+    const state = freshState();
+    startBattle(state, cfg);
+    state.spawnQueue = [];
+    state.charges.current = 6;
+    for (let i = 0; i < 6; i++) deployUnit(state, cfg, 'rifleman');
+    const lone = placeEnemy(state, 'militia', cfg.field.gateX, 200);
+    for (const u of mine(state)) pin(u);
+    for (let i = 0; i < 6; i++) step(state, DT, cfg);
+
+    const squads = new Set(mine(state).map((u) => u.squadId));
+    expect(squads.size).toBeGreaterThan(squadsAllowedOn(lone));
+    for (const u of mine(state)) expect(u.targetId, `squad ${u.squadId}`).toBe(lone.id);
   });
 
   it('carries on when the body that was choosing dies', () => {

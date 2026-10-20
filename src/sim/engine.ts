@@ -566,7 +566,7 @@ interface PlayerOrders {
  * squads is eight soldiers, which is plenty for anything that is not a boss —
  * and something with a lot of hit points draws proportionally more.
  */
-function squadsAllowedOn(target: Unit): number {
+export function squadsAllowedOn(target: Unit): number {
   return 2 + Math.floor(target.maxHp / 600);
 }
 
@@ -590,27 +590,43 @@ function playerTarget(
   let nearest: Unit | null = shared ?? null;
   if (shared === undefined) {
     // The nearest enemy that does not already have its share of the force on
-    // it, falling back to the nearest of all when everything is spoken for.
+    // it; and, in case everything is spoken for, the one carrying the fewest
+    // squads already — nearest of those that tie.
     let bestD2 = Infinity;
-    let spareD2 = Infinity;
     let spare: Unit | null = null;
+    let spareHeld = Infinity;
+    let spareD2 = Infinity;
     for (const other of state.units) {
       if (other.team !== 'enemy' || other.hp <= 0) continue;
       const d2 = distSq(unit.x, unit.y, other.x, other.y);
-      if (d2 < spareD2) {
-        spareD2 = d2;
+      const held = claims.get(other.id) ?? 0;
+      if (held < spareHeld || (held === spareHeld && d2 < spareD2)) {
         spare = other;
+        spareHeld = held;
+        spareD2 = d2;
       }
-      if ((claims.get(other.id) ?? 0) >= squadsAllowedOn(other)) continue;
+      if (held >= squadsAllowedOn(other)) continue;
       if (d2 < bestD2) {
         bestD2 = d2;
         nearest = other;
       }
     }
-    // Nothing left unspoken for: this squad is a reserve. It forms up behind
-    // the line rather than queueing at the back of a scrum, and moves up as
-    // the squads in front take casualties or run out of enemy.
-    if (!nearest && unit.squadId === 0) nearest = spare;
+    /**
+     * Nothing left unspoken for: go anyway, to whatever is carrying the least.
+     *
+     * The overflow used to stand down — a squad with no claim of its own held
+     * at the line as a reserve, on the theory that it would move up as the
+     * squads in front took casualties. What it actually did was watch: two
+     * catapults left on the field, every claim on them taken, and half the
+     * force parked in the middle of the map while the wall came down. A cap
+     * that outlives the enemies it was rationing stops being a cap and starts
+     * being a strike.
+     *
+     * So the cap only orders preference now. While there is unclaimed enemy
+     * it spreads the force across the field; once there is not, the rest pile
+     * on, evenly, and their lanes keep the pile a line rather than a scrum.
+     */
+    if (!nearest) nearest = spare;
     if (nearest && unit.squadId !== 0) {
       claims.set(nearest.id, (claims.get(nearest.id) ?? 0) + 1);
     }
