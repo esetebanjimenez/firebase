@@ -343,7 +343,12 @@ export interface AbilityConfig {
 }
 
 export const defaultConfig: GameConfig = {
-  version: 2,
+  // 3: the escalating price curve. A save from the flat curve carries levels
+  // bought at a fraction of what they now cost — forty of them a track where
+  // this curve hands out sixteen — so loading one would be a walk through
+  // every wave it has already paid for. Bumping the version retires those
+  // saves rather than honouring prices that no longer exist.
+  version: 3,
   seed: 1,
 
   field: {
